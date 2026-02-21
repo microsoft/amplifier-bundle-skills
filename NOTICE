@@ -1,0 +1,13 @@
+NOTICES
+
+This project incorporates material from the following sources:
+
+---
+
+robotdad/skills
+https://github.com/robotdad/skills
+Licensed under MIT License
+Copyright (c) 2026 robotdad
+
+The image-vision skill was originally created by robotdad and has been
+adapted for inclusion in this Microsoft-maintained skills collection.
