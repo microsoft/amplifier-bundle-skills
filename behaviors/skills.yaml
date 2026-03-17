@@ -14,6 +14,8 @@ tools:
     config:
       skills:
         - "git+https://github.com/microsoft/amplifier-bundle-skills@main#subdirectory=skills"
+        - ".amplifier/skills"
+        - "~/.amplifier/skills"
       visibility:
         enabled: true
         inject_role: "user"
