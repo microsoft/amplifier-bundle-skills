@@ -1,5 +1,5 @@
 ---
-name: debug
+name: session-debug
 description: "Diagnose issues in the current Amplifier session — misconfigured tools, failing operations, unexpected behavior. Use when something isn't working right."
 context: fork
 disable-model-invocation: true

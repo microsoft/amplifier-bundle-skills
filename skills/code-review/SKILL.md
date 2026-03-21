@@ -1,5 +1,5 @@
 ---
-name: simplify
+name: code-review
 description: "Review changed code for reuse, quality, and efficiency, then fix any issues found."
 context: fork
 disable-model-invocation: true

@@ -65,11 +65,11 @@ Three power skills ship with the curated collection. These are user-invoked via 
 
 | Skill | Slash Command | What It Does |
 |-------|--------------|--------------|
-| `simplify` | `/simplify [focus]` | Spawns 3 parallel review agents (code reuse, quality, efficiency) to review recent changes and apply fixes |
-| `batch` | `/batch <instruction>` | Decomposes a large change into 5–30 independent units, spawns parallel agents to implement each |
-| `debug` | `/debug [issue]` | Diagnoses session issues by delegating to the session-analyst agent |
+| `code-review` | `/code-review [focus]` | Spawns 3 parallel review agents (code reuse, quality, efficiency) to review recent changes and apply fixes |
+| `mass-change` | `/mass-change <instruction>` | Decomposes a large change into 5–30 independent units, spawns parallel agents to implement each |
+| `session-debug` | `/session-debug [issue]` | Diagnoses session issues by delegating to the session-analyst agent |
 
-These skills have `disable-model-invocation: true`, meaning they won't appear in the automatic skills visibility list. They are invoked by the user explicitly — via slash command (`/debug`, `/simplify`, `/batch`) or by calling `load_skill(skill_name="debug")` directly. When the user types one of these slash commands, load and execute the corresponding skill.
+These skills have `disable-model-invocation: true`, meaning they won't appear in the automatic skills visibility list. They are invoked by the user explicitly — via slash command (`/session-debug`, `/code-review`, `/mass-change`) or by calling `load_skill(skill_name="session-debug")` directly. When the user types one of these slash commands, load and execute the corresponding skill.
 
 ## Skills Discovery
 

@@ -1,5 +1,5 @@
 ---
-name: batch
+name: mass-change
 description: "Research and plan a large-scale change, then execute it in parallel across isolated agents that each open a PR."
 context: fork
 disable-model-invocation: true
@@ -27,16 +27,16 @@ If `$ARGUMENTS` is empty or was not provided, output exactly this and stop:
 Provide an instruction describing the batch change you want to make.
 
 Examples:
-  /batch migrate from react to vue
-  /batch replace all uses of lodash with native equivalents
-  /batch add type annotations to all untyped function parameters
+  /mass-change migrate from react to vue
+  /mass-change replace all uses of lodash with native equivalents
+  /mass-change add type annotations to all untyped function parameters
 ```
 
 **Check 2 — Git repository.**
 Run `git rev-parse --is-inside-work-tree` in the current directory. If it fails or returns an error, output exactly this and stop:
 
 ```
-This is not a git repository. The /batch skill requires a git repo because it spawns agents in isolated branches and creates PRs from each. Initialize a repo first, or run this from inside an existing one.
+This is not a git repository. The /mass-change skill requires a git repo because it spawns agents in isolated branches and creates PRs from each. Initialize a repo first, or run this from inside an existing one.
 ```
 
 If both checks pass, proceed with the three phases below.
@@ -88,7 +88,7 @@ For each agent, the prompt must be fully self-contained. Include:
 ### Worker Instructions
 
 After you finish implementing the change:
-1. **Simplify** — Invoke the /simplify skill to review and clean up your changes.
+1. **Code Review** — Invoke the /code-review skill to review and clean up your changes.
 2. **Run unit tests** — Run the project's test suite (check for package.json scripts, Makefile targets, or common commands like `npm test`, `bun test`, `pytest`, `go test`). If tests fail, fix them.
 3. **Test end-to-end** — Follow the verification recipe from the coordinator's prompt. If the recipe says to skip e2e for this unit, skip it.
 4. **Commit and push** — Commit all changes with a clear message, push the branch, and create a PR with `gh pr create`. Use a descriptive title. If `gh` is not available or the push fails, note it in your final message.
