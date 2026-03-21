@@ -18,6 +18,13 @@ Packages the [tool-skills](https://github.com/microsoft/amplifier-module-tool-sk
 | Skill | Description |
 |-------|-------------|
 | **image-vision** | LLM-based image analysis across multiple providers (Anthropic, OpenAI, Gemini, Azure) |
+| **code-review** | Parallel code review — spawns 3 agents (code reuse, quality, efficiency) to review recent changes |
+| **mass-change** | Parallel work orchestration — decomposes large changes into 5-30 independent units |
+| **session-debug** | Session diagnostics — diagnoses misconfigured tools, failing operations, unexpected behavior |
+
+### Power Skills
+
+The `code-review`, `mass-change`, and `session-debug` skills are **power skills** — they use the enhanced skills format to run as isolated subagents with their own tool sets and model preferences. See [Enhanced Skills Format](#enhanced-skills-format) below.
 
 ## Quick Start
 
@@ -70,12 +77,44 @@ amplifier-bundle-skills/
 ├── context/
 │   └── skills-instructions.md    # Agent-facing skills system instructions
 └── skills/
-    └── image-vision/             # Curated skills collection
-        ├── SKILL.md
-        └── ...
+    ├── image-vision/             # LLM-based image analysis
+    │   ├── SKILL.md
+    │   └── ...
+    ├── code-review/              # Parallel code review (power skill)
+    │   └── SKILL.md
+    ├── mass-change/              # Parallel work orchestration (power skill)
+    │   └── SKILL.md
+    └── session-debug/            # Session diagnostics (power skill)
+        └── SKILL.md
 ```
 
 **Design**: Two behaviors serve different consumers. The full behavior (`skills`) pre-configures the curated skills collection via `git+https://` URL. The minimal behavior (`skills-tool`) provides just the tool and instructions for bundles that manage their own skill sources.
+
+## Enhanced Skills Format
+
+Power skills use an enhanced SKILL.md frontmatter format that goes beyond the base Agent Skills specification:
+
+| Field | Purpose |
+|-------|---------|
+| `context: fork` | Skill runs as an isolated subagent with its own conversation |
+| `auto-load: true` | Skill activates at session start via embedded hooks |
+| `disable-model-invocation: true` | User-invoked only (via `/command`), not triggered by the model |
+| `model_role` | Semantic model selection via routing matrix (e.g., `coding`, `reasoning`, `critique`) |
+| `allowed-tools` | Restricts which tools the subagent can use |
+| `$ARGUMENTS`, `${SKILL_DIR}` | String substitution in skill body at load time |
+| `` !`command` `` | Dynamic shell preprocessing — output is spliced into the skill content |
+
+These features are implemented by the [tool-skills module](https://github.com/microsoft/amplifier-module-tool-skills). See its README for full format documentation.
+
+## CLI Integration
+
+Power skills register as slash commands and are available directly from the Amplifier CLI:
+
+- `/code-review` — Run parallel code review on recent changes
+- `/mass-change` — Decompose and execute a large change in parallel
+- `/session-debug` — Diagnose session issues
+
+These commands appear in `/help` and `/skills`. They are powered by the `SkillsDiscovery` capability exposed by the tool-skills module, which the CLI queries at startup to register user-invocable skills.
 
 ## Contributing
 
