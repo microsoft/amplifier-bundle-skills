@@ -35,7 +35,13 @@ Packages the tool-skills module (at `modules/tool-skills/`) with context instruc
 
 ### Power Skills
 
-The `code-review`, `mass-change`, and `session-debug` skills are **power skills** — they use the enhanced skills format to run as isolated subagents with their own tool sets and model preferences. See [Enhanced Skills Format](#enhanced-skills-format) below.
+The `code-review`, `mass-change`, and `session-debug` skills are **power skills** — they use the enhanced skills format to run as isolated subagents with their own tool sets and model preferences. Power skills set `disable-model-invocation: true`, meaning they are user-invoked only (via `/command`) and will not trigger automatically when the LLM processes context. See [Enhanced Skills Format](#enhanced-skills-format) below.
+
+### Expert Skills
+
+The `skills-assist` skill is an **expert skill** — it uses `context: fork` to run in a clean context window as an isolated knowledge consultant, but it is not a delegating orchestrator. Unlike power skills, `skills-assist` does **not** have `disable-model-invocation` set, so the LLM can invoke it autonomously to consult the skills authoring expert without requiring an explicit `/skills-assist` command from the user.
+
+The `image-vision` skill is a simpler reference skill that loads inline (without forking) and activates in the agent's existing context window.
 
 ## Quick Start
 
@@ -102,7 +108,7 @@ amplifier-bundle-skills/
     │   └── SKILL.md
     ├── session-debug/            # Session diagnostics (power skill)
     │   └── SKILL.md
-    └── skills-assist/            # Skills authoring expert (power skill)
+    └── skills-assist/            # Skills authoring expert (expert skill)
         ├── SKILL.md
         ├── authoring-guide.md
         ├── spec-reference.md
