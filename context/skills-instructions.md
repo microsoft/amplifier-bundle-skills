@@ -121,3 +121,20 @@ The `config.skills` list accepts three source types:
 Git URLs support an optional `#subdirectory=` fragment to point at a subfolder within the repo.
 
 > **Warning:** Do NOT use a top-level `skills:` key in your bundle frontmatter. The foundation layer does not process it -- skill sources placed there will be **silently ignored**. Always use the `tools:` config pattern shown above.
+
+## Skills Expert
+
+When you need help authoring a skill, understanding the Agent Skills specification, checking compatibility across Amplifier versions, or deciding between skills and agents, use the built-in skills expert:
+
+- Call `load_skill(skill_name="skills-assist")` to consult the skills expert directly
+- Or use the `/skills-assist` slash command for interactive guidance
+
+The skills expert (`/skills-assist`) is an authoritative consultant covering skill authoring patterns, the enhanced skills format, spec compatibility, and the skills-vs-agents decision framework.
+
+## Skills vs Agents
+
+Use this quick guide to decide whether to use a skill or a delegate agent:
+
+- **Start with a skill** — if the task is a self-contained knowledge package, a pattern guide, or instructions for the current agent to follow, a skill is the right fit. Skills are lightweight and load into the current context.
+- **Graduate to an agent** — if the task requires its own tool set, a clean context window, isolated execution, or parallel delegation, use `delegate` with an agent instead. Fork skills (`context: fork`) bridge the gap by running as isolated subagents while still being distributed as skills.
+- **When in doubt, ask `/skills-assist`** — the skills expert can evaluate your use case and recommend the right approach based on your specific requirements.
