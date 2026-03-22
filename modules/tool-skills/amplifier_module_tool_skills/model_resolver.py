@@ -69,6 +69,14 @@ def resolve_skill_model(
             provider_preferences — resolved provider chain (or None)
     """
     # Build effective lookup tables: config overrides win via spread.
+    # Defaults are inserted first; config keys are appended at the end so they
+    # win on exact-key overrides (same key → config value replaces default).
+    # Note: the substring-match loop below iterates in insertion order, so
+    # config-only hints (new keys not in defaults) are checked *after* all
+    # default hints.  If a model name matches both a default hint and a new
+    # config-only hint, the default hint wins.  Use config to *override* an
+    # existing default key (e.g. "haiku" → "coding") rather than adding a new
+    # hint whose substring also appears in a default key.
     effective_hints = {**MODEL_HINT_TO_ROLE, **(config_model_hints or {})}
     effective_archetypes = {
         **AGENT_ARCHETYPE_TO_ROLE,

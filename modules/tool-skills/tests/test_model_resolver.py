@@ -84,7 +84,10 @@ def test_unknown_model_hint_falls_back_to_general():
 
 def test_custom_model_hint_overrides_default():
     """config_model_hints can add new hints and override existing ones."""
-    # New hint: 'gpt' -> 'reasoning'  ('gemini' contains 'mini' which is a default hint)
+    # Use 'gpt'/'gpt-4' rather than 'gemini'/'gemini-pro': 'gemini' contains 'mini'
+    # which is a default hint, and with defaults-first iteration order 'mini' would
+    # match first and return 'fast' instead of the intended 'reasoning'.
+    # New hint: 'gpt' -> 'reasoning'
     result = resolve_skill_model(
         model="gpt-4",
         config_model_hints={"gpt": "reasoning"},
