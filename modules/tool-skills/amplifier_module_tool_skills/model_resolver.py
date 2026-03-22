@@ -68,13 +68,8 @@ def resolve_skill_model(
             model_role          — resolved semantic role (or None)
             provider_preferences — resolved provider chain (or None)
     """
-    # Build effective lookup tables: config hints are iterated first (priority in
-    # substring matching) and their values override defaults for the same key.
-    config_h = config_model_hints or {}
-    effective_hints = {
-        **config_h,
-        **{k: v for k, v in MODEL_HINT_TO_ROLE.items() if k not in config_h},
-    }
+    # Build effective lookup tables: config overrides win via spread.
+    effective_hints = {**MODEL_HINT_TO_ROLE, **(config_model_hints or {})}
     effective_archetypes = {
         **AGENT_ARCHETYPE_TO_ROLE,
         **(config_agent_archetypes or {}),

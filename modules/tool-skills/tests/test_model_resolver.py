@@ -84,10 +84,10 @@ def test_unknown_model_hint_falls_back_to_general():
 
 def test_custom_model_hint_overrides_default():
     """config_model_hints can add new hints and override existing ones."""
-    # New hint: 'gemini' -> 'reasoning'
+    # New hint: 'gpt' -> 'reasoning'  ('gemini' contains 'mini' which is a default hint)
     result = resolve_skill_model(
-        model="gemini-pro",
-        config_model_hints={"gemini": "reasoning"},
+        model="gpt-4",
+        config_model_hints={"gpt": "reasoning"},
     )
     assert result["source"] == "model"
     assert result["model_role"] == "reasoning"
