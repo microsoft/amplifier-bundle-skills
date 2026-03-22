@@ -7,10 +7,10 @@ from pathlib import Path
 from amplifier_module_tool_skills.discovery import discover_skills, extract_skill_body
 
 # Path to the bundle's skills directory, relative to this test file's location.
-# This file is at: amplifier-module-tool-skills/tests/test_session_debug_power_skill.py
-# The bundle is at: amplifier-bundle-skills/
+# This file is at: amplifier-bundle-skills/modules/tool-skills/tests/test_session_debug_power_skill.py
+# The skills dir is at: amplifier-bundle-skills/skills/
 BUNDLE_SKILLS_DIR = (
-    Path(__file__).parent.parent.parent / "amplifier-bundle-skills" / "skills"
+    Path(__file__).parent.parent.parent.parent / "skills"
 )
 
 SESSION_DEBUG_SKILL_PATH = BUNDLE_SKILLS_DIR / "session-debug" / "SKILL.md"
