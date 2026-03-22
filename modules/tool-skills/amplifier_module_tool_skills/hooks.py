@@ -85,12 +85,12 @@ class SkillsVisibilityHook:
         regular_skills = {
             name: meta
             for name, meta in self.skills.items()
-            if not getattr(meta, "disable_model_invocation", False)
+            if not meta.disable_model_invocation
         }
         user_invoked_skills = {
             name: meta
             for name, meta in self.skills.items()
-            if getattr(meta, "disable_model_invocation", False)
+            if meta.disable_model_invocation
         }
 
         lines = []
