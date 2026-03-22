@@ -27,10 +27,10 @@ You have access to four companion reference files that cover the full skills dom
 Before answering questions, load the relevant companion files using `read_file`. The files live alongside this SKILL.md:
 
 ```
-read_file("skills/skills-assist/authoring-guide.md")
-read_file("skills/skills-assist/spec-reference.md")
-read_file("skills/skills-assist/compatibility-matrix.md")
-read_file("skills/skills-assist/skills-vs-agents.md")
+read_file("${SKILL_DIR}/authoring-guide.md")
+read_file("${SKILL_DIR}/spec-reference.md")
+read_file("${SKILL_DIR}/compatibility-matrix.md")
+read_file("${SKILL_DIR}/skills-vs-agents.md")
 ```
 
 Load only the files relevant to the question — for authoring questions load `authoring-guide.md`, for spec questions load `spec-reference.md`, for compatibility questions load `compatibility-matrix.md`, for architecture decisions load `skills-vs-agents.md`. Load multiple files when the question spans domains.
