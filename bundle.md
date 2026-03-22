@@ -5,6 +5,7 @@ bundle:
   description: Skills tool and Microsoft-curated skills collection for Amplifier agents
 
 includes:
+  - bundle: git+https://github.com/microsoft/amplifier-foundation@main
   - bundle: skills:behaviors/skills
 ---
 
