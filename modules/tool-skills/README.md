@@ -1,5 +1,7 @@
 # Amplifier Skills Tool Module
 
+> **Note:** This module is now maintained inside [amplifier-bundle-skills](https://github.com/microsoft/amplifier-bundle-skills) at `modules/tool-skills/`. The [standalone amplifier-module-tool-skills repo](https://github.com/microsoft/amplifier-module-tool-skills) is deprecated. All URLs below reference this bundle repository.
+
 Modular capability that adds skill-based domain knowledge loading to Amplifier bundles.
 
 ## Overview
@@ -53,7 +55,7 @@ bundle:
 
 includes:
   - bundle: git+https://github.com/microsoft/amplifier-foundation@main
-  - bundle: git+https://github.com/microsoft/amplifier-module-tool-skills@main#subdirectory=behaviors/skills.yaml
+  - bundle: git+https://github.com/microsoft/amplifier-bundle-skills@main#path=behaviors/skills.yaml
 ---
 
 # Your bundle instructions...
@@ -76,7 +78,7 @@ You can also use the complete skills bundle directly:
 
 ```bash
 # Add the bundle
-amplifier bundle add git+https://github.com/microsoft/amplifier-module-tool-skills@main
+amplifier bundle add git+https://github.com/microsoft/amplifier-bundle-skills@main
 
 # Use it
 amplifier bundle use skills
@@ -93,7 +95,7 @@ amplifier run "List available skills"
 # your-bundle.md
 includes:
   - bundle: git+https://github.com/microsoft/amplifier-foundation@main
-  - bundle: git+https://github.com/microsoft/amplifier-module-tool-skills@main#subdirectory=behaviors/skills.yaml
+  - bundle: git+https://github.com/microsoft/amplifier-bundle-skills@main#path=behaviors/skills.yaml
 ```
 
 ### 2. Create Skills Directory
@@ -129,7 +131,7 @@ Add to `~/.amplifier/settings.yaml` to make skills available to **all bundles**:
 ```yaml
 # Module source
 sources:
-  tool-skills: git+https://github.com/microsoft/amplifier-module-tool-skills@main
+  tool-skills: git+https://github.com/microsoft/amplifier-bundle-skills@main#subdirectory=modules/tool-skills
 
 # Skills directories - applies to all bundles
 skills:
@@ -257,7 +259,7 @@ bundle:
 
 includes:
   - bundle: git+https://github.com/microsoft/amplifier-foundation@main
-  - bundle: git+https://github.com/microsoft/amplifier-module-tool-skills@main#subdirectory=behaviors/skills.yaml
+  - bundle: git+https://github.com/microsoft/amplifier-bundle-skills@main#path=behaviors/skills.yaml
 ---
 
 You are an Amplifier module creator.
