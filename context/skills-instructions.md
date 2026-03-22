@@ -103,7 +103,7 @@ If your bundle ships its own skills or depends on community skills, configure th
 ```yaml
 tools:
   - module: tool-skills
-    source: git+https://github.com/microsoft/amplifier-module-tool-skills@main
+    source: git+https://github.com/microsoft/amplifier-bundle-skills@main#subdirectory=modules/tool-skills
     config:
       skills:
         - "git+https://github.com/my-org/my-skills-repo@main#subdirectory=skills"

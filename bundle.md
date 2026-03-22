@@ -55,7 +55,7 @@ Bundles that include this behavior and also ship their own skills should declare
 ```yaml
 tools:
   - module: tool-skills
-    source: git+https://github.com/microsoft/amplifier-module-tool-skills@main
+    source: git+https://github.com/microsoft/amplifier-bundle-skills@main#subdirectory=modules/tool-skills
     config:
       skills:
         - "git+https://github.com/microsoft/amplifier-bundle-skills@main#subdirectory=skills"
