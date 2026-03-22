@@ -9,9 +9,7 @@ from amplifier_module_tool_skills.discovery import discover_skills, extract_skil
 # Path to the bundle's skills directory, relative to this test file's location.
 # This file is at: amplifier-bundle-skills/modules/tool-skills/tests/test_skills_assist_power_skill.py
 # The skills dir is at: amplifier-bundle-skills/skills/
-BUNDLE_SKILLS_DIR = (
-    Path(__file__).parent.parent.parent.parent / "skills"
-)
+BUNDLE_SKILLS_DIR = Path(__file__).parent.parent.parent.parent / "skills"
 
 SKILLS_ASSIST_SKILL_PATH = BUNDLE_SKILLS_DIR / "skills-assist" / "SKILL.md"
 
@@ -106,14 +104,18 @@ def test_skills_assist_companion_files_exist():
         "skills-vs-agents.md",
     ]
     missing = [f for f in expected_files if not (companion_dir / f).exists()]
-    assert not missing, (
-        f"Missing companion files in {companion_dir}: {missing}"
-    )
+    assert not missing, f"Missing companion files in {companion_dir}: {missing}"
 
 
 def test_all_five_skills_discoverable_together():
     """All 5 skills (image-vision + code-review + mass-change + session-debug + skills-assist) must be discoverable together."""
     skills = discover_skills(BUNDLE_SKILLS_DIR)
-    expected_skills = {"image-vision", "code-review", "mass-change", "session-debug", "skills-assist"}
+    expected_skills = {
+        "image-vision",
+        "code-review",
+        "mass-change",
+        "session-debug",
+        "skills-assist",
+    }
     missing = expected_skills - set(skills.keys())
     assert not missing, f"Missing skills: {missing}. Found: {list(skills.keys())}"

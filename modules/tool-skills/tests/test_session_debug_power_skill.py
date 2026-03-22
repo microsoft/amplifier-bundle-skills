@@ -9,9 +9,7 @@ from amplifier_module_tool_skills.discovery import discover_skills, extract_skil
 # Path to the bundle's skills directory, relative to this test file's location.
 # This file is at: amplifier-bundle-skills/modules/tool-skills/tests/test_session_debug_power_skill.py
 # The skills dir is at: amplifier-bundle-skills/skills/
-BUNDLE_SKILLS_DIR = (
-    Path(__file__).parent.parent.parent.parent / "skills"
-)
+BUNDLE_SKILLS_DIR = Path(__file__).parent.parent.parent.parent / "skills"
 
 SESSION_DEBUG_SKILL_PATH = BUNDLE_SKILLS_DIR / "session-debug" / "SKILL.md"
 
@@ -129,6 +127,12 @@ def test_session_debug_skill_body_mentions_structured_report_sections():
 def test_all_five_skills_discoverable_together():
     """All 5 skills (image-vision + code-review + mass-change + session-debug + skills-assist) must be discoverable together."""
     skills = discover_skills(BUNDLE_SKILLS_DIR)
-    expected_skills = {"image-vision", "code-review", "mass-change", "session-debug", "skills-assist"}
+    expected_skills = {
+        "image-vision",
+        "code-review",
+        "mass-change",
+        "session-debug",
+        "skills-assist",
+    }
     missing = expected_skills - set(skills.keys())
     assert not missing, f"Missing skills: {missing}. Found: {list(skills.keys())}"
