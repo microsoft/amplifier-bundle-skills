@@ -187,30 +187,29 @@ async def mount(
     # Only skills with BOTH auto_load: true AND hooks in frontmatter are auto-loaded.
     # Skills with auto_load but no hooks don't need auto-loading since their content
     # would just be injected into context, which is the agent's job via load_skill().
-    if coordinator:
-        for name, metadata in tool.skills.items():
-            if getattr(metadata, "auto_load", False) and metadata.hooks:
-                body = extract_skill_body(metadata.path)
-                if body:
-                    tool.loaded_skills.add(name)
-                    await coordinator.hooks.emit(
-                        "skill:loaded",
-                        {
-                            "skill_name": name,
-                            "source": metadata.source,
-                            "content_length": len(body),
-                            "version": metadata.version,
-                            "skill_directory": str(metadata.path.parent),
-                            "hooks": metadata.hooks,
-                            "context": metadata.context,
-                            "allowed_tools": metadata.allowed_tools,
-                            "disable_model_invocation": metadata.disable_model_invocation,
-                            "user_invocable": metadata.user_invocable,
-                            "slash_command": name,
-                            "auto_loaded": True,
-                        },
-                    )
-                    logger.info(f"Auto-loaded skill '{name}' (has embedded hooks)")
+    for name, metadata in tool.skills.items():
+        if getattr(metadata, "auto_load", False) and metadata.hooks:
+            body = extract_skill_body(metadata.path)
+            if body:
+                tool.loaded_skills.add(name)
+                await coordinator.hooks.emit(
+                    "skill:loaded",
+                    {
+                        "skill_name": name,
+                        "source": metadata.source,
+                        "content_length": len(body),
+                        "version": metadata.version,
+                        "skill_directory": str(metadata.path.parent),
+                        "hooks": metadata.hooks,
+                        "context": metadata.context,
+                        "allowed_tools": metadata.allowed_tools,
+                        "disable_model_invocation": metadata.disable_model_invocation,
+                        "user_invocable": metadata.user_invocable,
+                        "slash_command": name,
+                        "auto_loaded": True,
+                    },
+                )
+                logger.info(f"Auto-loaded skill '{name}' (has embedded hooks)")
 
     # Return cleanup function that emits skill:unloaded for each loaded skill
     async def cleanup() -> None:
