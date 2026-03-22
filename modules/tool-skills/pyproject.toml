@@ -1,0 +1,48 @@
+[project]
+name = "amplifier-module-tool-skills"
+version = "1.0.0"
+description = "Tool for loading domain knowledge from skills"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+    { name = "Microsoft MADE:Explorations Team" },
+]
+dependencies = [
+    "amplifier-core",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+# Include foundation for git URL skill source resolution
+remote-sources = [
+    "amplifier-foundation",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.entry-points."amplifier.modules"]
+tool-skills = "amplifier_module_tool_skills:mount"
+
+[tool.uv]
+package = true
+
+[tool.uv.sources]
+amplifier-core = { git = "https://github.com/microsoft/amplifier-core", branch = "main" }
+amplifier-foundation = { git = "https://github.com/microsoft/amplifier-foundation", branch = "main" }
+
+[tool.hatch.build.targets.wheel]
+packages = ["amplifier_module_tool_skills"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.406",
+    "pytest>=8.4.2",
+    "pytest-asyncio>=1.2.0",
+    "ruff>=0.14.1",
+]
