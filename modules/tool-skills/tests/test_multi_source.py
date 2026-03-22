@@ -110,7 +110,9 @@ def test_multi_source_nonexistent_dirs():
         pytest.skip("Fixtures directory not found")
 
     # Mix existing and non-existent
-    skills = discover_skills_multi_source([Path("/nonexistent1"), fixtures_dir, Path("/nonexistent2")])
+    skills = discover_skills_multi_source(
+        [Path("/nonexistent1"), fixtures_dir, Path("/nonexistent2")]
+    )
 
     # Should still find skills from the existing directory
     assert len(skills) >= 1

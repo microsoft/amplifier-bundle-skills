@@ -71,7 +71,11 @@ class MockCoordinator:
 
 def _skill_loaded_events(coordinator: MockCoordinator) -> list[dict]:
     """Return all skill:loaded event payloads emitted during mount()."""
-    return [data for name, data in coordinator.hooks.emitted_events if name == "skill:loaded"]
+    return [
+        data
+        for name, data in coordinator.hooks.emitted_events
+        if name == "skill:loaded"
+    ]
 
 
 def _make_skill(tmp_path: Path, skill_name: str, frontmatter_extra: str = "") -> Path:
@@ -210,10 +214,7 @@ class TestAutoLoadMount:
             tmp_path,
             "hooks-only-skill",
             frontmatter_extra=(
-                "hooks:\n"
-                "  shell:\n"
-                "    - event: pre-tool\n"
-                "      command: echo gate\n"
+                "hooks:\n  shell:\n    - event: pre-tool\n      command: echo gate\n"
             ),
         )
         coordinator = MockCoordinator()
@@ -223,9 +224,7 @@ class TestAutoLoadMount:
         assert loaded == []
 
     @pytest.mark.asyncio
-    async def test_auto_loaded_event_has_auto_loaded_true_field(
-        self, tmp_path: Path
-    ):
+    async def test_auto_loaded_event_has_auto_loaded_true_field(self, tmp_path: Path):
         """The skill:loaded event emitted by auto-load contains auto_loaded: True."""
         _make_skill(
             tmp_path,
