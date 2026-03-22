@@ -126,9 +126,9 @@ def test_session_debug_skill_body_mentions_structured_report_sections():
     )
 
 
-def test_all_four_skills_discoverable_together():
-    """All 4 skills (image-vision + code-review + mass-change + session-debug) must be discoverable together."""
+def test_all_five_skills_discoverable_together():
+    """All 5 skills (image-vision + code-review + mass-change + session-debug + skills-assist) must be discoverable together."""
     skills = discover_skills(BUNDLE_SKILLS_DIR)
-    expected_skills = {"image-vision", "code-review", "mass-change", "session-debug"}
+    expected_skills = {"image-vision", "code-review", "mass-change", "session-debug", "skills-assist"}
     missing = expected_skills - set(skills.keys())
     assert not missing, f"Missing skills: {missing}. Found: {list(skills.keys())}"
