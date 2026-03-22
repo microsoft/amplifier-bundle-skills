@@ -16,10 +16,17 @@ Standard fields are defined by the open [Agent Skills specification](https://age
 | `license` | Optional | string | SPDX license identifier (e.g., `MIT`, `Apache-2.0`). Informational only. Required for skills distributed in public bundles. |
 | `compatibility` | Optional | string/object | Declares harness compatibility constraints (e.g., minimum harness version or required feature flags). Exact format is harness-defined. Informational in most implementations. |
 | `metadata` | Optional | object | Arbitrary key-value pairs for skill-level metadata (e.g., `author`, `tags`, `category`). Not processed by the harness — available to tooling and registries. |
-| `allowed-tools` | Optional | string | Space-separated list of tool names the forked context is permitted to use (e.g., `Read Grep Glob Bash`). Restricts the tool surface for security or focus. Only applies when `context: fork`. |
-| `hooks` | Optional | object | Lifecycle hooks executed at specific points (e.g., `on_load`, `on_complete`). Exact hook names and behavior are harness-defined. |
 
 **Note:** Only `name` and `description` are required. All other standard fields are optional. Unrecognized fields are ignored by compliant harnesses.
+
+### Experimental Fields (agentskills.io)
+
+These fields are defined by the agentskills.io spec but are not yet required by compliant harnesses. Support varies across tools — see the [Compatibility Matrix](./compatibility-matrix.md) for details.
+
+| Field | Required | Type | Description |
+|-------|----------|------|-------------|
+| `allowed-tools` | Optional | string | Space-separated list of tool names the forked context is permitted to use (e.g., `Read Grep Glob Bash`). Restricts the tool surface for security or focus. Only applies when `context: fork`. Harness support varies — not required by compliant harnesses. |
+| `hooks` | Optional | object | Lifecycle hooks executed at specific points (e.g., `on_load`, `on_complete`). Exact hook names and behavior are harness-defined. Harness support varies — not required by compliant harnesses. |
 
 ---
 

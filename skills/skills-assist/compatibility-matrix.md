@@ -17,6 +17,7 @@ The table below shows which features are supported by each tool. ✅ = supported
 | `license` | ✅ | ✅ | ✅ | ✅ |
 | `compatibility` | ✅ | ✅ | ✅ | ✅ |
 | `metadata` | ✅ | ✅ | ✅ | ✅ |
+| **Experimental (agentskills.io)** | | | | |
 | `allowed-tools` | ✅ | ❌ | ⚠️ | ❌ |
 | `hooks` | ✅ | ❌ | ❌ | ❌ |
 | **Amplifier Extensions** | | | | |
@@ -38,7 +39,7 @@ The table below shows which features are supported by each tool. ✅ = supported
 | Discovery paths | ✅ | ✅ | ✅ | ✅ |
 | Model selection | ✅ | ❌ | ❌ | ❌ |
 
-**Key:** Standard fields (`name`, `description`, `version`, `license`, `compatibility`, `metadata`) are defined by the [agentskills.io](https://agentskills.io) open specification and are portable across all compliant harnesses. All other features are tool-specific extensions.
+**Key:** Standard fields (`name`, `description`, `version`, `license`, `compatibility`, `metadata`) are defined by the [agentskills.io](https://agentskills.io) open specification and are portable across all compliant harnesses. All other features are tool-specific extensions. `allowed-tools` and `hooks` are experimental fields in the agentskills.io spec — they are defined but not yet required by compliant harnesses, and support varies.
 
 ---
 
@@ -75,8 +76,8 @@ For skills you want to share across tools, use only the fields defined by the [a
 - `license` — SPDX license identifier
 - `compatibility` — harness constraints
 - `metadata` — arbitrary key-value pairs
-- `allowed-tools` — tool restriction list (where supported)
-- `hooks` — lifecycle hooks (where supported)
+- `allowed-tools` — tool restriction list (experimental — where supported)
+- `hooks` — lifecycle hooks (experimental — where supported)
 
 A skill using only these standard fields will be recognized by any harness that implements the spec. Unrecognized fields are silently ignored by compliant harnesses, so including Amplifier extensions in a Claude Code skill will not cause errors — but those fields will have no effect.
 
