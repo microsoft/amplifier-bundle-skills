@@ -7,7 +7,12 @@ Uses amplifier-foundation's source resolver when available.
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import logging
+import shutil
+import subprocess
+from datetime import datetime
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -77,9 +82,6 @@ async def _resolve_remote_source(source: str, cache_dir: Path) -> Path | None:
     Returns:
         Path to cached local directory, or None if resolution fails.
     """
-    import hashlib
-    import subprocess
-
     # Parse the git URL
     # Format: git+https://github.com/org/repo@branch
     # or: git+https://github.com/org/repo@branch#subdirectory=path
@@ -121,8 +123,6 @@ async def _resolve_remote_source(source: str, cache_dir: Path) -> Path | None:
     # Clone the repository
     cache_dir.mkdir(parents=True, exist_ok=True)
 
-    import shutil
-
     try:
         # Remove stale cache if exists
         if cache_path.exists():
@@ -141,9 +141,6 @@ async def _resolve_remote_source(source: str, cache_dir: Path) -> Path | None:
             return None
 
         # Write cache metadata so `amplifier update` can track and refresh this cache
-        import json as _json
-        from datetime import datetime
-
         _sha_result = await asyncio.create_subprocess_exec(
             "git",
             "rev-parse",
@@ -164,7 +161,7 @@ async def _resolve_remote_source(source: str, cache_dir: Path) -> Path | None:
             "type": "skills",
         }
         (cache_path / ".amplifier_cache_meta.json").write_text(
-            _json.dumps(_meta, indent=2), encoding="utf-8"
+            json.dumps(_meta, indent=2), encoding="utf-8"
         )
 
         result_path = cache_path / subdirectory if subdirectory else cache_path
