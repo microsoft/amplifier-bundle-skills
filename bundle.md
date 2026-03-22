@@ -63,6 +63,8 @@ tools:
         - "git+https://github.com/microsoft/your-bundle@main#subdirectory=skills"
 ```
 
+> **URL fragments:** `#path=` selects a specific behavior file for `includes:`. `#subdirectory=` selects a directory subtree for module sources and skill discovery. They serve different purposes and are not interchangeable.
+
 @skills:context/skills-instructions.md
 
 ---
