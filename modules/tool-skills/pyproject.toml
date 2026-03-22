@@ -9,7 +9,6 @@ authors = [
     { name = "Microsoft MADE:Explorations Team" },
 ]
 dependencies = [
-    "amplifier-core",
     "pyyaml>=6.0",
 ]
 
@@ -41,6 +40,7 @@ allow-direct-references = true
 
 [dependency-groups]
 dev = [
+    "amplifier-core",
     "pyright>=1.1.406",
     "pytest>=8.4.2",
     "pytest-asyncio>=1.2.0",
