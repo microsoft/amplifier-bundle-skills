@@ -31,7 +31,28 @@ with Amplifier extensions.
 
 ## Steps
 
-### 1. Analyze the Session
+### 1. Consult Skills-Assist
+
+Before writing any skill content, load the authoritative skills reference:
+
+```
+load_skill("skills-assist")
+```
+
+Ask skills-assist about:
+- Current frontmatter field reference and best practices
+- Fork vs inline decision criteria
+- Step annotation conventions
+- Testing patterns for the type of skill being created
+
+skills-assist is the source of truth for Amplifier skill conventions. The
+examples in this skill are illustrative samples — consult skills-assist
+for the complete and up-to-date specification.
+
+**Success criteria**: You have loaded and consulted skills-assist for the
+latest skill authoring conventions.
+
+### 2. Analyze the Session
 
 Before asking the user anything, analyze the conversation history to identify:
 - What repeatable process was performed
@@ -47,7 +68,13 @@ Before asking the user anything, analyze the conversation history to identify:
 **Success criteria**: You have a clear mental model of the process, its steps,
 inputs, outputs, and success criteria.
 
-### 2. Interview the User
+### 3. Interview the User
+
+**Output density rule:** Group related decisions into natural clusters — not
+one question per turn (tedious) and not everything at once (overwhelming).
+Present your analysis first, let the user absorb it, then ask related
+questions together. For example, present identity/routing decisions as one
+cluster, execution model decisions as another.
 
 Calibrate interview depth to the complexity of the process. A simple 2-step
 workflow needs 1-2 rounds. A complex multi-step workflow with parallel tasks
@@ -94,11 +121,11 @@ processes.
 **Success criteria**: You have all the information needed to write the SKILL.md
 and the user has confirmed the design.
 
-### 3. Write the SKILL.md
+### 4. Write the SKILL.md
 
 Create the skill directory and file at the location the user chose in Round 2.
 
-Use this template for the generated SKILL.md:
+Use this template as a starting point. Consult skills-assist for the full set of available frontmatter fields and current conventions:
 
     ---
     name: {{skill-name}}
@@ -142,7 +169,7 @@ Use this template for the generated SKILL.md:
     **Success criteria**: {{REQUIRED on every step. What proves this step
     is done and we can move on.}}
 
-#### Step annotations (include where relevant):
+#### Step annotations (key examples — consult skills-assist for complete conventions):
 
 - **Success criteria** is REQUIRED on every step
 - **Execution**: `Direct` (default — omit if direct), `Delegate to [agent]`
@@ -161,7 +188,7 @@ Use this template for the generated SKILL.md:
 - Keep simple skills simple — a 2-step skill doesn't need annotations
   on every step
 
-#### Frontmatter rules:
+#### Frontmatter rules (key examples — consult skills-assist for complete reference):
 
 - `description` must carry all routing weight — trigger phrases, "Use when..."
   guidance, and example user messages belong here since this is what the
@@ -175,7 +202,28 @@ Use this template for the generated SKILL.md:
 
 **Success criteria**: The complete SKILL.md content has been drafted.
 
-### 4. Review and Save
+### 5. Test the Skill
+
+Before committing, verify the skill works:
+
+1. Save the skill to `.amplifier/skills/<name>/SKILL.md` (immediately
+   discoverable, no config changes needed).
+
+2. In the same session, call `load_skill("<name>")` and verify:
+   - The skill loads without errors
+   - The description is clear enough for routing
+   - The body instructions are actionable
+
+3. Optionally, spawn a test session via `delegate(agent="self",
+   context_depth="none")` that loads the skill and follows its
+   instructions against a synthesized test input.
+
+4. If issues are found, fix and re-test.
+
+**Success criteria**: The skill loads correctly and its instructions are
+actionable.
+
+### 6. Review and Save
 
 Before writing the file, present the complete SKILL.md content in a yaml code
 block so the user can review it with proper syntax highlighting.
