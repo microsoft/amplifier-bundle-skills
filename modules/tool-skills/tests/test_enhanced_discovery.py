@@ -828,10 +828,10 @@ Body content.
     assert len(spawn_calls) == 1
     # tool_inheritance must be passed
     assert "tool_inheritance" in spawn_calls[0]
-    # tool_inheritance must contain allowed_tools key with the list
+    # tool_inheritance must contain inherit_tools key (matches session_spawner._filter_tools)
     tool_inheritance = spawn_calls[0]["tool_inheritance"]
-    assert "allowed_tools" in tool_inheritance
-    assert tool_inheritance["allowed_tools"] == ["bash", "read_file", "grep"]
+    assert "inherit_tools" in tool_inheritance
+    assert tool_inheritance["inherit_tools"] == ["bash", "read_file", "grep"]
 
 
 @pytest.mark.asyncio
@@ -874,7 +874,7 @@ Body content.
 
     assert len(spawn_calls) == 1
     assert spawn_calls[0]["tool_inheritance"] == {
-        "allowed_tools": ["bash", "read_file", "grep"]
+        "inherit_tools": ["bash", "read_file", "grep"]
     }
 
 
@@ -916,3 +916,124 @@ Body content.
     # tool_inheritance must be passed but empty
     assert "tool_inheritance" in spawn_calls[0]
     assert spawn_calls[0]["tool_inheritance"] == {}
+
+
+# ---------------------------------------------------------------------------
+# Tests for fork-from-fork recursion guard (Change B) and inherit_tools key
+# (Change C) and orchestrator_config fork marker (Change A)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_fork_from_fork_is_blocked(tmp_path: Path):
+    """A fork-context skill raises an error when _is_forked_session is True."""
+    from amplifier_module_tool_skills import SkillsTool
+
+    skill_dir = tmp_path / "nested-fork-skill"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text(
+        """---
+name: nested-fork-skill
+description: Fork skill that would recurse
+context: fork
+---
+This skill would recurse infinitely.
+"""
+    )
+
+    spawn_calls: list = []
+
+    async def mock_spawn_fn(**kwargs):
+        spawn_calls.append(kwargs)
+        return {
+            "output": "Should not reach here",
+            "session_id": "s",
+            "turn_count": 1,
+            "status": "completed",
+        }
+
+    coordinator = MockCoordinatorWithSpawn(spawn_fn=mock_spawn_fn)
+    tool = SkillsTool({}, coordinator, resolved_dirs=[tmp_path])  # type: ignore[arg-type]
+    # Simulate running inside a forked skill sub-session (mirrors what mount() does)
+    tool._is_forked_session = True
+    coordinator.register_capability("skills.fork_context", True)
+
+    result = await tool._load_skill("nested-fork-skill")
+
+    assert result.success is False
+    assert result.error is not None
+    assert (
+        "infinite recursion" in result.error["message"].lower()
+        or "forked skills cannot" in result.error["message"].lower()
+    )
+    # spawn_fn must NOT have been called
+    assert len(spawn_calls) == 0
+
+
+@pytest.mark.asyncio
+async def test_inline_skill_loads_in_forked_session(tmp_path: Path):
+    """An inline (non-fork) skill loads normally even when _is_forked_session is True."""
+    from amplifier_module_tool_skills import SkillsTool
+
+    skill_dir = tmp_path / "inline-skill"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text(
+        """---
+name: inline-skill
+description: A plain inline skill
+---
+Inline skill content.
+"""
+    )
+
+    coordinator = MockCoordinatorWithSpawn()
+    tool = SkillsTool({}, coordinator, resolved_dirs=[tmp_path])  # type: ignore[arg-type]
+    # Simulate running inside a forked skill sub-session (mirrors what mount() does)
+    tool._is_forked_session = True
+    coordinator.register_capability("skills.fork_context", True)
+
+    result = await tool._load_skill("inline-skill")
+
+    assert result.success is True
+    assert result.output is not None
+    assert "content" in result.output
+    assert "Inline skill content." in result.output["content"]
+
+
+@pytest.mark.asyncio
+async def test_execute_fork_passes_orchestrator_config_fork_marker(tmp_path: Path):
+    """_execute_fork passes orchestrator_config={'_is_forked_skill_session': True} to spawn_fn."""
+    from amplifier_module_tool_skills import SkillsTool
+
+    skill_dir = tmp_path / "fork-marker-skill"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text(
+        """---
+name: fork-marker-skill
+description: Fork skill for marker test
+context: fork
+---
+Body.
+"""
+    )
+
+    spawn_calls: list = []
+
+    async def mock_spawn_fn(**kwargs):
+        spawn_calls.append(kwargs)
+        return {
+            "output": "ok",
+            "session_id": "s1",
+            "turn_count": 1,
+            "status": "completed",
+        }
+
+    coordinator = MockCoordinatorWithSpawn(spawn_fn=mock_spawn_fn)
+    tool = SkillsTool({}, coordinator, resolved_dirs=[tmp_path])  # type: ignore[arg-type]
+    await tool._load_skill("fork-marker-skill")
+
+    assert len(spawn_calls) == 1
+    # orchestrator_config must carry the fork-session marker
+    assert spawn_calls[0].get("orchestrator_config") == {
+        "_is_forked_skill_session": True
+    }

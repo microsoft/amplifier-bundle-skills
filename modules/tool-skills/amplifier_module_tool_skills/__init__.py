@@ -146,6 +146,30 @@ async def mount(
     resolved_dirs = await _resolve_skill_sources(config, coordinator)
 
     tool = SkillsTool(config, coordinator, resolved_dirs)
+
+    # Detect whether this session is a forked-skill child session.
+    # Two-pronged: capability first (clean path), fallback to config dict path (compat).
+    # 1. Preferred: coordinator capability registered by a previous mount or the spawner.
+    _is_forked_session = bool(coordinator.get_capability("skills.fork_context"))
+    if not _is_forked_session:
+        # 2. Fallback: config dict path written by _execute_fork() via orchestrator_config.
+        # Handles spawners that pass the flag via orchestrator_config but have not yet
+        # registered it as a capability.
+        # The spawner stores it at config["session"]["orchestrator"]["config"].
+        _is_forked_session = bool(
+            coordinator.config.get("session", {})
+            .get("orchestrator", {})
+            .get("config", {})
+            .get("_is_forked_skill_session", False)
+        )
+    tool._is_forked_session = _is_forked_session
+    if _is_forked_session:
+        # Register as a capability so other modules/hooks can detect it cleanly.
+        coordinator.register_capability("skills.fork_context", True)
+        logger.debug(
+            "SkillsTool: detected forked skill session — fork-context skills will be blocked"
+        )
+
     await coordinator.mount("tools", tool, name=tool.name)
     logger.info(
         f"Mounted SkillsTool with {len(tool.skills)} skills from {len(tool.skills_dirs)} sources"
@@ -157,7 +181,12 @@ async def mount(
     if visibility_config.get("enabled", True):  # Default: enabled
         from amplifier_module_tool_skills.hooks import SkillsVisibilityHook
 
-        hook = SkillsVisibilityHook(tool.skills, visibility_config)
+        hook = SkillsVisibilityHook(
+            tool.skills,
+            visibility_config,
+            is_forked_session=_is_forked_session,
+            coordinator=coordinator,
+        )
 
         # Register hook on provider:request event; capture unregister callable
         unregister_visibility = coordinator.hooks.register(
@@ -355,6 +384,9 @@ Skill Discovery:
         self.config = config
         self.coordinator = coordinator
         self.loaded_skills: set[str] = set()  # Track which skills have been loaded
+        # Set to True by mount() when running inside a forked skill sub-session.
+        # Prevents fork-from-fork infinite recursion.
+        self._is_forked_session: bool = False
 
         # Use pre-resolved dirs if provided, otherwise discover from config or defaults
         if resolved_dirs is not None:
@@ -648,6 +680,20 @@ Skill Discovery:
         logger.info(f"Loaded skill: {skill_name}")
         self.loaded_skills.add(skill_name)  # Track for cleanup
 
+        # Guard: prevent fork-from-fork infinite recursion.
+        # Forked skill sub-sessions may only load inline (non-fork) skills.
+        if metadata.context == "fork" and self._is_forked_session:
+            return ToolResult(
+                success=False,
+                error={
+                    "message": (
+                        "Forked skills cannot invoke other forked skills. "
+                        "This prevents infinite recursion. You can still use "
+                        "load_skill() to load non-forked (inline) skills."
+                    )
+                },
+            )
+
         # Emit skill loaded event (hooks-shell module listens for this to activate skill-scoped hooks)
         if self.coordinator:
             await self.coordinator.hooks.emit(
@@ -742,14 +788,25 @@ Skill Discovery:
             parent_session = self.coordinator.session
             agent_configs = self.coordinator.config.get("agents", {})
             sub_session_id = None
-            session_metadata = {"skill_name": skill_name, "context": "fork"}
+            session_metadata = {
+                "skill_name": skill_name,
+                "context": "fork",
+                "is_forked_skill_session": True,
+            }
 
-            # 5. Build tool_inheritance from metadata.allowed_tools
+            # 5. Build tool_inheritance from metadata.allowed_tools.
+            # NOTE: session_spawner._filter_tools() reads the "inherit_tools" key —
+            # using "allowed_tools" here would silently drop the allowlist.
             tool_inheritance: dict[str, Any] = {}
             if metadata.allowed_tools:
-                tool_inheritance["allowed_tools"] = metadata.allowed_tools
+                tool_inheritance["inherit_tools"] = metadata.allowed_tools
 
-            # 6. Call spawn_fn with assembled arguments
+            # 6. Call spawn_fn with assembled arguments.
+            # orchestrator_config carries the fork-session marker so the child's
+            # SkillsTool can detect it is running inside a forked skill session
+            # and refuse to execute further fork-context skills (prevents infinite
+            # recursion).  The spawner stores this at
+            # config["session"]["orchestrator"]["config"]["_is_forked_skill_session"].
             result = await spawn_fn(
                 agent_name="self",
                 instruction=processed_body,
@@ -759,6 +816,7 @@ Skill Discovery:
                 provider_preferences=provider_preferences,
                 session_metadata=session_metadata,
                 tool_inheritance=tool_inheritance,
+                orchestrator_config={"_is_forked_skill_session": True},
             )
 
             # 7. Return ToolResult with delegate output fields

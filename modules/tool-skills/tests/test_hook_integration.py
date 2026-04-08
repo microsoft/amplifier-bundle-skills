@@ -282,6 +282,82 @@ description: Test skill
 
 
 @pytest.mark.asyncio
+async def test_visibility_hook_filters_fork_skills_in_forked_session(tmp_path):
+    """Fork-context skills are omitted from the injected list when is_forked_session=True."""
+    # Create one inline skill and one fork skill
+    inline_dir = tmp_path / "inline-skill"
+    inline_dir.mkdir()
+    (inline_dir / "SKILL.md").write_text(
+        """---
+name: inline-skill
+description: A plain inline skill
+---
+# Inline"""
+    )
+
+    fork_dir = tmp_path / "fork-skill"
+    fork_dir.mkdir()
+    (fork_dir / "SKILL.md").write_text(
+        """---
+name: fork-skill
+description: A fork-context skill
+context: fork
+---
+# Fork"""
+    )
+
+    from amplifier_module_tool_skills.discovery import discover_skills
+    from amplifier_module_tool_skills.hooks import SkillsVisibilityHook
+
+    skills = discover_skills(tmp_path)
+    assert "inline-skill" in skills
+    assert "fork-skill" in skills
+
+    # Normal session: both skills visible
+    hook_normal = SkillsVisibilityHook(skills, {}, is_forked_session=False)
+    result_normal = await hook_normal.on_provider_request("provider:request", {})
+    assert result_normal.action == "inject_context"
+    assert result_normal.context_injection is not None
+    assert "inline-skill" in result_normal.context_injection
+    assert "fork-skill" in result_normal.context_injection
+
+    # Forked session: fork-context skill is hidden
+    hook_forked = SkillsVisibilityHook(skills, {}, is_forked_session=True)
+    result_forked = await hook_forked.on_provider_request("provider:request", {})
+    assert result_forked.action == "inject_context"
+    assert result_forked.context_injection is not None
+    assert "inline-skill" in result_forked.context_injection
+    assert "fork-skill" not in result_forked.context_injection
+
+
+@pytest.mark.asyncio
+async def test_visibility_hook_only_fork_skills_in_forked_session_returns_continue(
+    tmp_path,
+):
+    """When all skills are fork-context and session is forked, hook returns continue."""
+    fork_dir = tmp_path / "only-fork"
+    fork_dir.mkdir()
+    (fork_dir / "SKILL.md").write_text(
+        """---
+name: only-fork
+description: The only skill and it is a fork skill
+context: fork
+---
+# Fork only"""
+    )
+
+    from amplifier_module_tool_skills.discovery import discover_skills
+    from amplifier_module_tool_skills.hooks import SkillsVisibilityHook
+
+    skills = discover_skills(tmp_path)
+    hook = SkillsVisibilityHook(skills, {}, is_forked_session=True)
+    result = await hook.on_provider_request("provider:request", {})
+
+    # No visible skills → hook must not inject anything
+    assert result.action == "continue"
+
+
+@pytest.mark.asyncio
 async def test_cleanup_unregisters_visibility_hook(tmp_path):
     """Test that cleanup() calls the unregister callable for the visibility hook."""
     unregister_calls = []
