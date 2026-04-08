@@ -174,7 +174,28 @@ When Amplifier selects which model to use for a forked skill context, it applies
 
 1. **`provider_preferences` field** *(highest priority)* — Explicit provider/model list in the skill's frontmatter. When present, Amplifier uses the first available provider/model pair from this list. This overrides all other selection mechanisms. Use when a skill requires a specific model capability (e.g., a vision model for image analysis tasks).
 
-2. **`model_role` field** — Named role matched against the active routing matrix. The routing matrix maps role names to available provider/model pairs for the current session. Common roles: `general`, `reasoning`, `coding`, `critique`, `creative`, `vision`. The routing matrix is configured at the session or workspace level.
+2. **`model_role` field** — Named role matched against the active routing matrix. The routing matrix maps role names to available provider/model pairs for the current session. The routing matrix is configured at the session or workspace level.
+
+The complete set of available `model_role` values (from the routing matrix):
+
+| Role | Use For |
+|------|---------|
+| `general` | Versatile catch-all, mixed tasks |
+| `fast` | Quick utility tasks — parsing, classification, file ops |
+| `coding` | Code generation, implementation, debugging |
+| `ui-coding` | Frontend/UI code — components, layouts, styling |
+| `security-audit` | Vulnerability assessment, code auditing |
+| `reasoning` | Deep architectural analysis, system design |
+| `critique` | Analytical evaluation — finding flaws in existing work |
+| `creative` | Design direction, aesthetic judgment |
+| `writing` | Long-form content — documentation, case studies |
+| `research` | Deep investigation, multi-source synthesis |
+| `vision` | Understanding visual input — screenshots, diagrams |
+| `image-gen` | Image generation (limited provider coverage) |
+| `critical-ops` | High-reliability operational tasks |
+
+Use `model_role` for portability. The routing matrix resolves roles to actual
+provider/model pairs based on the active matrix configuration.
 
 3. **Session-level model override** — The user or operator may have set a session-wide model preference via configuration or CLI flags. Session overrides apply to forked contexts unless `provider_preferences` or `model_role` is set in the frontmatter.
 
@@ -183,3 +204,32 @@ When Amplifier selects which model to use for a forked skill context, it applies
 5. **System defaults** *(lowest priority)* — The harness's built-in fallback model selection. Used when no other preference has been expressed at any level.
 
 **Recommendation:** For most skills, `model_role` is the right choice. It keeps skills portable across different provider configurations while still expressing the capability requirement (e.g., `reasoning` for architecture decisions, `critique` for code review). Use `provider_preferences` only when a skill genuinely requires a specific model that cannot be substituted — for example, a vision-capable model or a model fine-tuned for a domain task. Avoid hard-coding provider preferences in skills that will be shared across teams with different provider access.
+
+---
+
+### Common Amplifier Tool Names for `allowed-tools`
+
+| Tool Name | What It Does |
+|-----------|-------------|
+| `read_file` | Read file contents |
+| `write_file` | Write/create files |
+| `edit_file` | Edit files via string replacement |
+| `bash` | Shell command execution |
+| `glob` | Find files by pattern |
+| `grep` | Search file contents with regex |
+| `web_search` | Search the web |
+| `web_fetch` | Fetch URL content |
+| `delegate` | Spawn sub-agents |
+| `load_skill` | Load other skills |
+| `recipes` | Execute multi-step recipes |
+| `LSP` | Language Server Protocol operations |
+| `python_check` | Python code quality checks |
+| `rust_check` | Rust code quality checks |
+| `containers` | Docker/Podman container management |
+| `nano-banana` | Visual AI analysis and generation |
+| `dot_graph` | DOT/Graphviz operations |
+| `todo` | Task tracking |
+| `mode` | Runtime mode management |
+
+This is a sampling of commonly used tools. The actual set available depends on
+the session's bundle configuration. Consult `skills-assist` for the latest list.

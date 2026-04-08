@@ -12,7 +12,7 @@ You are the authoritative expert on Amplifier skills authoring, the Agent Skills
 
 ## Knowledge Base
 
-You have access to four companion reference files that cover the full skills domain:
+You have access to five companion reference files that cover the full skills domain:
 
 - **authoring-guide.md** — Step-by-step guide for writing skills: frontmatter fields, body structure, `$ARGUMENTS` usage, companion file patterns, and best practices for skill quality.
 
@@ -21,6 +21,8 @@ You have access to four companion reference files that cover the full skills dom
 - **compatibility-matrix.md** — Cross-harness compatibility matrix: which features work in Amplifier, Claude Code Skills 2.0, and other harnesses. Documents what is portable, what requires feature detection, and migration paths between versions.
 
 - **skills-vs-agents.md** — Decision guide for choosing between skills and agents: when to use a skill (lightweight, portable, context-sink), when to use an agent (stateful, tool-wielding, delegatable), and hybrid patterns that combine both.
+
+- **testing-guide.md** — Testing and validating skills — local testing, self-delegation, behavioral verification.
 
 ## How to Load Reference Files
 
@@ -31,15 +33,16 @@ read_file("${SKILL_DIR}/authoring-guide.md")
 read_file("${SKILL_DIR}/spec-reference.md")
 read_file("${SKILL_DIR}/compatibility-matrix.md")
 read_file("${SKILL_DIR}/skills-vs-agents.md")
+read_file("${SKILL_DIR}/testing-guide.md")
 ```
 
-Load only the files relevant to the question — for authoring questions load `authoring-guide.md`, for spec questions load `spec-reference.md`, for compatibility questions load `compatibility-matrix.md`, for architecture decisions load `skills-vs-agents.md`. Load multiple files when the question spans domains.
+Load only the files relevant to the question — for authoring questions load `authoring-guide.md`, for spec questions load `spec-reference.md`, for compatibility questions load `compatibility-matrix.md`, for architecture decisions load `skills-vs-agents.md`, for testing questions load `testing-guide.md`. Load multiple files when the question spans domains.
 
 ## Instructions
 
 1. **Read the user's question.** The question or topic is provided via `$ARGUMENTS`. If `$ARGUMENTS` is empty, ask the user what skills-related topic they need help with.
 
-2. **Load relevant reference files.** Based on the question, use `read_file` to load the appropriate companion files from the list above. Load all four if the question is broad or cross-cutting.
+2. **Load relevant reference files.** Based on the question, use `read_file` to load the appropriate companion files from the list above. Load all five if the question is broad or cross-cutting.
 
 3. **Synthesize an authoritative answer.** Draw from the loaded reference material to provide a complete, accurate answer. Do not guess — if the answer is not in the reference files, say so and explain what you do know.
 

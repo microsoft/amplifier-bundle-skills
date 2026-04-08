@@ -116,6 +116,101 @@ Skills are loaded lazily to conserve context. The skill loading system has three
 
 ---
 
+## Output Density and Interaction Style
+
+When a skill runs inline (no `context: fork`) and needs to gather information
+from the user, calibrate output density per turn:
+
+- **Don't dump everything at once** — presenting a full analysis AND multiple
+  interview questions in one message overwhelms the user
+- **Don't ask one micro-question per turn** — this creates tedious back-and-forth
+  that wastes turns on trivial confirmations
+- **Group related decisions into natural clusters** — e.g., present identity/routing
+  decisions together, execution model decisions together, save location together
+- **Separate analysis from questions** — present your analysis first, let the user
+  absorb it, then ask questions in a follow-up
+
+This applies to both skills that interview users and to the output of skills that
+generate content (like skillify generating a SKILL.md).
+
+---
+
+## Fork vs Inline Decision Criteria
+
+| Factor | Use Inline (default) | Use Fork (`context: fork`) |
+|--------|---------------------|---------------------------|
+| User interaction | Needs mid-process user input | Self-contained, no user steering |
+| Conversation history | Needs to see prior conversation | Fresh slate is better |
+| Context consumption | Acceptable to use parent context | Should not consume parent context |
+| Multi-turn | Requires multiple exchange rounds | Single instruction, single result |
+
+**Critical constraint:** Forked skills CANNOT do multi-turn conversation with the
+user. A fork runs as a one-shot subagent — it gets one instruction, runs to
+completion, and returns a result. There is no mechanism for it to pause, ask the
+user something, wait for a reply, and resume. If your skill needs to interview
+the user across multiple rounds, it MUST be inline.
+
+**Fork recursion prevention:** Forked skills cannot invoke other forked skills.
+The skills module blocks this to prevent infinite recursion. Forked sessions can
+still load non-forked (inline) skills via `load_skill()`. The visibility hook
+also filters fork-context skills from child session visibility.
+
+---
+
+## Trigger Phrase Placement
+
+The `description` field is the ONLY signal the model sees before deciding whether
+to load a skill. Trigger phrases, "Use when..." guidance, and example user messages
+MUST go in the description — not in the skill body.
+
+**Why:** The visibility hook injects skill descriptions into the LLM context before
+every call. The skill body only loads AFTER `load_skill()` is called. Trigger
+phrases in the body are too late — the model has already decided to load the skill.
+
+**Anti-pattern:**
+```yaml
+description: Captures a process as a skill
+```
+This gives the model almost nothing to route on.
+
+**Correct pattern:**
+```yaml
+description: >
+  Capture a repeatable process into a reusable SKILL.md file. Use when the user
+  wants to create a skill, save a workflow, turn a process into a skill, or
+  mentions "skillify", "create skill", "make a skill", or "save as skill".
+```
+This gives the model specific trigger phrases and use cases to match against.
+
+---
+
+## Step Annotation Conventions
+
+When writing skills with multi-step workflows, use these annotation conventions
+to make steps clear and machine-parseable:
+
+**Required on every step:**
+- `**Success criteria**:` — What proves this step is done. Be specific:
+  not "code is written" but "tests pass and implementation matches the interface."
+
+**Include where relevant:**
+- `**Execution**:` — How the step runs. `Direct` (default, omit if direct),
+  `Delegate to [agent]` (e.g., "Delegate to foundation:explorer"), or
+  `[human]` (user does it manually).
+- `**Artifacts**:` — Data this step produces that later steps need (PR number,
+  commit SHA, file path). Only include if downstream steps depend on it.
+- `**Human checkpoint**:` — Pause and ask the user before irreversible actions
+  (merging, deploying, sending messages, destructive operations).
+- `**Rules**:` — Hard constraints. User corrections during original sessions
+  are especially valuable here.
+
+**Structural conventions:**
+- Steps that can run concurrently use sub-numbers: 3a, 3b
+- Steps requiring the user to act get `[human]` in the title
+- Keep simple skills simple — a 2-step skill doesn't need annotations on every step
+
+---
+
 ## Examples
 
 ### Example 1: Simple Information Skill
