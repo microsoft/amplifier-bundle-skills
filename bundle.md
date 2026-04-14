@@ -25,6 +25,16 @@ Provides the [Agent Skills](https://agentskills.io/specification) system for Amp
 | Skill | Description |
 |-------|-------------|
 | **image-vision** | LLM-based image analysis across multiple providers (Anthropic, OpenAI, Gemini, Azure) |
+| **cli-packaging-patterns** | CLI tool packaging with one-line install (`uv tool install`/`npm install -g`), subcommand dispatch, 3-tier config resolution |
+| **config-state-patterns** | Configuration files with defaults merging, atomic state writes, conventional file locations (XDG), safe concurrent access |
+| **http-service-patterns** | FastAPI lifecycle, SPA + API reverse proxy, bidirectional WebSocket relay, SSE event streaming |
+| **auth-tls-patterns** | Localhost bypass, PAM/password/auto-generate auth cascade, token auth, TLS auto-setup (Tailscale/mkcert/self-signed) |
+| **self-managing-tool-patterns** | Doctor diagnostics, PEP 610 install detection, self-update, cross-platform service install (systemd/launchd) |
+| **file-ipc-patterns** | Filesystem IPC without a message broker — JSONL event logs, atomic state snapshots, async request/response, SSE from file tail |
+| **instance-storage-patterns** | Per-instance isolated directories, file locking with `defaultdict(Lock)`, prepare-once/create-many session factories |
+| **container-orchestration-patterns** | Docker container lifecycle with safety limits, watchdog monitoring, orphan recovery, sidecar provisioning |
+| **plugin-discovery-patterns** | Runtime plugin discovery via Python entry points, file-based registry, provider abstractions, schema validation |
+| **react-microfrontend-patterns** | Shared React via import maps, frecency autocomplete, Zustand state with localStorage persistence |
 
 ## Usage
 
