@@ -156,11 +156,18 @@ async def mount(
         # Handles spawners that pass the flag via orchestrator_config but have not yet
         # registered it as a capability.
         # The spawner stores it at config["session"]["orchestrator"]["config"].
+        # Note: session.orchestrator can legitimately be either a dict (when spawner
+        # passes orchestrator_config) or a plain string (common production case,
+        # e.g. "loop-basic"). MockCoordinator uses the string shape in validation.
+        # Guard with isinstance so both shapes are handled safely.
+        _orchestrator_val = coordinator.config.get("session", {}).get(
+            "orchestrator", {}
+        )
         _is_forked_session = bool(
-            coordinator.config.get("session", {})
-            .get("orchestrator", {})
-            .get("config", {})
-            .get("_is_forked_skill_session", False)
+            isinstance(_orchestrator_val, dict)
+            and _orchestrator_val.get("config", {}).get(
+                "_is_forked_skill_session", False
+            )
         )
     tool._is_forked_session = _is_forked_session
     if _is_forked_session:
