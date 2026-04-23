@@ -1001,8 +1001,15 @@ Inline skill content.
 
 
 @pytest.mark.asyncio
-async def test_execute_fork_passes_orchestrator_config_fork_marker(tmp_path: Path):
-    """_execute_fork passes orchestrator_config={'_is_forked_skill_session': True} to spawn_fn."""
+async def test_execute_fork_passes_session_metadata_fork_marker(tmp_path: Path):
+    """_execute_fork propagates the fork marker via session_metadata only.
+
+    The marker lives at session_metadata["is_forked_skill_session"] and is
+    read on the child side via _detect_fork_session(). orchestrator_config
+    MUST NOT also carry the marker — the previous double-write was a
+    semantic mismatch (skill-layer data in orchestrator namespace) and the
+    read side no longer looks there.
+    """
     from amplifier_module_tool_skills import SkillsTool
 
     skill_dir = tmp_path / "fork-marker-skill"
@@ -1033,7 +1040,9 @@ Body.
     await tool._load_skill("fork-marker-skill")
 
     assert len(spawn_calls) == 1
-    # orchestrator_config must carry the fork-session marker
-    assert spawn_calls[0].get("orchestrator_config") == {
-        "_is_forked_skill_session": True
-    }
+    call = spawn_calls[0]
+    # session_metadata carries the fork-session marker — this is the single
+    # source of truth parent → child.
+    assert call.get("session_metadata", {}).get("is_forked_skill_session") is True
+    # orchestrator_config MUST NOT be passed any more (no double-write).
+    assert "orchestrator_config" not in call

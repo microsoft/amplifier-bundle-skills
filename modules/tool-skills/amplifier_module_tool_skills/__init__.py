@@ -30,6 +30,30 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _detect_fork_session(coordinator: "ModuleCoordinator") -> bool:
+    """Detect whether this session is a forked-skill child session.
+
+    Two paths, reflecting the two contexts the question can be asked in:
+
+    * In-session (capability): set on this coordinator by a previous mount,
+      a sibling module, or a test harness.
+    * Cross-session (config): set by the parent's ``_execute_fork`` into
+      ``session.metadata``, which ``spawn_sub_session`` copies verbatim into
+      the child's config. Capabilities do NOT cross the spawn boundary — each
+      child coordinator starts fresh by design — so metadata is the only
+      propagation mechanism parent → child.
+
+    ``session.metadata`` is expected to be a dict but user-supplied config can
+    put anything there, so a cheap ``isinstance`` guard keeps this robust.
+    """
+    if coordinator.get_capability("skills.fork_context"):
+        return True
+    metadata = coordinator.config.get("session", {}).get("metadata", {})
+    return isinstance(metadata, dict) and bool(
+        metadata.get("is_forked_skill_session", False)
+    )
+
+
 async def _resolve_skill_sources(
     config: dict[str, Any], coordinator: "ModuleCoordinator"
 ) -> list[Path]:
@@ -147,31 +171,13 @@ async def mount(
 
     tool = SkillsTool(config, coordinator, resolved_dirs)
 
-    # Detect whether this session is a forked-skill child session.
-    # Two-pronged: capability first (clean path), fallback to config dict path (compat).
-    # 1. Preferred: coordinator capability registered by a previous mount or the spawner.
-    _is_forked_session = bool(coordinator.get_capability("skills.fork_context"))
-    if not _is_forked_session:
-        # 2. Fallback: config dict path written by _execute_fork() via orchestrator_config.
-        # Handles spawners that pass the flag via orchestrator_config but have not yet
-        # registered it as a capability.
-        # The spawner stores it at config["session"]["orchestrator"]["config"].
-        # Note: session.orchestrator can legitimately be either a dict (when spawner
-        # passes orchestrator_config) or a plain string (common production case,
-        # e.g. "loop-basic"). MockCoordinator uses the string shape in validation.
-        # Guard with isinstance so both shapes are handled safely.
-        _orchestrator_val = coordinator.config.get("session", {}).get(
-            "orchestrator", {}
-        )
-        _is_forked_session = bool(
-            isinstance(_orchestrator_val, dict)
-            and _orchestrator_val.get("config", {}).get(
-                "_is_forked_skill_session", False
-            )
-        )
+    # Detect whether this session is a forked-skill child session. See the
+    # _detect_fork_session helper docstring for why the marker lives in
+    # session.metadata rather than in orchestrator_config or a capability.
+    _is_forked_session = _detect_fork_session(coordinator)
     tool._is_forked_session = _is_forked_session
     if _is_forked_session:
-        # Register as a capability so other modules/hooks can detect it cleanly.
+        # Register as a capability so in-session observers/hooks can detect it cleanly.
         coordinator.register_capability("skills.fork_context", True)
         logger.debug(
             "SkillsTool: detected forked skill session — fork-context skills will be blocked"
@@ -809,11 +815,11 @@ Skill Discovery:
                 tool_inheritance["inherit_tools"] = metadata.allowed_tools
 
             # 6. Call spawn_fn with assembled arguments.
-            # orchestrator_config carries the fork-session marker so the child's
-            # SkillsTool can detect it is running inside a forked skill session
-            # and refuse to execute further fork-context skills (prevents infinite
-            # recursion).  The spawner stores this at
-            # config["session"]["orchestrator"]["config"]["_is_forked_skill_session"].
+            # The fork-session marker travels exclusively via session_metadata
+            # (see step 4 above, "is_forked_skill_session": True). The child's
+            # SkillsTool.mount() reads it through _detect_fork_session() and
+            # refuses to execute further fork-context skills, preventing
+            # infinite recursion. No orchestrator_config marker needed.
             result = await spawn_fn(
                 agent_name="self",
                 instruction=processed_body,
@@ -823,7 +829,6 @@ Skill Discovery:
                 provider_preferences=provider_preferences,
                 session_metadata=session_metadata,
                 tool_inheritance=tool_inheritance,
-                orchestrator_config={"_is_forked_skill_session": True},
             )
 
             # 7. Return ToolResult with delegate output fields
