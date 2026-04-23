@@ -156,11 +156,13 @@ async def mount(
         # Handles spawners that pass the flag via orchestrator_config but have not yet
         # registered it as a capability.
         # The spawner stores it at config["session"]["orchestrator"]["config"].
+        # NOTE: orchestrator can be a plain string ("loop-streaming") or an expanded dict
+        # ({"module": "loop-streaming", "config": {...}}). Guard with isinstance before
+        # chaining .get("config", ...) to avoid 'str' object has no attribute 'get'.
+        _orch = coordinator.config.get("session", {}).get("orchestrator", {})
         _is_forked_session = bool(
-            coordinator.config.get("session", {})
-            .get("orchestrator", {})
-            .get("config", {})
-            .get("_is_forked_skill_session", False)
+            isinstance(_orch, dict)
+            and _orch.get("config", {}).get("_is_forked_skill_session", False)
         )
     tool._is_forked_session = _is_forked_session
     if _is_forked_session:

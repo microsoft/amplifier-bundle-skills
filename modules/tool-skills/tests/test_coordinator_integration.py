@@ -369,3 +369,32 @@ user_invocable: true
         if e[0] == "skill:command_registered"
     ]
     assert len(command_registered_events) == 0
+
+
+@pytest.mark.asyncio
+async def test_mount_with_string_orchestrator_config(tmp_path):
+    """Test that mount() does not crash when session.orchestrator is a plain string.
+
+    Regression test for: 'str' object has no attribute 'get' in protocol_compliance check.
+    The orchestrator config field supports two forms:
+      - Simple string: "loop-streaming"
+      - Expanded dict:  {"module": "loop-streaming", "config": {...}}
+    The forked-session detection fallback must handle both forms.
+    """
+    coordinator = MockCoordinator()
+    # Set orchestrator as a plain string (the most common real-world form).
+    # Previously this caused AttributeError: 'str' object has no attribute 'get'
+    coordinator.config = {
+        "session": {
+            "orchestrator": "loop-streaming",  # string form — NOT a dict
+        }
+    }
+
+    config = {"skills_dir": str(tmp_path)}
+    # Must not raise
+    await mount(coordinator, config)
+
+    # Session should not be detected as a forked skill session
+    tool = coordinator.mounted_tools.get("skills")
+    assert tool is not None
+    assert tool._is_forked_session is False
