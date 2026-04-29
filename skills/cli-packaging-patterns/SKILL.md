@@ -16,6 +16,20 @@ description: >
 
 Pattern proven in production across multiple Python CLI tools and web services.
 
+## When this skill is NOT the right answer
+
+This skill assumes a **pure Python CLI** distributed via `uv tool install`. If your project does not fit that profile, use a different pattern:
+
+| Project shape | Use instead |
+|--------------|-------------|
+| Multi-language stack (Python + Node + Docker) | `one-line-installer-patterns` |
+| Raw TS/React app with no Python wrapper | `one-line-installer-patterns` (or publish to npm) |
+| Tool that bootstraps system prerequisites | `one-line-installer-patterns` |
+| Containerized multi-service app | Ship `docker-compose.yml`; see `container-orchestration-patterns` |
+| Single static binary (Go/Rust) | GitHub releases + `curl -L .../bin -o ~/.local/bin/tool` |
+
+If the project IS a pure Python CLI, the rest of this skill applies.
+
 ## Key Design Decisions
 
 ### 1. Hatchling + `[project.scripts]` — Not setuptools
@@ -113,6 +127,21 @@ for spec in plugin_specs:
     cmd.extend(["--with", spec])
 ```
 
+### 6. Post-install configuration: `init`, `login`, or nothing?
+
+The Amplifier ecosystem convention for first-run configuration is `<tool> init`. This is **internally consistent** but **not** the dominant community convention. Choose deliberately:
+
+| Tool needs | Recommended subcommand | Examples |
+|------------|------------------------|----------|
+| Auth/credentials only | `<tool> login` or `<tool> auth login` | gh, vercel, heroku, fly, supabase |
+| Tool-wide config (region, defaults) | `<tool> configure` | aws |
+| Per-project setup (creates files in cwd) | `<tool> init` | terraform, firebase, npm, cargo |
+| Sensible defaults; prompt lazily | (no subcommand) | bun, deno, rustup, pnpm |
+
+In the broader community, `init` overwhelmingly means "create a new project/workspace in the current directory." Using `init` for "configure the tool itself" has essentially one major precedent: `gcloud init`. If you're building a tool the broader community will consume, prefer `login` / `configure` / no-command unless you actually mean "scaffold a new project here." If your audience is internal Amplifier-only, the `init` convention is fine — just know what you're choosing.
+
+See `one-line-installer-patterns` for the full survey table and the rationale.
+
 ## Template / Starter Code
 
 ```toml
@@ -190,3 +219,9 @@ def main():
 4. **Service files need the full PATH.** When systemd or launchd runs your tool, PATH is minimal. Capture `os.environ.get("PATH")` at install time and bake it into the service unit. Without this, subprocesses can't find `docker`, `git`, `tmux`, etc.
 
 5. **The `--force` flag on reinstall matters.** `uv tool install` without `--force` is a no-op if the package is already installed. Upgrade commands must use `--force` to ensure the latest git HEAD is fetched.
+
+## Related skills
+
+- **`one-line-installer-patterns`** — For projects that can't use `uv tool install`: multi-language stacks, raw TS/React apps, tools that need system bootstrapping, or non-technical audiences. Also contains the full community convention survey for post-install commands referenced in §6 above.
+- **`config-state-patterns`** — Where to store the config and state created by your tool's `init` / `configure` / `login` flow.
+- **`http-service-patterns`** — If your tool is an HTTP service (FastAPI lifecycle, SPA + API, WebSockets, SSE).
