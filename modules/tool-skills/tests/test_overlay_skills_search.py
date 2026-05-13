@@ -8,8 +8,6 @@ mention_resolver resolves to skill directories at query time.
 
 from pathlib import Path
 
-import pytest
-
 from amplifier_module_tool_skills import SkillsTool
 from amplifier_module_tool_skills.discovery import SkillMetadata
 
@@ -19,14 +17,14 @@ RUNTIME_SKILL_OVERLAY_CAPABILITY = "runtime_skill_overlay"
 class MockCoordinator:
     """Minimal mock coordinator for overlay-skills tests."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.capabilities: dict = {}
         self.config: dict = {}
 
-    def register_capability(self, name: str, value) -> None:
+    def register_capability(self, name: str, value: object) -> None:
         self.capabilities[name] = value
 
-    def get_capability(self, name: str):
+    def get_capability(self, name: str) -> object:
         return self.capabilities.get(name)
 
 
@@ -65,10 +63,11 @@ def test_overlay_skill_appears_in_list_skills(tmp_path: Path) -> None:
         "mention_resolver", MockResolver({uri: str(skill_dir)})
     )
 
-    tool = SkillsTool({}, coordinator, [])  # no local skill dirs
+    tool = SkillsTool({}, coordinator, [])  # type: ignore[arg-type]
     result = tool._list_skills()
 
     assert result.success
+    assert result.output is not None
     assert "overlay-skill-a" in result.output["message"]
     skill_names = [s["name"] for s in result.output["skills"]]
     assert "overlay-skill-a" in skill_names
@@ -86,10 +85,11 @@ def test_overlay_skill_found_by_search_skills(tmp_path: Path) -> None:
         "mention_resolver", MockResolver({uri: str(skill_dir)})
     )
 
-    tool = SkillsTool({}, coordinator, [])
+    tool = SkillsTool({}, coordinator, [])  # type: ignore[arg-type]
     result = tool._search_skills("overlay-skill-b")
 
     assert result.success
+    assert result.output is not None
     assert "matches" in result.output
     match_names = [m["name"] for m in result.output["matches"]]
     assert "overlay-skill-b" in match_names
@@ -114,7 +114,7 @@ def test_local_skills_shadow_overlay_on_conflict(tmp_path: Path) -> None:
         "mention_resolver", MockResolver({uri: str(overlay_dir)})
     )
 
-    tool = SkillsTool({}, coordinator, [])
+    tool = SkillsTool({}, coordinator, [])  # type: ignore[arg-type]
     # Inject a "local" skill with the same name directly (simulates static
     # mount-time discovery; local skills are first-match-wins over overlay).
     local_skill_path = tmp_path / "local" / "SKILL.md"
@@ -130,15 +130,18 @@ def test_local_skills_shadow_overlay_on_conflict(tmp_path: Path) -> None:
     result = tool._list_skills()
 
     assert result.success
+    assert result.output is not None
     skill_names = [s["name"] for s in result.output["skills"]]
     assert conflict_name in skill_names
 
     # Verify the LOCAL description wins, not the overlay's
-    winning_entry = next(s for s in result.output["skills"] if s["name"] == conflict_name)
+    winning_entry = next(
+        s for s in result.output["skills"] if s["name"] == conflict_name
+    )
     assert winning_entry["description"] == "Local description — this wins"
 
 
-def test_no_overlay_capability_baseline(tmp_path: Path) -> None:
+def test_no_overlay_capability_baseline(tmp_path: Path) -> None:  # noqa: ARG001
     """Without runtime_skill_overlay capability, list and search work as before.
 
     No coordinator, or coordinator without the capability, must not break
@@ -146,7 +149,7 @@ def test_no_overlay_capability_baseline(tmp_path: Path) -> None:
     """
     # Case 1: coordinator present but capability NOT registered
     coordinator = MockCoordinator()
-    tool = SkillsTool({}, coordinator, [])
+    tool = SkillsTool({}, coordinator, [])  # type: ignore[arg-type]
     result = tool._list_skills()
     # No skills → empty-skills path (success, no crash)
     assert result.success
