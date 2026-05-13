@@ -13,11 +13,17 @@ from typing import TYPE_CHECKING, Any
 
 from amplifier_core import ToolResult
 
+try:
+    from amplifier_foundation import RUNTIME_SKILL_OVERLAY_CAPABILITY
+except ImportError:  # foundation not installed in all deployment configs
+    RUNTIME_SKILL_OVERLAY_CAPABILITY = "runtime_skill_overlay"  # type: ignore[assignment]
+
 from amplifier_module_tool_skills.discovery import SkillMetadata
 from amplifier_module_tool_skills.discovery import discover_skills
 from amplifier_module_tool_skills.discovery import discover_skills_multi_source
 from amplifier_module_tool_skills.discovery import extract_skill_body
 from amplifier_module_tool_skills.discovery import get_default_skills_dirs
+from amplifier_module_tool_skills.discovery import parse_skill_frontmatter
 from amplifier_module_tool_skills.model_resolver import resolve_skill_model
 from amplifier_module_tool_skills.preprocessing import preprocess
 from amplifier_module_tool_skills.sources import is_remote_source
@@ -590,16 +596,68 @@ Skill Discovery:
 
         return await self._load_skill(skill_name)
 
+    def _get_overlay_skill_metadata(self) -> dict[str, SkillMetadata]:
+        """Resolve runtime-overlay skills into searchable metadata.
+
+        Reads the `runtime_skill_overlay` coordinator capability — a producer-
+        neutral contract. Any bundle that wants to overlay additional skills at
+        runtime writes to it. tool-skills doesn't need to know who's writing.
+
+        Per-URI failures are logged at DEBUG; one bad URI never blocks the
+        others. Local skills shadow overlay skills (first-match-wins). Among
+        overlay URIs, first match also wins.
+
+        Issue #233: contributes.skills from active modes propagate via this
+        capability; propagation to sub-sessions happens in spawn_sub_session.
+        """
+        if not self.coordinator:
+            return {}
+        uris = self.coordinator.get_capability(RUNTIME_SKILL_OVERLAY_CAPABILITY) or []
+        if not uris:
+            return {}
+        resolver = self.coordinator.get_capability("mention_resolver")
+        if resolver is None:
+            return {}
+        overlay: dict[str, SkillMetadata] = {}
+        for uri in uris:
+            try:
+                resolved = resolver.resolve(uri)
+                if resolved is None:
+                    continue
+                resolved_path = Path(resolved)
+                skill_file = resolved_path / "SKILL.md"
+                if not skill_file.exists():
+                    continue
+                fm = parse_skill_frontmatter(skill_file)
+                if not fm:
+                    continue
+                name, description = fm.get("name"), fm.get("description")
+                if not name or not description:
+                    continue
+                # Local skills shadow overlay; first overlay wins on conflict.
+                if name in self.skills or name in overlay:
+                    continue
+                overlay[name] = SkillMetadata(
+                    name=name,
+                    description=description,
+                    path=skill_file,
+                    source=str(resolved_path),
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("Failed to resolve overlay skill URI %r: %s", uri, exc)
+        return overlay
+
     def _list_skills(self) -> ToolResult:
-        """List all available skills."""
-        if not self.skills:
+        """List all available skills (local + runtime overlay)."""
+        effective_skills = {**self.skills, **self._get_overlay_skill_metadata()}
+        if not effective_skills:
             sources = ", ".join(str(d) for d in self.skills_dirs)
             return ToolResult(
                 success=True, output={"message": f"No skills found in {sources}"}
             )
 
         skills_list = []
-        for name, metadata in sorted(self.skills.items()):
+        for name, metadata in sorted(effective_skills.items()):
             skills_list.append({"name": name, "description": metadata.description})
 
         lines = ["Available Skills:", ""]
@@ -611,9 +669,10 @@ Skill Discovery:
         )
 
     def _search_skills(self, search_term: str) -> ToolResult:
-        """Search skills by name or description."""
+        """Search skills by name or description (across local + overlay)."""
+        effective_skills = {**self.skills, **self._get_overlay_skill_metadata()}
         matches = {}
-        for name, metadata in self.skills.items():
+        for name, metadata in effective_skills.items():
             if (
                 search_term.lower() in name.lower()
                 or search_term.lower() in metadata.description.lower()
@@ -811,7 +870,8 @@ Skill Discovery:
                     logger.debug(
                         "Fork skill %r has model_role %r but no model_role_resolver "
                         "capability is registered; falling through to parent default provider",
-                        skill_name, resolved_model_role,
+                        skill_name,
+                        resolved_model_role,
                     )
 
             # 4. Get spawn function and related context (matching delegate tool pattern)
