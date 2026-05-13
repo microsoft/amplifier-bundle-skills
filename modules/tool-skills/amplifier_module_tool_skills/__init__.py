@@ -788,13 +788,31 @@ Skill Discovery:
             provider_preferences = model_resolution.get("provider_preferences")
             resolved_model_role = model_resolution.get("model_role")
 
-            # 3. Attempt routing matrix resolution if model_role resolved but no provider_preferences
+            # 3. Resolve model_role via the model_role_resolver capability when
+            # provider_preferences was not explicitly set. Generic capability
+            # name (any routing strategy may register an implementation:
+            # matrix-based, cost-aware, latency-aware, etc.). Duck-typed
+            # contract:
+            #     async def resolve(model_role) -> list[ProviderPreference]
+            #
+            # Pre-fix bug: this site looked up the capability under the wrong
+            # name ("routing_matrix") that was never registered, and called
+            # .resolve() synchronously. Fork skills declaring model_role
+            # silently fell through to the parent's default provider.
             if resolved_model_role is not None and provider_preferences is None:
-                routing_matrix = self.coordinator.get_capability("routing_matrix")
-                if routing_matrix is not None:
-                    resolved = routing_matrix.resolve(resolved_model_role)
+                resolver = self.coordinator.get_capability("model_role_resolver")
+                if resolver is not None:
+                    resolved = await resolver.resolve(resolved_model_role)
                     if resolved:
-                        provider_preferences = resolved
+                        # Resolver returns list[ProviderPreference] (foundation
+                        # public type); spawn_fn accepts that shape directly.
+                        provider_preferences = list(resolved)
+                else:
+                    logger.debug(
+                        "Fork skill %r has model_role %r but no model_role_resolver "
+                        "capability is registered; falling through to parent default provider",
+                        skill_name, resolved_model_role,
+                    )
 
             # 4. Get spawn function and related context (matching delegate tool pattern)
             spawn_fn = self.coordinator.get_capability("session.spawn")
