@@ -27,11 +27,14 @@ class SkillsVisibilityHook:
         config: dict[str, Any],
         is_forked_session: bool = False,
         coordinator: "ModuleCoordinator | None" = None,
+        tool: Any = None,
     ):
         """Initialize hook with skills data from tool.
 
         Args:
-            skills: Dictionary of discovered skills (from SkillsTool.skills)
+            skills: Dictionary of discovered skills (from SkillsTool.skills).
+                Used as fallback when ``tool`` is not provided (e.g. legacy
+                callers and unit tests).
             config: Hook configuration from visibility section
             is_forked_session: When True, fork-context skills are omitted from the
                 injected list.  This prevents the LLM inside a forked sub-session
@@ -39,8 +42,15 @@ class SkillsVisibilityHook:
                 would cause infinite recursion.
             coordinator: Optional module coordinator for capability-based fallback
                 detection of forked session state (defense-in-depth).
+            tool: Optional ``SkillsTool`` reference. When provided, the hook
+                uses ``tool.get_effective_skills()`` to obtain the merged static
+                + runtime-overlay catalog on every request, so mode-contributed
+                skills become visible while the contributing mode is active.
+                When omitted, the hook falls back to ``skills`` (a static dict
+                with no overlay merge). Production mount path supplies it; some
+                unit tests do not.
         """
-        self.skills = skills  # Reference to tool's skills dict
+        self.skills = skills  # Reference to tool's skills dict (legacy/fallback path)
         self.enabled = config.get("enabled", True)
         self.inject_role = config.get("inject_role", "system")
         self.max_visible = config.get("max_skills_visible", 50)
@@ -48,12 +58,31 @@ class SkillsVisibilityHook:
         self.priority = config.get("priority", 20)
         self._is_forked_session = is_forked_session
         self.coordinator = coordinator
+        self._tool = tool
 
         logger.debug(
             f"Initialized SkillsVisibilityHook: enabled={self.enabled}, "
             f"max_visible={self.max_visible}, ephemeral={self.ephemeral}, "
-            f"is_forked_session={self._is_forked_session}"
+            f"is_forked_session={self._is_forked_session}, "
+            f"tool_attached={self._tool is not None}"
         )
+
+    def _effective_skills(self) -> dict[str, Any]:
+        """Return the catalog the hook should render on this request.
+
+        Prefers ``tool.get_effective_skills()`` (static + overlay merge) when
+        a tool reference is attached; falls back to the static ``self.skills``
+        dict otherwise so legacy callers and unit tests keep working.
+        """
+        if self._tool is not None and hasattr(self._tool, "get_effective_skills"):
+            try:
+                return self._tool.get_effective_skills()
+            except Exception as exc:  # noqa: BLE001
+                logger.debug(
+                    "tool.get_effective_skills() raised %s; falling back to static catalog",
+                    exc,
+                )
+        return self.skills
 
     async def on_provider_request(self, event: str, data: dict[str, Any]) -> HookResult:
         """Inject skills list before LLM request.
@@ -68,10 +97,14 @@ class SkillsVisibilityHook:
             HookResult with action="inject_context" if skills should be shown,
             or action="continue" if disabled or no skills available
         """
-        if not self.enabled or not self.skills:
+        if not self.enabled:
             return HookResult(action="continue")
 
-        skills_text = self._format_skills_list()
+        effective = self._effective_skills()
+        if not effective:
+            return HookResult(action="continue")
+
+        skills_text = self._format_skills_list(effective)
 
         if not skills_text:
             return HookResult(action="continue")
@@ -84,7 +117,7 @@ class SkillsVisibilityHook:
             suppress_output=True,
         )
 
-    def _format_skills_list(self) -> str:
+    def _format_skills_list(self, skills: dict[str, Any] | None = None) -> str:
         """Format skills list as markdown with XML boundaries.
 
         Partitions skills into two sections:
@@ -93,10 +126,18 @@ class SkillsVisibilityHook:
         - User-invoked skills (disable_model_invocation=True): shown under 'User-invoked
           skills' with no cap
 
+        Args:
+            skills: Optional catalog dict to render. Defaults to the
+                effective-skills view (static + overlay merge). Passing
+                an explicit dict supports legacy test callers that
+                exercise the formatter in isolation.
+
         Returns:
             Formatted skills list string, or empty string if no skills
         """
-        if not self.skills:
+        if skills is None:
+            skills = self._effective_skills()
+        if not skills:
             return ""
 
         # Partition skills into regular and user-invoked.
@@ -116,12 +157,12 @@ class SkillsVisibilityHook:
 
         regular_skills = {
             name: meta
-            for name, meta in self.skills.items()
+            for name, meta in skills.items()
             if not meta.disable_model_invocation and _keep(meta)
         }
         user_invoked_skills = {
             name: meta
-            for name, meta in self.skills.items()
+            for name, meta in skills.items()
             if meta.disable_model_invocation and _keep(meta)
         }
 

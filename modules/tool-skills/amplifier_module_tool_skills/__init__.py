@@ -205,6 +205,7 @@ async def mount(
             visibility_config,
             is_forked_session=_is_forked_session,
             coordinator=coordinator,
+            tool=tool,
         )
 
         # Register hook on provider:request event; capture unregister callable
@@ -596,6 +597,20 @@ Skill Discovery:
 
         return await self._load_skill(skill_name)
 
+    def get_effective_skills(self) -> dict[str, SkillMetadata]:
+        """Return the merged static + runtime-overlay skill catalog.
+
+        Local (mount-time discovered) skills shadow overlay skills
+        (first-match-wins). Safe to call any time — overlay resolution
+        happens at call time, so the returned dict reflects the
+        coordinator's current `runtime_skill_overlay` capability state.
+
+        All entry points (load, info, list, search, visibility hook)
+        should resolve through this method so contributed skills are
+        consistently discoverable while the contributing mode is active.
+        """
+        return {**self.skills, **self._get_overlay_skill_metadata()}
+
     def _get_overlay_skill_metadata(self) -> dict[str, SkillMetadata]:
         """Resolve runtime-overlay skills into searchable metadata.
 
@@ -649,7 +664,7 @@ Skill Discovery:
 
     def _list_skills(self) -> ToolResult:
         """List all available skills (local + runtime overlay)."""
-        effective_skills = {**self.skills, **self._get_overlay_skill_metadata()}
+        effective_skills = self.get_effective_skills()
         if not effective_skills:
             sources = ", ".join(str(d) for d in self.skills_dirs)
             return ToolResult(
@@ -670,7 +685,7 @@ Skill Discovery:
 
     def _search_skills(self, search_term: str) -> ToolResult:
         """Search skills by name or description (across local + overlay)."""
-        effective_skills = {**self.skills, **self._get_overlay_skill_metadata()}
+        effective_skills = self.get_effective_skills()
         matches = {}
         for name, metadata in effective_skills.items():
             if (
@@ -695,9 +710,15 @@ Skill Discovery:
         )
 
     def _get_skill_info(self, skill_name: str) -> ToolResult:
-        """Get metadata for a skill without loading full content."""
-        if skill_name not in self.skills:
-            available = ", ".join(sorted(self.skills.keys()))
+        """Get metadata for a skill without loading full content.
+
+        Consults both local and runtime-overlay skills via
+        get_effective_skills(); contributed skills from active modes
+        are discoverable here.
+        """
+        effective_skills = self.get_effective_skills()
+        if skill_name not in effective_skills:
+            available = ", ".join(sorted(effective_skills.keys()))
             return ToolResult(
                 success=False,
                 error={
@@ -705,7 +726,7 @@ Skill Discovery:
                 },
             )
 
-        metadata = self.skills[skill_name]
+        metadata = effective_skills[skill_name]
         info = {
             "name": metadata.name,
             "description": metadata.description,
@@ -722,9 +743,15 @@ Skill Discovery:
         return ToolResult(success=True, output=info)
 
     async def _load_skill(self, skill_name: str) -> ToolResult:
-        """Load full skill content."""
-        if skill_name not in self.skills:
-            available = ", ".join(sorted(self.skills.keys()))
+        """Load full skill content.
+
+        Consults both local and runtime-overlay skills via
+        get_effective_skills(); contributed skills from active modes
+        are loadable here.
+        """
+        effective_skills = self.get_effective_skills()
+        if skill_name not in effective_skills:
+            available = ", ".join(sorted(effective_skills.keys()))
             return ToolResult(
                 success=False,
                 error={
@@ -732,7 +759,7 @@ Skill Discovery:
                 },
             )
 
-        metadata = self.skills[skill_name]
+        metadata = effective_skills[skill_name]
         body = extract_skill_body(metadata.path)
 
         if not body:
