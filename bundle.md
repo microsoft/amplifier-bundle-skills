@@ -1,7 +1,7 @@
 ---
 bundle:
   name: skills
-  version: 1.0.0
+  version: 1.1.0
   description: Skills tool and Microsoft-curated skills collection for Amplifier agents
 
 includes:
