@@ -35,6 +35,26 @@ checklist:
 
 Skim each file that exists. Apply the relevant conventions to your work.
 
+## Phase-specific files (JIT)
+
+Some repos add files that are read only at specific phases of work, not at task
+start. When `AGENTS.md` points to one of these, treat the trigger as binding:
+load the referenced file when the phase fires, not before.
+
+- **`PRINCIPLES.md`** — read at **design / planning phase**, before writing
+  code. Captures philosophical context, architectural invariants, upstream-spec
+  linkage, intentional deltas, and pointers to deeper material (ADRs, design
+  docs). If present, `AGENTS.md` should point to it.
+- **`SMOKE_TESTS.md`** — read at **verification phase**, before declaring done.
+  Names the repo's smoke runnable(s) and any cross-repo smokes to run when
+  changes affect dependents. If present, `AGENTS.md` and the PR template should
+  point to it.
+
+Force-loading these files at task start defeats the purpose — they exist
+because their content is only sometimes relevant. If neither exists in the
+repo, default behavior applies; the repo owner has chosen not to formalize
+design or verification context separately yet.
+
 ## What Each File Contains
 
 - **`AGENTS.md`** — agent-facing conventions. Test commands, common pitfalls,
