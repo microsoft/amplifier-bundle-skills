@@ -326,7 +326,30 @@ class SkillsDiscovery:
         """
         return self._skills.get(name)
 
+    def get_shortcuts(self) -> dict[str, dict[str, Any]]:
+        """Return dispatch entries for all user-invocable skills.
 
+        Each user-invocable skill gets an entry under its canonical name.
+        If the skill has a shortcut alias that differs from the canonical
+        name, the same entry is also registered under the alias.
+
+        Returns:
+            Dict mapping slash-command names (canonical + aliases) to
+            dispatch entry dicts with 'name', 'description', and 'context'.
+        """
+        shortcuts: dict[str, dict[str, Any]] = {}
+        for name, metadata in self._skills.items():
+            if not metadata.user_invocable:
+                continue
+            entry = {
+                "name": name,
+                "description": metadata.description,
+                "context": metadata.context,
+            }
+            shortcuts[name] = entry
+            if metadata.shortcut and metadata.shortcut != name:
+                shortcuts[metadata.shortcut] = entry
+        return shortcuts
 
 
 class SkillsTool:
