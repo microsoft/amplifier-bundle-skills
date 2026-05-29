@@ -9,6 +9,7 @@ description: |
   Use when: architectural decisions, legacy replacements, new tooling evaluation, broad planning questions.
 allowed-tools: ["Read", "Grep", "Glob", "Bash", "WebSearch", "WebFetch", "Agent", "AskUserQuestion"]
 user-invocable: true
+shortcut: COE
 auto-activation:
   priority: 3
   keywords: ["crusty", "coe", "old engineer", "engineering judgment", "should I use", "is this a good idea", "what could go wrong", "reality check"]
