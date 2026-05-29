@@ -17,6 +17,12 @@ logger = logging.getLogger(__name__)
 # Pattern for valid skill names per Agent Skills Spec
 VALID_NAME_PATTERN = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
+# Pattern for shortcut alias values. Authors may write `shortcut: COSam` for
+# readability in YAML; the parser lowercases the value before storage so the
+# dispatch table is always keyed in lowercase, mirroring the case-insensitive
+# slash-command lookup the CLI does on user input.
+_SHORTCUT_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_-]*$")
+
 
 def _find_repo_root(path: Path) -> Path | None:
     """Walk up from path to find the git repository root."""
@@ -60,6 +66,7 @@ class SkillMetadata:
     agent: str | None = None  # Agent to use (e.g., 'foundation:explorer')
     disable_model_invocation: bool = False  # Prevent LLM calls when loading
     user_invocable: bool = False  # Whether users can invoke this skill directly
+    shortcut: str | None = None  # Optional alias for slash-command invocation (e.g. /cosam → cranky-old-sam). Stored lowercase.
     model: str | None = None  # Preferred model for this skill
     model_role: str | list[str] | None = None  # Model role or fallback chain
     provider_preferences: list[dict] | None = None  # Provider/model preferences
@@ -290,6 +297,26 @@ def discover_skills(skills_dir: Path) -> dict[str, SkillMetadata]:
             if not isinstance(auto_load_val, bool):
                 auto_load_val = bool(auto_load_val)
 
+            # shortcut: optional alias for /command invocation. Authors may
+            # write any case for visual clarity (e.g. `shortcut: COSam`); we
+            # validate against the case-tolerant regex, then lowercase for
+            # storage so the dispatch table is uniform. The CLI lowercases
+            # all slash input on lookup, so /COSam, /cosam, /Cosam all match
+            # the same stored shortcut value.
+            raw_shortcut = frontmatter.get("shortcut")
+            shortcut_val: str | None = None
+            if isinstance(raw_shortcut, str) and raw_shortcut.strip():
+                candidate = raw_shortcut.strip()
+                if _SHORTCUT_PATTERN.match(candidate):
+                    shortcut_val = candidate.lower()
+                else:
+                    logger.warning(
+                        f"Skill {skill_file}: shortcut {candidate!r} is not a "
+                        f"valid slash-command identifier (must match "
+                        f"{_SHORTCUT_PATTERN.pattern}); no alias will be registered. "
+                        f"The skill remains invokable via /{name}."
+                    )
+
             model_val = frontmatter.get("model")
 
             # model_role supports both string and list (fallback chain)
@@ -345,6 +372,7 @@ def discover_skills(skills_dir: Path) -> dict[str, SkillMetadata]:
                 disable_model_invocation=disable_model_invocation_val,
                 user_invocable=user_invocable_val,
                 auto_load=auto_load_val,
+                shortcut=shortcut_val,
                 model=model_val,
                 model_role=model_role_val,
                 provider_preferences=provider_preferences_val,
