@@ -13,6 +13,7 @@ def _make_skill(
     description: str,
     user_invocable: bool = False,
     context: str | None = None,
+    shortcut: str | None = None,
 ) -> SkillMetadata:
     """Helper to create test SkillMetadata."""
     return SkillMetadata(
@@ -22,6 +23,7 @@ def _make_skill(
         source="/fake",
         user_invocable=user_invocable,
         context=context,
+        shortcut=shortcut,
     )
 
 
@@ -132,6 +134,53 @@ class TestSkillsDiscoveryGetShortcuts:
         discovery = SkillsDiscovery(skills)
         result = discovery.get_shortcuts()
         assert result == {}
+
+    # --- Required regression-guard tests ---
+
+    def test_method_exists_on_class(self):
+        """get_shortcuts exists on SkillsDiscovery and is callable."""
+        assert hasattr(SkillsDiscovery, "get_shortcuts")
+        assert callable(SkillsDiscovery({}).get_shortcuts)
+
+    def test_empty_skills_dict_returns_empty_dict(self):
+        """get_shortcuts() returns empty dict when skills dict is empty."""
+        assert SkillsDiscovery({}).get_shortcuts() == {}
+
+    def test_entry_has_name_key(self):
+        """Each shortcut entry dict contains the canonical 'name' key."""
+        skills = {
+            "foo": _make_skill("foo", "Foo skill", user_invocable=True),
+        }
+        discovery = SkillsDiscovery(skills)
+        result = discovery.get_shortcuts()
+        assert result["foo"]["name"] == "foo"
+
+    def test_shortcut_registers_alias_key(self):
+        """A skill with shortcut != name gets entries under both keys."""
+        skills = {
+            "cranky-old-sam": _make_skill(
+                "cranky-old-sam",
+                "Cranky reviewer",
+                user_invocable=True,
+                shortcut="cosam",
+            ),
+        }
+        discovery = SkillsDiscovery(skills)
+        result = discovery.get_shortcuts()
+        assert "cranky-old-sam" in result
+        assert "cosam" in result
+        assert result["cranky-old-sam"]["name"] == "cranky-old-sam"
+        assert result["cosam"]["name"] == "cranky-old-sam"
+
+    def test_shortcut_equal_to_canonical_name_is_idempotent(self):
+        """A skill with shortcut == name produces only one entry, no errors."""
+        skills = {
+            "foo": _make_skill("foo", "Foo skill", user_invocable=True, shortcut="foo"),
+        }
+        discovery = SkillsDiscovery(skills)
+        result = discovery.get_shortcuts()
+        assert len(result) == 1
+        assert "foo" in result
 
 
 class MockHooks:
