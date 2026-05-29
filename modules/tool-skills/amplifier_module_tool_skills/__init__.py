@@ -326,22 +326,7 @@ class SkillsDiscovery:
         """
         return self._skills.get(name)
 
-    def get_shortcuts(self) -> dict[str, dict[str, Any]]:
-        """Return only user_invocable skills as a name-keyed shortcut dict.
 
-        Returns:
-            Dict mapping skill name to ``{"description": ..., "context": ...}``,
-            one entry per user_invocable skill.  The ``context`` field indicates
-            how the skill is delivered (e.g. "fork" vs "inline").
-        """
-        return {
-            name: {
-                "description": metadata.description,
-                "context": metadata.context,
-            }
-            for name, metadata in self._skills.items()
-            if metadata.user_invocable
-        }
 
 
 class SkillsTool:
