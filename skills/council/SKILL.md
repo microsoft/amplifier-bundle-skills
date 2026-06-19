@@ -24,16 +24,39 @@ $ARGUMENTS
 
 ## Guard Check — Run This First
 
-**Arguments present.** If `$ARGUMENTS` is empty or was not provided, output
-exactly this and stop:
+`/council` runs **isolated (forked)** — it **cannot see this conversation.** It reviews
+an **explicit external target** you name. Triage `$ARGUMENTS` before doing anything:
+
+**Step 1 — empty?** If `$ARGUMENTS` is empty or absent, output the Usage block below and
+stop.
+
+**Step 2 — a reference to the current conversation? AUTO-ROUTE to council-here.**
+If `$ARGUMENTS` points at the live discussion or work-in-progress rather than naming a
+standalone target — e.g. *"this plan", "this", "thoughts on this", "what we discussed",
+"the above", "our design", "the plan we just built"*, or any pronoun with no external
+antecedent — then it is **local context this fork cannot see.** Do **NOT** stumble,
+guess, or go hunting for a file. Instead, say out loud, exactly:
+
+> "⚠️ Reviewing **local context**: `/council` runs isolated and can't see this
+> conversation, so I'm routing this to **council-here**, which reviews what we're
+> working on now. (Re-run `/council <path | idea text>` if you meant an isolated
+> external review.)"
+
+Then **STOP and hand back to the main session to run `council-here`** (i.e. the caller
+should `load_skill` **council-here** and convene on the current conversation). Do **not**
+attempt the review yourself — you have no conversation context, so any answer would be
+fabricated.
+
+**Step 3 — a real external target? Proceed.** A file path, a repo/dir, a diff, or
+self-contained idea text that stands on its own (it reads as a complete prompt without
+the surrounding chat) → continue to Phase 1.
 
 ```
-Provide a target for the panel to review.
+Usage: /council <target>          (isolated review of an external target)
+       /council-here [focus]      (review the CURRENT conversation / plan)
 
-Usage: /council <target>
-
-The target can be:
-  - an idea or design described in plain text
+A /council target can be:
+  - an idea or design described in plain, self-contained text
   - a file path (a spec, design doc, or source file)
   - a repo or directory path
   - a diff
@@ -43,9 +66,8 @@ Examples:
   /council ./docs/design/new-auth-flow.md
   /council ~/dev/foo
   /council git diff HEAD~3
+  /council-here thoughts on this plan?      <- reviews what we're discussing
 ```
-
-If the argument is present, proceed.
 
 ---
 
