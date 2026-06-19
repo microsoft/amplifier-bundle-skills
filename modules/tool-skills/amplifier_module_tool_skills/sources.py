@@ -20,6 +20,56 @@ logger = logging.getLogger(__name__)
 # Default cache directory for remote skills
 DEFAULT_SKILLS_CACHE_DIR = Path("~/.amplifier/cache/skills").expanduser()
 
+# Per-cache-path asyncio locks — defence-in-depth against concurrent clones.
+# The primary guard is deduplication in resolve_skill_sources; the lock
+# catches any residual concurrent access (e.g. direct calls to
+# resolve_skill_source from outside resolve_skill_sources).
+_clone_locks: dict[str, asyncio.Lock] = {}
+
+
+def _get_clone_lock(cache_path: Path) -> asyncio.Lock:
+    """Return the per-cache-path asyncio lock, creating it if needed."""
+    key = str(cache_path)
+    if key not in _clone_locks:
+        _clone_locks[key] = asyncio.Lock()
+    return _clone_locks[key]
+
+
+def _parse_git_source(
+    source: str, cache_dir: Path
+) -> tuple[str, str, str | None, Path]:
+    """Parse a git source URL into (url, ref, subdirectory, cache_path).
+
+    Extracted from _resolve_remote_source so resolve_skill_sources can
+    compute cache_paths upfront for deduplication without triggering I/O.
+
+    The cache key is computed from url@ref ONLY (the #subdirectory= fragment
+    is stripped), so all sources pointing at the same repo@ref share one
+    cache_path regardless of how many different subdirectories they request.
+
+    Returns:
+        (bare_url, ref, subdirectory_or_None, cache_path)
+    """
+    url = source
+    if url.startswith("git+"):
+        url = url[4:]
+
+    subdirectory = None
+    if "#subdirectory=" in url:
+        url, fragment = url.split("#", 1)
+        if fragment.startswith("subdirectory="):
+            subdirectory = fragment[13:]
+
+    ref = "main"
+    if "@" in url:
+        url, ref = url.rsplit("@", 1)
+
+    cache_key = hashlib.sha256(f"{url}@{ref}".encode()).hexdigest()[:16]
+    repo_name = url.rstrip("/").split("/")[-1].replace(".git", "")
+    cache_path = cache_dir / f"{repo_name}-{cache_key}"
+
+    return url, ref, subdirectory, cache_path
+
 
 def is_remote_source(source: str) -> bool:
     """Check if a source string is a secure remote URL (git+https://, https://).
@@ -72,8 +122,17 @@ async def resolve_skill_source(
 async def _resolve_remote_source(source: str, cache_dir: Path) -> Path | None:
     """Resolve a remote source URL by cloning the git repository.
 
-    Skills repos are simple collections of markdown files - they don't need
+    Skills repos are simple collections of markdown files — they don't need
     pyproject.toml or bundle.md validation like Python packages do.
+
+    The clone goes into a temporary directory and is renamed atomically into
+    the final cache_path only after .amplifier_cache_meta.json is written.
+    This ensures no sibling coroutine (or OS process) can ever observe a
+    cache directory without metadata and mistake it for a corrupt clone.
+
+    A per-cache-path asyncio lock serialises any concurrent callers within
+    this process as defence-in-depth (the primary guard is deduplication in
+    resolve_skill_sources).
 
     Args:
         source: Remote URL (git+https://, etc.).
@@ -82,31 +141,9 @@ async def _resolve_remote_source(source: str, cache_dir: Path) -> Path | None:
     Returns:
         Path to cached local directory, or None if resolution fails.
     """
-    # Parse the git URL
-    # Format: git+https://github.com/org/repo@branch
-    # or: git+https://github.com/org/repo@branch#subdirectory=path
-    url = source
-    if url.startswith("git+"):
-        url = url[4:]
+    url, ref, subdirectory, cache_path = _parse_git_source(source, cache_dir)
 
-    # Extract subdirectory if specified
-    subdirectory = None
-    if "#subdirectory=" in url:
-        url, fragment = url.split("#", 1)
-        if fragment.startswith("subdirectory="):
-            subdirectory = fragment[13:]
-
-    # Extract branch/ref if specified
-    ref = "main"  # default
-    if "@" in url:
-        url, ref = url.rsplit("@", 1)
-
-    # Create cache key from URL
-    cache_key = hashlib.sha256(f"{url}@{ref}".encode()).hexdigest()[:16]
-    repo_name = url.rstrip("/").split("/")[-1].replace(".git", "")
-    cache_path = cache_dir / f"{repo_name}-{cache_key}"
-
-    # Check if already cached (valid = has metadata written after successful clone)
+    # Fast path: valid cache already present — no lock acquisition needed.
     if cache_path.exists():
         meta_file = cache_path / ".amplifier_cache_meta.json"
         if meta_file.exists():
@@ -114,74 +151,106 @@ async def _resolve_remote_source(source: str, cache_dir: Path) -> Path | None:
             result_path = cache_path / subdirectory if subdirectory else cache_path
             if result_path.exists():
                 return result_path
-            # Cache valid but subdirectory doesn't exist - fall through to re-clone
-        else:
-            # Directory exists but no metadata = corrupt/partial clone
-            logger.warning(f"Removing corrupt skills cache (no metadata): {cache_path}")
-        # Fall through to cleanup and re-clone
+            # Cache valid but requested subdirectory absent — fall through to
+            # re-clone (subdirectory might have been added since last clone).
 
-    # Clone the repository
+    # Slow path: acquire per-cache-path lock to serialise clones.
     cache_dir.mkdir(parents=True, exist_ok=True)
-
-    try:
-        # Remove stale cache if exists
+    async with _get_clone_lock(cache_path):
+        # Re-check inside lock: another coroutine may have finished cloning
+        # while we waited for the lock.
         if cache_path.exists():
-            shutil.rmtree(cache_path)
+            meta_file = cache_path / ".amplifier_cache_meta.json"
+            if meta_file.exists():
+                result_path = cache_path / subdirectory if subdirectory else cache_path
+                return result_path if result_path.exists() else None
+            else:
+                # Stale directory without metadata (e.g. prior crash).
+                # This path is unreachable in normal in-process use (the
+                # deduplication in resolve_skill_sources prevents it), but
+                # we still handle it for correctness.
+                logger.warning(
+                    f"Removing corrupt skills cache (no metadata): {cache_path}"
+                )
+                shutil.rmtree(cache_path)
 
-        # Clone with depth=1 for efficiency
-        cmd = ["git", "clone", "--depth", "1", "--branch", ref, url, str(cache_path)]
-        logger.info(f"Cloning skill source: {url}@{ref}")
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        # Clone into a temp path so the final cache_path is never visible
+        # without metadata (atomic publish on rename).
+        tmp_path = cache_path.with_name(cache_path.name + ".tmp")
+        if tmp_path.exists():
+            shutil.rmtree(tmp_path, ignore_errors=True)
 
-        if result.returncode != 0:
-            logger.error(f"Git clone failed: {result.stderr}")
-            # Clean up partial clone to prevent stale lock files on next attempt
+        try:
+            cmd = [
+                "git",
+                "clone",
+                "--depth",
+                "1",
+                "--branch",
+                ref,
+                url,
+                str(tmp_path),
+            ]
+            logger.info(f"Cloning skill source: {url}@{ref}")
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+
+            if result.returncode != 0:
+                logger.error(f"Git clone failed: {result.stderr}")
+                # Clean up partial clone
+                if tmp_path.exists():
+                    shutil.rmtree(tmp_path, ignore_errors=True)
+                return None
+
+            # Write cache metadata to the temp dir (still not visible at cache_path)
+            _sha_result = await asyncio.create_subprocess_exec(
+                "git",
+                "rev-parse",
+                "HEAD",
+                cwd=str(tmp_path),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _sha_stdout, _ = await _sha_result.communicate()
+            _commit_sha = (
+                _sha_stdout.decode().strip() if _sha_result.returncode == 0 else ""
+            )
+            _meta = {
+                "cached_at": datetime.now().isoformat(),
+                "ref": ref,
+                "commit": _commit_sha,
+                "git_url": url,
+                "type": "skills",
+            }
+            (tmp_path / ".amplifier_cache_meta.json").write_text(
+                json.dumps(_meta, indent=2), encoding="utf-8"
+            )
+
+            # Atomically publish: rename temp dir to final cache_path.
+            # If cache_path now exists (cross-process race; another OS process
+            # beat us), discard our temp clone and use theirs.
             if cache_path.exists():
-                shutil.rmtree(cache_path, ignore_errors=True)
+                shutil.rmtree(tmp_path, ignore_errors=True)
+            else:
+                tmp_path.rename(cache_path)
+
+            result_path = cache_path / subdirectory if subdirectory else cache_path
+            if result_path.exists():
+                logger.info(f"Resolved remote skill source: {source} -> {result_path}")
+                return result_path
+            else:
+                logger.warning(f"Subdirectory not found in cloned repo: {subdirectory}")
+                return None
+
+        except subprocess.TimeoutExpired:
+            logger.error(f"Git clone timed out for: {url}")
+            if tmp_path.exists():
+                shutil.rmtree(tmp_path, ignore_errors=True)
             return None
-
-        # Write cache metadata so `amplifier update` can track and refresh this cache
-        _sha_result = await asyncio.create_subprocess_exec(
-            "git",
-            "rev-parse",
-            "HEAD",
-            cwd=str(cache_path),
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        _sha_stdout, _ = await _sha_result.communicate()
-        _commit_sha = (
-            _sha_stdout.decode().strip() if _sha_result.returncode == 0 else ""
-        )
-        _meta = {
-            "cached_at": datetime.now().isoformat(),
-            "ref": ref,
-            "commit": _commit_sha,
-            "git_url": url,
-            "type": "skills",
-        }
-        (cache_path / ".amplifier_cache_meta.json").write_text(
-            json.dumps(_meta, indent=2), encoding="utf-8"
-        )
-
-        result_path = cache_path / subdirectory if subdirectory else cache_path
-        if result_path.exists():
-            logger.info(f"Resolved remote skill source: {source} -> {result_path}")
-            return result_path
-        else:
-            logger.warning(f"Subdirectory not found in cloned repo: {subdirectory}")
+        except Exception as e:
+            logger.error(f"Failed to clone skill source '{source}': {e}")
+            if tmp_path.exists():
+                shutil.rmtree(tmp_path, ignore_errors=True)
             return None
-
-    except subprocess.TimeoutExpired:
-        logger.error(f"Git clone timed out for: {url}")
-        if cache_path.exists():
-            shutil.rmtree(cache_path, ignore_errors=True)
-        return None
-    except Exception as e:
-        logger.error(f"Failed to clone skill source '{source}': {e}")
-        if cache_path.exists():
-            shutil.rmtree(cache_path, ignore_errors=True)
-        return None
 
 
 async def resolve_skill_sources(
@@ -190,7 +259,13 @@ async def resolve_skill_sources(
     """Resolve multiple skill sources to local directory paths.
 
     Processes sources in order, preserving priority (first source = highest priority).
-    Remote sources are fetched in parallel for efficiency.
+
+    Remote sources that share the same url@ref (and therefore the same cache_path)
+    are deduplicated BEFORE the concurrent gather: exactly one clone task fires per
+    unique cache_path.  Without this, N concurrent tasks would all observe an
+    in-progress clone as "directory exists but no metadata", log the destructive
+    "Removing corrupt skills cache" warning, rmtree the live clone, and re-clone —
+    resulting in N clones and N-1 spurious warnings.
 
     Args:
         sources: List of source strings (local paths or git URLs).
@@ -221,18 +296,42 @@ async def resolve_skill_sources(
             logger.debug(f"Local skill source does not exist: {path}")
             results[i] = None
 
-    # Resolve remote sources in parallel
     if remote_sources:
+        # Deduplicate by cache_path: sources sharing the same url@ref map to the
+        # same cache directory and must not be cloned concurrently.
+        # The first occurrence of each cache_path triggers the clone;
+        # subsequent occurrences resolve after the clone completes (cache hit).
+        seen_cache_paths: set[Path] = set()
+        unique_remote: list[tuple[int, str]] = []  # one representative per cache_path
+        dup_remote: list[tuple[int, str]] = []  # all others — will hit cache
+
+        for i, source in remote_sources:
+            _, _, _, cache_path = _parse_git_source(source, cache_dir)
+            if cache_path not in seen_cache_paths:
+                seen_cache_paths.add(cache_path)
+                unique_remote.append((i, source))
+            else:
+                dup_remote.append((i, source))
 
         async def resolve_with_index(i: int, source: str) -> tuple[int, Path | None]:
             path = await resolve_skill_source(source, cache_dir)
             return (i, path)
 
-        tasks = [resolve_with_index(i, source) for i, source in remote_sources]
-        remote_results = await asyncio.gather(*tasks)
-
-        for i, path in remote_results:
+        # Phase 1: clone unique repos concurrently.
+        # No two tasks in this gather share a cache_path, so there is no race.
+        unique_results = await asyncio.gather(
+            *[resolve_with_index(i, s) for i, s in unique_remote]
+        )
+        for i, path in unique_results:
             results[i] = path
+
+        # Phase 2: resolve duplicate sources — all hit the now-populated cache.
+        if dup_remote:
+            dup_results = await asyncio.gather(
+                *[resolve_with_index(i, s) for i, s in dup_remote]
+            )
+            for i, path in dup_results:
+                results[i] = path
 
     # Reconstruct ordered list, filtering out None values
     resolved_paths: list[Path] = []
