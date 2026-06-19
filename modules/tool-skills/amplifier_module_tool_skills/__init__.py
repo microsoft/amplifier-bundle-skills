@@ -498,6 +498,18 @@ Skill Discovery:
                     "type": "string",
                     "description": "Register a new skill source. Accepts @namespace:path, git+https:// URLs, or local paths.",
                 },
+                "arguments": {
+                    "type": "string",
+                    "description": (
+                        "User argument string for the skill, substituted into the "
+                        "skill body wherever it uses $ARGUMENTS (and positional $0, $1, ...). "
+                        "This is how a /command invocation's text (e.g. the target in "
+                        "`/council <target>`) reaches the skill. REQUIRED to pass through for "
+                        "fork skills: a forked sub-session cannot see the parent conversation, "
+                        "so without this its $ARGUMENTS is empty. When the user supplies "
+                        "argument text for a skill, always forward it here."
+                    ),
+                },
                 "context_depth": {
                     "type": "string",
                     "enum": ["none", "recent", "all"],
@@ -635,6 +647,12 @@ Skill Discovery:
                 },
             )
 
+        # User arguments for $ARGUMENTS / positional substitution. Critical for
+        # fork skills: a fork sub-session cannot see the parent conversation, so
+        # this is the only channel through which a /command's argument text
+        # (e.g. the target in `/council <target>`) reaches the forked body.
+        arguments = input.get("arguments") or None
+
         # Parent-context inheritance (fork skills only). Defaults to a clean
         # slate ("none") so non-fork skills and unaware callers are unaffected.
         context_depth = input.get("context_depth", ctx_inherit.DEFAULT_DEPTH)
@@ -643,6 +661,7 @@ Skill Discovery:
 
         return await self._load_skill(
             skill_name,
+            arguments=arguments,
             context_depth=context_depth,
             context_scope=context_scope,
             context_turns=context_turns,
@@ -796,6 +815,7 @@ Skill Discovery:
     async def _load_skill(
         self,
         skill_name: str,
+        arguments: str | None = None,
         context_depth: str = ctx_inherit.DEFAULT_DEPTH,
         context_scope: str = ctx_inherit.DEFAULT_SCOPE,
         context_turns: int = ctx_inherit.DEFAULT_TURNS,
@@ -805,6 +825,11 @@ Skill Discovery:
         Consults both local and runtime-overlay skills via
         get_effective_skills(); contributed skills from active modes
         are loadable here.
+
+        ``arguments`` is the user's argument string ($ARGUMENTS / positional
+        substitution). It is applied for both inline and fork skills. For fork
+        skills it is the ONLY channel by which a /command's argument text reaches
+        the forked body, since the fork cannot see the parent conversation.
 
         The context_* parameters only take effect for fork skills (see
         _execute_fork); inline skills ignore them because they already load
@@ -833,7 +858,7 @@ Skill Discovery:
             body = await preprocess(
                 body,
                 skill_dir=metadata.path.parent,
-                arguments=None,
+                arguments=arguments,
                 execute_shell=False,
             )
 
@@ -882,6 +907,7 @@ Skill Discovery:
                     skill_name,
                     metadata,
                     body,
+                    arguments=arguments,
                     context_depth=context_depth,
                     context_scope=context_scope,
                     context_turns=context_turns,
@@ -928,6 +954,7 @@ Skill Discovery:
         skill_name: str,
         metadata: Any,
         body: str,
+        arguments: str | None = None,
         context_depth: str = ctx_inherit.DEFAULT_DEPTH,
         context_scope: str = ctx_inherit.DEFAULT_SCOPE,
         context_turns: int = ctx_inherit.DEFAULT_TURNS,
@@ -938,6 +965,10 @@ Skill Discovery:
             skill_name: Name of the skill being executed.
             metadata: Skill metadata containing model/agent configuration.
             body: Raw (unpreprocessed) skill body content.
+            arguments: User argument string substituted into the body's
+                $ARGUMENTS / positional placeholders. This is the ONLY channel by
+                which a /command's argument text reaches the fork, since the fork
+                cannot see the parent conversation.
             context_depth: Parent-context inheritance amount ("none" | "recent" |
                 "all"). Defaults to "none" (clean slate — the historical fork
                 behavior).
@@ -953,11 +984,17 @@ Skill Discovery:
             # _execute_fork() is only called when coordinator is confirmed non-None
             assert self.coordinator is not None
 
-            # 1. Preprocess body with skill_dir and arguments
-            # Remote-source skills are untrusted — block shell execution
+            # 1. Preprocess body with skill_dir and arguments. Passing
+            # `arguments` here is what makes $ARGUMENTS (and positional $0/$1...)
+            # resolve inside the fork — the fork cannot see the parent
+            # conversation, so this is its only line to the user's intent.
+            # Remote-source skills are untrusted — block shell execution.
             is_trusted = not is_remote_source(metadata.source)
             processed_body = await preprocess(
-                body, skill_dir=metadata.path.parent, arguments=None, trusted=is_trusted
+                body,
+                skill_dir=metadata.path.parent,
+                arguments=arguments,
+                trusted=is_trusted,
             )
 
             # 1b. Optionally inherit parent-conversation context. By default
