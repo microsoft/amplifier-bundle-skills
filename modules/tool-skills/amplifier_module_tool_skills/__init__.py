@@ -18,6 +18,7 @@ try:
 except ImportError:  # foundation not installed in all deployment configs
     RUNTIME_SKILL_OVERLAY_CAPABILITY = "runtime_skill_overlay"  # type: ignore[assignment]
 
+from amplifier_module_tool_skills import context_inheritance as ctx_inherit
 from amplifier_module_tool_skills.discovery import SkillMetadata
 from amplifier_module_tool_skills.discovery import discover_skills
 from amplifier_module_tool_skills.discovery import discover_skills_multi_source
@@ -497,6 +498,49 @@ Skill Discovery:
                     "type": "string",
                     "description": "Register a new skill source. Accepts @namespace:path, git+https:// URLs, or local paths.",
                 },
+                "arguments": {
+                    "type": "string",
+                    "description": (
+                        "User argument string for the skill, substituted into the "
+                        "skill body wherever it uses $ARGUMENTS (and positional $0, $1, ...). "
+                        "This is how a /command invocation's text (e.g. the target in "
+                        "`/council <target>`) reaches the skill. REQUIRED to pass through for "
+                        "fork skills: a forked sub-session cannot see the parent conversation, "
+                        "so without this its $ARGUMENTS is empty. When the user supplies "
+                        "argument text for a skill, always forward it here."
+                    ),
+                },
+                "context_depth": {
+                    "type": "string",
+                    "enum": ["none", "recent", "all"],
+                    "description": (
+                        "FORK SKILLS ONLY. Controls HOW MUCH of the parent conversation "
+                        "the forked sub-session inherits. 'none' (DEFAULT) = clean slate, "
+                        "the sub-session sees only the skill body; 'recent' = the last N "
+                        "turns (N set by context_turns); 'all' = the full parent history. "
+                        "Ignored for non-fork (inline) skills, which already run in the "
+                        "current context. Default 'none' preserves the historical fork "
+                        "behavior, so omit it unless the forked skill genuinely needs "
+                        "parent context."
+                    ),
+                },
+                "context_turns": {
+                    "type": "integer",
+                    "description": (
+                        "FORK SKILLS ONLY. Number of recent turns to inherit when "
+                        "context_depth='recent' (default: 5). Ignored otherwise."
+                    ),
+                },
+                "context_scope": {
+                    "type": "string",
+                    "enum": ["conversation", "agents", "full"],
+                    "description": (
+                        "FORK SKILLS ONLY. Controls WHICH parent content is inherited when "
+                        "context_depth is not 'none'. 'conversation' (DEFAULT) = user/"
+                        "assistant text only; 'agents' = + delegate/task agent results; "
+                        "'full' = + all tool results (truncated). Ignored for non-fork skills."
+                    ),
+                },
             },
         }
 
@@ -603,7 +647,25 @@ Skill Discovery:
                 },
             )
 
-        return await self._load_skill(skill_name)
+        # User arguments for $ARGUMENTS / positional substitution. Critical for
+        # fork skills: a fork sub-session cannot see the parent conversation, so
+        # this is the only channel through which a /command's argument text
+        # (e.g. the target in `/council <target>`) reaches the forked body.
+        arguments = input.get("arguments") or None
+
+        # Parent-context inheritance (fork skills only). Defaults to a clean
+        # slate ("none") so non-fork skills and unaware callers are unaffected.
+        context_depth = input.get("context_depth", ctx_inherit.DEFAULT_DEPTH)
+        context_scope = input.get("context_scope", ctx_inherit.DEFAULT_SCOPE)
+        context_turns = input.get("context_turns", ctx_inherit.DEFAULT_TURNS)
+
+        return await self._load_skill(
+            skill_name,
+            arguments=arguments,
+            context_depth=context_depth,
+            context_scope=context_scope,
+            context_turns=context_turns,
+        )
 
     def get_effective_skills(self) -> dict[str, SkillMetadata]:
         """Return the merged static + runtime-overlay skill catalog.
@@ -750,12 +812,28 @@ Skill Discovery:
 
         return ToolResult(success=True, output=info)
 
-    async def _load_skill(self, skill_name: str) -> ToolResult:
+    async def _load_skill(
+        self,
+        skill_name: str,
+        arguments: str | None = None,
+        context_depth: str = ctx_inherit.DEFAULT_DEPTH,
+        context_scope: str = ctx_inherit.DEFAULT_SCOPE,
+        context_turns: int = ctx_inherit.DEFAULT_TURNS,
+    ) -> ToolResult:
         """Load full skill content.
 
         Consults both local and runtime-overlay skills via
         get_effective_skills(); contributed skills from active modes
         are loadable here.
+
+        ``arguments`` is the user's argument string ($ARGUMENTS / positional
+        substitution). It is applied for both inline and fork skills. For fork
+        skills it is the ONLY channel by which a /command's argument text reaches
+        the forked body, since the fork cannot see the parent conversation.
+
+        The context_* parameters only take effect for fork skills (see
+        _execute_fork); inline skills ignore them because they already load
+        into the parent's live context.
         """
         effective_skills = self.get_effective_skills()
         if skill_name not in effective_skills:
@@ -780,7 +858,7 @@ Skill Discovery:
             body = await preprocess(
                 body,
                 skill_dir=metadata.path.parent,
-                arguments=None,
+                arguments=arguments,
                 execute_shell=False,
             )
 
@@ -825,7 +903,15 @@ Skill Discovery:
         if metadata.context == "fork" and self.coordinator:
             spawn_fn = self.coordinator.get_capability("session.spawn")
             if spawn_fn is not None:
-                return await self._execute_fork(skill_name, metadata, body)
+                return await self._execute_fork(
+                    skill_name,
+                    metadata,
+                    body,
+                    arguments=arguments,
+                    context_depth=context_depth,
+                    context_scope=context_scope,
+                    context_turns=context_turns,
+                )
             else:
                 logger.warning(
                     f"Fork skill '{skill_name}' loaded inline (session.spawn not available)"
@@ -843,11 +929,35 @@ Skill Discovery:
             },
         )
 
+    async def _get_parent_messages(self) -> list[dict[str, Any]] | None:
+        """Fetch the parent session's full message history, or None if unavailable.
+
+        Mirrors the delegate tool: reads the mounted context manager and returns
+        its messages. Returns None (no inheritance) when context is unavailable
+        or errors — a legitimate "clean slate" state, not a masked failure.
+        """
+        if not self.coordinator:
+            return None
+        parent_context = self.coordinator.get("context")
+        if not parent_context or not hasattr(parent_context, "get_messages"):
+            logger.debug("No parent context available for fork inheritance")
+            return None
+        try:
+            messages = await parent_context.get_messages()
+            return messages if messages else None
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"Failed to get parent messages for fork: {e}")
+            return None
+
     async def _execute_fork(
         self,
         skill_name: str,
         metadata: Any,
         body: str,
+        arguments: str | None = None,
+        context_depth: str = ctx_inherit.DEFAULT_DEPTH,
+        context_scope: str = ctx_inherit.DEFAULT_SCOPE,
+        context_turns: int = ctx_inherit.DEFAULT_TURNS,
     ) -> ToolResult:
         """Execute a fork skill by delegating to a sub-session via spawn.
 
@@ -855,6 +965,16 @@ Skill Discovery:
             skill_name: Name of the skill being executed.
             metadata: Skill metadata containing model/agent configuration.
             body: Raw (unpreprocessed) skill body content.
+            arguments: User argument string substituted into the body's
+                $ARGUMENTS / positional placeholders. This is the ONLY channel by
+                which a /command's argument text reaches the fork, since the fork
+                cannot see the parent conversation.
+            context_depth: Parent-context inheritance amount ("none" | "recent" |
+                "all"). Defaults to "none" (clean slate — the historical fork
+                behavior).
+            context_scope: Which parent content to inherit ("conversation" |
+                "agents" | "full"). Only used when context_depth != "none".
+            context_turns: Number of recent turns when context_depth == "recent".
 
         Returns:
             ToolResult containing the delegate response, or an error ToolResult
@@ -864,12 +984,33 @@ Skill Discovery:
             # _execute_fork() is only called when coordinator is confirmed non-None
             assert self.coordinator is not None
 
-            # 1. Preprocess body with skill_dir and arguments
-            # Remote-source skills are untrusted — block shell execution
+            # 1. Preprocess body with skill_dir and arguments. Passing
+            # `arguments` here is what makes $ARGUMENTS (and positional $0/$1...)
+            # resolve inside the fork — the fork cannot see the parent
+            # conversation, so this is its only line to the user's intent.
+            # Remote-source skills are untrusted — block shell execution.
             is_trusted = not is_remote_source(metadata.source)
             processed_body = await preprocess(
-                body, skill_dir=metadata.path.parent, arguments=None, trusted=is_trusted
+                body,
+                skill_dir=metadata.path.parent,
+                arguments=arguments,
+                trusted=is_trusted,
             )
+
+            # 1b. Optionally inherit parent-conversation context. By default
+            # (context_depth == "none") a fork starts with a clean slate. When a
+            # caller opts in, we select+sanitize parent messages exactly like the
+            # delegate tool and prepend them to the body as a text preamble, so
+            # the sub-session sees them in its first user turn.
+            instruction = processed_body
+            if context_depth != "none":
+                parent_messages = await self._get_parent_messages()
+                inherited = ctx_inherit.build_inherited_context(
+                    parent_messages, context_depth, context_turns, context_scope
+                )
+                if inherited:
+                    context_block = ctx_inherit.format_parent_context(inherited)
+                    instruction = f"{context_block}\n\n[YOUR TASK]\n{processed_body}"
 
             # 2. Resolve model selection via resolve_skill_model() using metadata fields
             model_resolution = resolve_skill_model(
@@ -935,7 +1076,7 @@ Skill Discovery:
             # infinite recursion. No orchestrator_config marker needed.
             result = await spawn_fn(
                 agent_name="self",
-                instruction=processed_body,
+                instruction=instruction,
                 parent_session=parent_session,
                 agent_configs=agent_configs,
                 sub_session_id=sub_session_id,
