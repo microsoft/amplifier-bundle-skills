@@ -12,7 +12,6 @@ description: |
   Use when: a feature is being built because it's buildable rather than wanted, the happy path is
   celebrated while the recovery path is missing, or nobody can name the person this serves —
   any time the worry is "does the person we serve actually want this, and can they live with it?"
-allowed-tools: ["Read", "Grep", "Glob", "Bash", "WebSearch", "WebFetch", "Agent", "AskUserQuestion"]
 user-invocable: true
 shortcut: UA
 auto-activation:

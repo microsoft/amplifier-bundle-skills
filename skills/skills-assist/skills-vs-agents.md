@@ -174,7 +174,7 @@ When a skill graduates to an agent, nothing is thrown away. Every component of t
 | Companion files | Context files (loaded via `read_file` or bundle context) | Companion files become context files loaded in the agent's forked session. Same content, different loading mechanism. |
 | `description:` frontmatter | Agent `description:` in bundle agent roster | The description surfaces in `delegate` tool output. Write it to answer "when should I use this?" |
 | `model_role:` frontmatter | `model_role` in delegation or bundle config | Model role preference maps directly. Agents can additionally configure `provider_preferences` and dynamic routing. |
-| `allowed-tools:` frontmatter | Tool composition in bundle YAML | Tool allowlist becomes an explicit tool composition declaration. Agents can additionally configure per-tool settings. |
+| `allowed-tools:` frontmatter | Tool composition in bundle YAML | Values are Amplifier **module IDs** (e.g. `tool-filesystem`, `tool-bash`, `tool-delegate`, `tool-skills`) — not Claude Code tool names and not callable tool names. Becomes an explicit tool composition declaration in agents. A name matching no module yields an empty tool set. |
 | `context: fork` | `context_depth` + `context_scope` in delegation | Fork isolation maps to clean-slate delegation (`context_depth: none`). Agents get richer control: recent N turns, conversation-only, full with tool results. |
 
 ### What You Gain by Becoming an Agent

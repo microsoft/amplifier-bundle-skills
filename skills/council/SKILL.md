@@ -5,7 +5,6 @@ context: fork
 disable-model-invocation: true
 user-invocable: true
 model_role: critique
-allowed-tools: Read Grep Glob Bash Agent
 ---
 
 # Council: Convene the Persona Panel

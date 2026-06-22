@@ -70,7 +70,7 @@ The `name` and `description` fields are the only required frontmatter fields. Ev
 | `context` | enum: `fork` | `null` (none) | When set to `fork`, the skill runs in a fresh context window that does not inherit the caller's conversation history. Ideal for context-sink patterns where you want a clean slate. |
 | `model_role` | string | `general` | Preferred model role for executing this skill. Matched against the active routing matrix. Common values: `general`, `reasoning`, `coding`, `critique`. Only applies when `context: fork`. |
 | `user-invocable` | boolean | `false` | When `true`, registers the skill as a `/name` shortcut that users can invoke directly. Also lists the skill in `/skills` output. |
-| `allowed-tools` | string | all tools | Space-separated list of tool names the forked context is allowed to use. Example: `Read Grep Glob Bash`. Restricts the tool surface for security or focus. Only applies when `context: fork`. |
+| `allowed-tools` | string | all tools | Space-separated list of Amplifier **module IDs** the forked context is allowed to use (e.g. `tool-filesystem tool-search tool-bash`). NOT Claude Code tool names. A name matching no module yields an empty tool set. Omit to inherit the full parent tool surface. Only applies when `context: fork`. |
 | `disable-model-invocation` | boolean | `false` | When `true`, the skill body is loaded as a system prompt and the model is NOT called in the root context — it is expected to delegate immediately. Used for orchestrator patterns that spawn workers via `delegate`. |
 | `auto-load` | boolean | `false` | When `true`, the skill's body is automatically injected into the system prompt at session startup. Use sparingly — only for skills that must always be active. |
 | `license` | string | — | SPDX license identifier for the skill (e.g., `MIT`, `Apache-2.0`). Informational only. |
@@ -110,7 +110,7 @@ Skills are loaded lazily to conserve context. The skill loading system has three
 
 6. **Set `model_role` to match the task.** Amplifier routes forked contexts to specialized model roles. Use `reasoning` for architecture decisions, `critique` for code review, `coding` for implementation work, `general` for broad consultation. Incorrect role selection wastes model capacity.
 
-7. **Use `allowed-tools` to restrict surface area.** Orchestrator skills that only need to read files should set `allowed-tools: Read Grep Glob`. This prevents accidental writes and makes the skill's capability boundary explicit and auditable.
+7. **Use `allowed-tools` to restrict surface area.** Values are Amplifier **module IDs** — not Claude Code tool names and not callable tool names. A skill that needs read-only filesystem access should set `allowed-tools: tool-filesystem tool-search`. Add `tool-bash` for shell commands, `tool-delegate` for spawning subagents, `tool-skills` for loading skills. A name matching no module yields an **empty** tool set. If you don't need to restrict the surface, omit the field entirely — the fork then inherits the full parent tool surface.
 
 8. **Validate `$ARGUMENTS` at the top of the body.** If your skill requires arguments, add a guard check as the first step: check whether `$ARGUMENTS` is empty, and if so output a usage example and stop. Worker agents spawned from orchestrators cannot ask the user for missing information — the orchestrator must ensure arguments are complete before delegating.
 
@@ -342,7 +342,7 @@ description: "Run a parallel security audit across the codebase. Spawns speciali
 context: fork
 model_role: security-audit
 user-invocable: true
-allowed-tools: Read Grep Glob Bash
+allowed-tools: tool-filesystem tool-search tool-bash tool-delegate
 ---
 
 # Security Audit
@@ -379,7 +379,7 @@ Aggregate findings into a severity-ordered report:
 Include file:line citations for every finding.
 ```
 
-**Key features:** `context: fork` + `model_role: security-audit` for specialized routing, `user-invocable: true` for `/security-audit`, `allowed-tools: Read Grep Glob Bash` to restrict to read-only filesystem access, `$ARGUMENTS` with a guard check, parallel agent dispatch pattern.
+**Key features:** `context: fork` + `model_role: security-audit` for specialized routing, `user-invocable: true` for `/security-audit`, `allowed-tools: tool-filesystem tool-search tool-bash tool-delegate` (module IDs — restrict filesystem + shell + agent dispatch), `$ARGUMENTS` with a guard check, parallel agent dispatch pattern.
 
 ---
 
@@ -391,6 +391,6 @@ Five production skills in this bundle demonstrate the full range of patterns:
 |-------|---------|-------------|
 | **image-vision** | Reference / Tool Wrapper | Static body with companion files (`setup.md`, `patterns.md`, `examples/`); no fork; provides bash scripts for non-LLM work; `license: MIT` |
 | **code-review** | Fork + Parallel Agents | `context: fork`, `model_role: critique`, `disable-model-invocation: true`; launches 3 parallel review agents via `delegate`; `$ARGUMENTS` for focus areas |
-| **mass-change** | Fork + Orchestrator | `context: fork`, `model_role: reasoning`, `allowed-tools: Read Grep Glob Bash`; 3-phase workflow (research → plan → parallel workers); each worker creates a PR |
+| **mass-change** | Fork + Orchestrator | `context: fork`, `model_role: reasoning`, `disable-model-invocation: true`; 3-phase workflow (research → plan → parallel workers); each worker creates a PR |
 | **session-debug** | Fork + Specialist Delegation | `context: fork`, `model_role: general`, `disable-model-invocation: true`; immediately delegates to `session-analyst` agent; checks session config paths |
 | **skills-assist** | Fork + Context-Sink Expert | `context: fork`, `model_role: general`, `user-invocable: true`; 4 companion reference files loaded on demand; synthesizes answers without inventing content |

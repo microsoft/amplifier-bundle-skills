@@ -11,7 +11,6 @@ description: |
   Use when: the happy path is celebrated while the edges sit unexamined, "looks fine" is standing in
   for "I tried to break it and couldn't," or nobody has named the input that makes this fall over —
   any time the worry is "how does this fail, and where are the edges?"
-allowed-tools: ["Read", "Grep", "Glob", "Bash", "WebSearch", "WebFetch", "Agent", "AskUserQuestion"]
 user-invocable: true
 shortcut: TB
 auto-activation:

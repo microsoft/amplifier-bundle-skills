@@ -5,7 +5,6 @@ context: fork
 disable-model-invocation: true
 user-invocable: true
 model_role: general
-allowed-tools: Read Grep Glob Bash
 ---
 
 # Debug: Session Diagnostics

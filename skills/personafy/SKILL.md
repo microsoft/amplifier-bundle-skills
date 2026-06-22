@@ -11,16 +11,6 @@ description: >
   reusable reviewer skill. Also triggers on "personafy" / "personify".
 user-invocable: true
 shortcut: personify
-allowed-tools:
-  - read_file
-  - write_file
-  - edit_file
-  - bash
-  - glob
-  - grep
-  - delegate
-  - load_skill
-  - todo
 model_role: reasoning
 ---
 
@@ -121,6 +111,10 @@ Relationship-to-siblings section, and a Final Note. Match the family's frontmatt
 behavior grounded in the profile.
 **Rule:** keep the verbatim quotes — they are the highest-signal tokens and the soul of the
 persona.
+**Rule:** do NOT include `allowed-tools` in the generated SKILL.md. Persona advisor skills are
+inline (no `context: fork`), so the field is inert. If you must restrict tools for a fork-based
+variant, use Amplifier **module IDs** (e.g. `tool-filesystem`, `tool-bash`, `tool-delegate`) —
+never Claude Code tool names (`Read`, `Grep`, `Bash`, `Agent`).
 
 ### 6. Prove it steers in a live session
 
