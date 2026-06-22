@@ -9,7 +9,6 @@ description: |
   A lens for any checkpoint — brainstorm, design, plan, implement, debug, or review — not just design.
   Use when: anything looks more complex than the problem needs — a speculative idea, an abstraction,
   a layer, an over-built fix — any time the worry is "do we actually need this, or can it be deleted?"
-allowed-tools: ["Read", "Grep", "Glob", "Bash", "WebSearch", "WebFetch", "Agent", "AskUserQuestion"]
 user-invocable: true
 shortcut: COSam
 auto-activation:

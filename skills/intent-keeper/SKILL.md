@@ -10,7 +10,6 @@ description: |
   A lens for any checkpoint — brainstorm, design, plan, implement, debug, or review — not just kickoff.
   Use when: the deliverable has quietly become the goal, the build has wandered from the brief, or
   nobody can say in one sentence what success looks like — any time the worry is "is this still the real goal?"
-allowed-tools: ["Read", "Grep", "Glob", "Bash", "WebSearch", "WebFetch", "Agent", "AskUserQuestion"]
 user-invocable: true
 shortcut: IK
 auto-activation:

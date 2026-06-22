@@ -4,7 +4,6 @@ description: "Convene the persona panel on the CURRENT conversation / work-in-pr
 disable-model-invocation: true
 user-invocable: true
 model_role: critique
-allowed-tools: Read Grep Glob Bash Agent
 ---
 
 # Council-Here: Convene the Panel on the Current Context

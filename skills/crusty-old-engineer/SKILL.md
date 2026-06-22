@@ -9,7 +9,6 @@ description: |
   A lens for any checkpoint — brainstorm, design, plan, implement, debug, or review — not just up-front decisions.
   Use when: weighing consequences, hidden costs, or failure modes of any choice — an idea, an architecture,
   a tooling/legacy call, an implementation path, or a fix — any time the worry is "what will this cost us later?"
-allowed-tools: ["Read", "Grep", "Glob", "Bash", "WebSearch", "WebFetch", "Agent", "AskUserQuestion"]
 user-invocable: true
 shortcut: COE
 auto-activation:

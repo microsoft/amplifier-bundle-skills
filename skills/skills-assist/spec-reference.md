@@ -25,7 +25,7 @@ These fields are defined by the agentskills.io spec but are not yet required by 
 
 | Field | Required | Type | Description |
 |-------|----------|------|-------------|
-| `allowed-tools` | Optional | string | Space-separated list of tool names the forked context is permitted to use (e.g., `Read Grep Glob Bash`). Restricts the tool surface for security or focus. Only applies when `context: fork`. Harness support varies — not required by compliant harnesses. |
+| `allowed-tools` | Optional | string | Space-separated list of Amplifier **module IDs** the forked context is permitted to use (e.g., `tool-filesystem tool-search tool-bash`) — NOT Claude Code tool names and NOT callable tool names. A name matching no module yields an **empty** tool set; omit the field to inherit the full parent tool surface. Restricts the tool surface for security or focus. Only applies when `context: fork`. Harness support varies — not required by compliant harnesses. |
 | `hooks` | Optional | object | Lifecycle hooks executed at specific points (e.g., `on_load`, `on_complete`). Exact hook names and behavior are harness-defined. Harness support varies — not required by compliant harnesses. |
 
 ---
@@ -207,29 +207,21 @@ provider/model pairs based on the active matrix configuration.
 
 ---
 
-### Common Amplifier Tool Names for `allowed-tools`
+### Common Amplifier Module IDs for `allowed-tools`
 
-| Tool Name | What It Does |
-|-----------|-------------|
-| `read_file` | Read file contents |
-| `write_file` | Write/create files |
-| `edit_file` | Edit files via string replacement |
-| `bash` | Shell command execution |
-| `glob` | Find files by pattern |
-| `grep` | Search file contents with regex |
-| `web_search` | Search the web |
-| `web_fetch` | Fetch URL content |
-| `delegate` | Spawn sub-agents |
-| `load_skill` | Load other skills |
-| `recipes` | Execute multi-step recipes |
-| `LSP` | Language Server Protocol operations |
-| `python_check` | Python code quality checks |
-| `rust_check` | Rust code quality checks |
-| `containers` | Docker/Podman container management |
-| `nano-banana` | Visual AI analysis and generation |
-| `dot_graph` | DOT/Graphviz operations |
-| `todo` | Task tracking |
-| `mode` | Runtime mode management |
+`allowed-tools` matches Amplifier **module IDs** — NOT Claude Code names and NOT
+callable tool names (`read_file`, `bash`, etc.). Each module provides one or more
+callable tools, listed below. A name matching no module yields an **empty** tool
+set; omitting `allowed-tools` entirely inherits the full parent tool surface.
 
-This is a sampling of commonly used tools. The actual set available depends on
+| Module ID | Tools It Provides |
+|-----------|-------------------|
+| `tool-filesystem` | `read_file`, `write_file`, `edit_file`, `glob` |
+| `tool-search` | `grep`, `glob` |
+| `tool-bash` | `bash` |
+| `tool-delegate` | `delegate` (spawn sub-agents) |
+| `tool-skills` | `load_skill` (load other skills) |
+| `tool-web` | `web_search`, `web_fetch` |
+
+This is a sampling of commonly used modules. The actual set available depends on
 the session's bundle configuration. Consult `skills-assist` for the latest list.

@@ -388,7 +388,7 @@ user-invocable: true            # Registers as a slash command in the CLI
 auto-load: true                 # Activates at session start (for hook-based skills)
 
 # Tool scoping
-allowed-tools: Read Grep Glob Bash  # Restrict subagent's available tools
+allowed-tools: tool-filesystem tool-search tool-bash  # Module IDs — NOT Claude Code or callable tool names
 ---
 ```
 
@@ -401,7 +401,7 @@ allowed-tools: Read Grep Glob Bash  # Restrict subagent's available tools
 | `disable-model-invocation` | Prevents the model from loading the skill autonomously |
 | `user-invocable` | Registers the skill as a `/command` in the CLI |
 | `auto-load` | Skill activates at session start via embedded hooks |
-| `allowed-tools` | Restricts which tools the forked subagent can access |
+| `allowed-tools` | Restricts the forked subagent's tool surface. Values are **Amplifier module IDs** (e.g. `tool-filesystem`, `tool-search`, `tool-bash`, `tool-delegate`, `tool-skills`) — NOT Claude Code tool names and NOT callable tool names. A name matching no module yields an **empty** tool set. Omit entirely to inherit the full parent tool surface. |
 
 ### Creating a Simple Skill
 

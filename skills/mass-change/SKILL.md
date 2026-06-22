@@ -5,7 +5,6 @@ context: fork
 disable-model-invocation: true
 user-invocable: true
 model_role: reasoning
-allowed-tools: Read Grep Glob Bash
 ---
 
 # Batch: Parallel Work Orchestration
