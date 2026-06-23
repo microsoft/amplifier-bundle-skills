@@ -89,7 +89,7 @@ python examples/anthropic-vision.py image.png "prompt"
 
 - **JPEG/JPG** - Most common
 - **PNG** - With transparency
-- **GIF** - Static or animated
+- **GIF** - Static or animated (only the first frame is analyzed)
 - **WEBP** - Modern format
 
 **Max sizes:**
@@ -292,6 +292,20 @@ else
 fi
 ```
 
+**Exit codes are classified** so callers get an honest failure signal instead of
+a catch-all (this distinction matters: a missing key and a slow provider need
+different fixes):
+
+| Exit | Meaning | What to do |
+|------|---------|-----------|
+| `0` | Success | Use the output |
+| `1` | Usage error, or all configured providers failed (mixed/other errors) | Read stderr for the underlying error |
+| `3` | **No vision provider configured** (no API key present) | Set `GOOGLE_API_KEY` / `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` (or `AZURE_OPENAI_API_KEY` + `AZURE_OPENAI_ENDPOINT`) |
+| `4` | **provider_timeout** — provider(s) present but every attempt timed out within the bounded timeout | Increase the timeout (3rd arg), use a smaller image, or a faster provider |
+
+`vision-analyze-robust.sh` fails **fast and clearly** on exit `3`/`4` rather than
+hanging — a missing or slow provider surfaces immediately, not minutes later.
+
 ### 3. NEVER Fabricate Visual Observations
 
 **If vision analysis fails, you MUST:**
@@ -336,12 +350,29 @@ Vision API calls typically take 5-60 seconds:
 - OpenAI GPT-4: 8-20s
 
 The wrapper scripts handle timeouts with:
-- 60-second default timeout (configurable)
+- 60-second default timeout (configurable, always bounded)
 - Auto-fallback to faster providers (robust script)
 - Retry logic on transient failures
+- **Automatic screenshot downscaling** — every image is capped in **width**
+  (2000px) and bounded in **encoded payload size** (a real, fail-closed bound)
+  before it is sent (see `examples/image_utils.py`). This makes the "resize to
+  2000px max" guidance automatic so an un-capped full-page screenshot can't
+  produce an oversized, interruptible request. Downscaling is conservative:
+  downscale-only (never upscales), aspect preserved, LANCZOS, EXIF-aware. **It
+  caps width rather than the longest edge specifically so a tall full-page
+  capture is not squashed** — width is the dimension that text legibility
+  depends on. If a pathological image still exceeds the payload bound at the
+  width floor, it is re-encoded to JPEG, and if it still cannot fit the call
+  fails clearly rather than sending an oversized payload.
+
+> **Capture hygiene still matters.** For text-critical verification (small
+> numbers, labels, precise alignment), prefer **viewport-sized** captures over
+> aggressive full-page captures, and corroborate with browser/DOM facts — see
+> "Known Limitations for Web UI Analysis" above. The cap removes a hang risk; it
+> does not make vision reliable for sub-pixel typography.
 
 If still hitting timeouts:
-- Use smaller images (resize to 2000px max)
+- Use smaller images (capping is automatic, but viewport captures help most)
 - Simplify prompts
 - Use faster models (Gemini Flash)
 
@@ -349,7 +380,7 @@ If still hitting timeouts:
 
 **For interactive use:**
 1. Create venv: `cd image-vision && uv venv`
-2. Install SDKs: `uv pip install anthropic openai google-generativeai`
+2. Install SDKs: `uv pip install anthropic openai google-genai pillow`
 3. Set API keys: Export `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`
 
 **For agents:**
