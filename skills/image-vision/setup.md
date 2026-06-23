@@ -15,13 +15,14 @@ uv venv
 source .venv/bin/activate  # macOS/Linux
 # or: .venv\Scripts\activate  # Windows
 
-# Install all provider SDKs (recommended)
-uv pip install anthropic openai google-genai
+# Install all provider SDKs (recommended). pillow is required by all scripts --
+# it downscales/bounds screenshots before they are sent (see image_utils.py).
+uv pip install anthropic openai google-genai pillow
 
-# Or install only what you need
-uv pip install anthropic              # Claude only
-uv pip install openai                 # OpenAI + Azure OpenAI
-uv pip install google-genai           # Gemini only
+# Or install only what you need (always include pillow)
+uv pip install anthropic pillow       # Claude only
+uv pip install openai pillow          # OpenAI + Azure OpenAI
+uv pip install google-genai pillow    # Gemini only
 ```
 
 **Verify installation:**

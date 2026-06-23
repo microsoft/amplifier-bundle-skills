@@ -14,10 +14,12 @@ Requires:
 """
 
 import anthropic
-import base64
 import sys
 import os
 import time
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from image_utils import prepare_image_base64  # noqa: E402
 
 
 def analyze_image(image_path: str, prompt: str, max_retries: int = 2) -> str:
@@ -37,25 +39,10 @@ def analyze_image(image_path: str, prompt: str, max_retries: int = 2) -> str:
     
     client = anthropic.Anthropic(api_key=api_key)
     
-    # Read and encode image
-    try:
-        with open(image_path, "rb") as f:
-            image_data = base64.standard_b64encode(f.read()).decode("utf-8")
-    except FileNotFoundError:
-        raise FileNotFoundError(f"Image not found: {image_path}")
-    except Exception as e:
-        raise RuntimeError(f"Failed to read image: {e}")
-    
-    # Detect media type from extension
-    ext = image_path.lower().split('.')[-1]
-    media_types = {
-        "jpg": "image/jpeg",
-        "jpeg": "image/jpeg",
-        "png": "image/png",
-        "gif": "image/gif",
-        "webp": "image/webp"
-    }
-    media_type = media_types.get(ext, "image/jpeg")
+    # Read, downscale, and bound the payload before sending (see image_utils).
+    # This caps screenshot size so a large image can't produce an oversized,
+    # interruptible request that hangs.
+    image_data, media_type = prepare_image_base64(image_path)
     
     # Call Claude with vision (with retry logic)
     for attempt in range(max_retries):
