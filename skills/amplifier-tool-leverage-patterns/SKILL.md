@@ -67,7 +67,7 @@ Building a level "to complete the set" is over-engineering. **Prove each level w
 
 ## Worked exemplar: repo-weaver
 
-[`repo-weaver`](https://github.com/bkrabach/amplifier-bundle-repo-weaver) demonstrates all four levels, **each proven**:
+[`repo-weaver`](https://github.com/microsoft/amplifier-app-repo-weaver) demonstrates all four levels, **each proven**:
 
 - **L1** — its `.dot` pipeline ran end-to-end in the Resolve dot-graph resolver inside a DTU.
 - **L2** — exports a public API for direct import.
