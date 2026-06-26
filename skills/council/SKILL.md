@@ -54,6 +54,9 @@ the surrounding chat) → continue to Phase 1.
 Usage: /council <target>          (isolated review of an external target)
        /council-here [focus]      (review the CURRENT conversation / plan)
 
+Not sure which? You can't really pick wrong — point /council at the current
+conversation and it auto-routes to /council-here.
+
 A /council target can be:
   - an idea or design described in plain, self-contained text
   - a file path (a spec, design doc, or source file)
