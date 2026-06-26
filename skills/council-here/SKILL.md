@@ -43,27 +43,23 @@ tradeoffs** made, and any **constraints**. Be **faithful and neutral** — captu
 was decided and *why*, **not** your own opinion of it. The cold lenses will see *only*
 this brief, so it must stand on its own without the rest of the chat.
 
-## Phase 1 — Convene (lean + cold)
+## Phase 1 — Convene (cold + independent)
 
-To keep this session's context lean **and** the lenses cold/independent, run the panel
-inside a delegated worker rather than fanning out inline:
+You are running **inline** in this session, so **you** have the `delegate` tool — fan the
+lenses out **directly from here.** Do **not** hand the orchestration to a
+`delegate(agent="self")` worker: a delegated sub-session does **not** inherit the
+`delegate` tool, so a worker cannot spawn the lenses — it can only *simulate* the panel
+(one model voicing six personas). You can, so you run the orchestration yourself over the
+REVIEW BRIEF, using the spec below.
 
-```
-delegate(
-  agent="self",
-  context_depth="none",
-  instruction = <the REVIEW BRIEF> + "\n\n" + <the Orchestration Spec below>
-)
-```
-
-The worker runs the full council over the brief and returns **only** the roster
-manifest + synthesized verdict. Relay that to the user verbatim (it is the work
-product). This mirrors `/council`'s context-isolation benefit while still being seeded
-with the local context the fork could never see.
+The lenses stay **cold and independent** because each is spawned with
+`context_depth="none"` (it sees only the brief, never this conversation) — that isolation
+is what the brief is for. Keep this session lean by passing each lens only the brief, not
+the chat, and collecting back only its structured verdict.
 
 ---
 
-## Orchestration Spec — hand this (with the brief) to the worker
+## Orchestration Spec — run this yourself over the REVIEW BRIEF
 
 > Keep in sync with `council/SKILL.md` Phases 1–5. The TARGET is the REVIEW BRIEF above.
 
