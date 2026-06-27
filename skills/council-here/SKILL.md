@@ -43,6 +43,22 @@ tradeoffs** made, and any **constraints**. Be **faithful and neutral** — captu
 was decided and *why*, **not** your own opinion of it. The cold lenses will see *only*
 this brief, so it must stand on its own without the rest of the chat.
 
+**Source discipline (critical).** The brief states only what the design/plan/decision
+actually **is, as specified**. Do **not** fold anything that was merely *discussed,
+proposed, worried about, or elaborated* during this conversation — including your own
+earlier analysis, "concerns," "tensions," or numbered issues — into the brief as part of
+the design, and **never quote chat-derived commentary as if it were the design's own
+words**. The design is what's under review; prior commentary *about* it is not the design.
+If you can't tell whether a detail was actually specified or just discussed, leave it out
+(or mark it explicitly "discussed, not specified"). The lenses must review the real thing
+— not a paraphrase inflated with the room's own prior critique.
+
+**No target, no panel (fail loud).** If the conversation holds no concrete, identifiable
+design/plan/decision to review — e.g. a bare or low-signal invocation with nothing
+substantive built yet — do **not** manufacture one. Say so plainly and ask what to review.
+Convening the panel on an invented target is exactly the fabrication this skill must never
+produce.
+
 ## Phase 1 — Convene (cold + independent)
 
 You are running **inline** in this session, so **you** have the `delegate` tool — fan the
