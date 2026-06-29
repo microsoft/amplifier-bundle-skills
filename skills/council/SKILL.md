@@ -1,6 +1,6 @@
 ---
 name: council
-description: "Convene the persona panel (six orthogonal review lenses) on a target — cold independent fan-out, debate-to-consensus, synthesized verdict with recorded dissent and a roster manifest."
+description: "Convene the persona panel (seven orthogonal review lenses) on a target — cold independent fan-out, debate-to-consensus, synthesized verdict with recorded dissent and a roster manifest."
 context: fork
 disable-model-invocation: true
 user-invocable: true
@@ -75,8 +75,8 @@ Examples:
 
 ## Phase 1: Resolve the Roster
 
-The **bench (v1) is exactly six personas** — no larger pool exists. "Bench" ==
-these six.
+The **bench (v2) is exactly seven personas** — no larger pool exists. "Bench" ==
+these seven.
 
 **Mandatory core** (always included — hard-coded, never drop one):
 
@@ -84,6 +84,7 @@ these six.
 - **cranky-old-sam** — "Why does this exist at all? What can be deleted?"
 - **crusty-old-engineer** — "What will this cost to run/own later?"
 - **restless-old-brian** — "Is it REAL, proven end-to-end, in the right order?"
+- **mj** — "We can — but should we? Does it make sense, and so what?"
 
 **Conditional lenses** (default-on; included **unless you judge them clearly
 N/A** for this target — record the decision, included **or** excluded, **with a
@@ -97,17 +98,18 @@ one-line reason** in the roster manifest):
   executable code.
 
 **`consult_everyone` bypass.** If the user asked for "everyone" or the "full
-panel," bypass the triggers and run all six regardless of task signal. Even when
+panel," bypass the triggers and run all seven regardless of task signal. Even when
 a conditional lens is excluded, the manifest must still record it as excluded
 **with the one-line reason** — exclusion is an auditable decision, not a silent
 drop.
 
 > **Where each lens lives.** intent-keeper, cranky-old-sam, crusty-old-engineer,
 > user-advocate, and tester-breaker are skills in **this** bundle (load by name).
-> **restless-old-brian currently lives in
-> `microsoft-amplifier/amplifier-bundle-made-support`, not this bundle.** If that
-> bundle is not installed, its skill will not load — see Graceful Degradation in
-> Phase 3.
+> Two lenses live in **other** bundles: **restless-old-brian** in
+> `microsoft-amplifier/amplifier-bundle-made-support`, and **mj** in the
+> `occams-machete` bundle (`michaeljabbour/amplifier-bundle-occams-machete`). If
+> either bundle is not installed, that lens's skill will not load — see Graceful
+> Degradation in Phase 3.
 
 ---
 
