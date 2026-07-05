@@ -46,6 +46,21 @@ Two failure modes to refuse:
 1. **Don't re-implement logic in the `.dot`.** If the core is deterministic, the `.dot` calls it — it does not reproduce it.
 2. **Don't fold a dependency's private engine into your `.dot`.** Keep dependencies behind their public CLI/subprocess boundary. Low coupling beats a fast path that reaches into someone else's internals.
 
+## Sharing across repos without vendoring
+
+When one leverage-repo builds on another (repo-weaver on wiki-weaver), you'll reuse something across a repo boundary. Split the decision by cost and coupling:
+
+- **Heavy / stateful / LLM engine → keep it behind the public boundary.** Shell the other tool's CLI (L4) or compose its `.dot` as a subgraph (L1). Never import its internals — this is failure mode #2 above.
+- **Cheap / structural / deterministic facts (paths, layout constants, schemas) → a direct import beats duplication.** Copied constants drift silently; a single source of truth doesn't. Make the upstream a real dependency and import them — this does NOT violate the DRY rule, it honors it across the repo boundary.
+
+To import across repos without vendoring:
+
+1. **Declare the upstream as a git dependency** — `upstream @ git+https://…@main` (companion repos usually aren't on PyPI). Hatchling needs `[tool.hatch.metadata]  allow-direct-references = true` to build a wheel with a direct-URL dep.
+2. **Guard against drift with a contract test** that asserts your expected values equal the upstream's exported constants — CI fails the moment they diverge.
+3. **Merge order follows the dependency** — the upstream change lands on `main` first (so `@main` resolves the new symbols), then the downstream flips its pin and merges. Same producer→consumer ordering as any cross-repo change.
+
+Evidence: repo-weaver imports wiki-weaver's `WIKI_DIR` / `_sources` / path-helper constants exactly this way (single source of truth for corpus layout), while keeping the synthesis engine behind the subprocess boundary.
+
 ## The judgment: which levels do I actually need?
 
 **Do NOT build all four by default.** Build the level a *real consumer* demands:
@@ -74,7 +89,7 @@ Building a level "to complete the set" is over-engineering. **Prove each level w
 - **L3** — ships `tool-repo-weaver` (3 tools), proven to return real cited output.
 - **L4** — its CLI ran across 30 repos.
 
-Its **deterministic git→docs core lives in the lib**; the LLM synthesis is delegated to the external `wiki-weaver` engine **via subprocess** (`dependencies = []`, crossed only at the process boundary) — the public-boundary, low-coupling choice the DRY rule above prescribes. Read its `ARCHITECTURE.md` for the boundary in detail.
+repo-weaver crosses into `wiki-weaver` at **two deliberately different boundaries**. Its **deterministic git→docs core lives in the lib**; the heavy LLM synthesis engine stays behind `wiki-weaver`'s **CLI/subprocess** boundary (never imported — low coupling). But the cheap, structural **corpus-layout constants** are a **direct Python import** from `wiki-weaver`'s lib (`wiki-weaver @ git+…@main`), so layout has one source of truth instead of duplicated literals — guarded by a contract test that fails if the two drift. See "Sharing across repos without vendoring" above, and its `ARCHITECTURE.md`, for the boundary in detail.
 
 ## Future levels (extensions, not part of the core four)
 
