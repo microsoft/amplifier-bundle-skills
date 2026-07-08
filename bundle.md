@@ -29,6 +29,7 @@ Provides the [Agent Skills](https://agentskills.io/specification) system for Amp
 | **config-state-patterns** | Configuration files with defaults merging, atomic state writes, conventional file locations (XDG), safe concurrent access |
 | **http-service-patterns** | FastAPI lifecycle, SPA + API reverse proxy, bidirectional WebSocket relay, SSE event streaming |
 | **auth-tls-patterns** | Localhost bypass, PAM/password/auto-generate auth cascade, token auth, TLS auto-setup (Tailscale/mkcert/self-signed) |
+| **msgraph-integration-patterns** | Probing, building, troubleshooting Microsoft Graph APIs from browser SPAs with MSAL.js; OData quirks, permissions/consent, recordings/transcripts, CSP, retry patterns, MSAL/EasyAuth auth loops |
 | **self-managing-tool-patterns** | Doctor diagnostics, PEP 610 install detection, self-update, cross-platform service install (systemd/launchd) |
 | **file-ipc-patterns** | Filesystem IPC without a message broker — JSONL event logs, atomic state snapshots, async request/response, SSE from file tail |
 | **instance-storage-patterns** | Per-instance isolated directories, file locking with `defaultdict(Lock)`, prepare-once/create-many session factories |
