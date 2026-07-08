@@ -42,7 +42,7 @@ allow-direct-references = true
 dev = [
     "amplifier-core",
     "pyright>=1.1.406",
-    "pytest>=8.4.2",
+    "pytest>=9.0.3",
     "pytest-asyncio>=1.2.0",
     "ruff>=0.14.1",
 ]
