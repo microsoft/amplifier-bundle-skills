@@ -5,8 +5,9 @@ description: >
   deciding how to expose it — as standalone .dot attractor pipelines (incl.
   inside the Resolve dot-graph resolver), an importable Python lib, agent-callable
   tool modules, or a CLI. Covers the four leverage levels, the DRY rule that keeps
-  logic in ONE home, and the judgment for which levels a real consumer actually
-  needs (and when adding a level is just ceremony).
+  logic in ONE home, the judgment for which levels a real consumer actually needs
+  (and when adding a level is just ceremony), and the maximally-DRY attractor-only
+  specialization where the .dot pipeline is the sole logic home.
 ---
 
 # Amplifier Tool Leverage Levels
