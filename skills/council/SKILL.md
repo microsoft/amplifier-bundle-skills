@@ -1,6 +1,6 @@
 ---
 name: council
-description: "Convene the persona panel (six orthogonal review lenses) on a target — cold independent fan-out, debate-to-consensus, synthesized verdict with recorded dissent and a roster manifest."
+description: "Convene the persona panel (seven orthogonal review lenses) on a target — cold independent fan-out, debate-to-consensus, synthesized verdict with recorded dissent and a roster manifest."
 context: fork
 disable-model-invocation: true
 user-invocable: true
@@ -75,8 +75,8 @@ Examples:
 
 ## Phase 1: Resolve the Roster
 
-The **bench (v1) is exactly six personas** — no larger pool exists. "Bench" ==
-these six.
+The **bench (v1) is exactly seven personas** — no larger pool exists. "Bench" ==
+these seven.
 
 **Mandatory core** (always included — hard-coded, never drop one):
 
@@ -95,16 +95,19 @@ one-line reason** in the roster manifest):
 - **tester-breaker** — "How do I make this fail? Where are the edges?"
   Include when there's a **runnable/testable artifact**: a repo, a diff, or
   executable code.
+- **show-me** — "Can a recipient who can't verify trust this is real, done, and honestly reported?"
+  Include when work is **handed off with completion or factual claims** — a "done"/"working" status, numbers, facts, or generated assets — that the recipient cannot independently check.
 
 **`consult_everyone` bypass.** If the user asked for "everyone" or the "full
-panel," bypass the triggers and run all six regardless of task signal. Even when
+panel," bypass the triggers and run all seven regardless of task signal. Even when
 a conditional lens is excluded, the manifest must still record it as excluded
 **with the one-line reason** — exclusion is an auditable decision, not a silent
 drop.
 
-> **Where each lens lives.** All six lenses — intent-keeper, cranky-old-sam,
-> crusty-old-engineer, restless-old-brian, user-advocate, and tester-breaker — are
-> skills in **this** bundle (load by name). No cross-bundle dependency.
+> **Where each lens lives.** All seven lenses — intent-keeper, cranky-old-sam,
+> crusty-old-engineer, restless-old-brian, user-advocate, tester-breaker, and
+> show-me — are skills in **this** bundle (load by name). No cross-bundle dependency.
+
 
 ---
 
