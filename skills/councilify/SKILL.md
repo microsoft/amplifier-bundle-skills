@@ -81,45 +81,82 @@ design artifact.
 template from memory, and name why `council-here` is inline while `council`
 forks.
 
-### 2. Frame the domain and mine candidate lenses
+### 2. Derive the domain's ideal roster — BLIND to the existing inventory first
 
 Name the domain's **target class** (what artifact does this council review?) and
-**stage** (when in the lifecycle?). Then mine real domain-leadership archetypes
-for the distinct perspectives that domain demands. For each candidate: one
-load-bearing question, the archetype/framework it's grounded in, and a one-line
-voice.
+**stage** (when in the lifecycle?). Then derive, independently of what already
+exists, the distinct perspectives that domain genuinely demands — mining real
+domain-leadership archetypes for each. For each candidate: one load-bearing
+question, the archetype/framework it's grounded in, and a one-line voice.
+
+**Do this before looking at the installed skill inventory.** Naming what already
+exists first biases the derivation toward "what we have" instead of "what the
+domain actually needs" — the two can look similar, but a roster built the second
+way is more likely to contain the ideal makeup rather than a locally-convenient
+one.
 
 - **Execution:** Delegate parallel `model_role="research"` agents to gather
   archetype evidence per candidate lens; each writes findings to disk, returns a
-  thin summary.
+  thin summary. Explicitly instruct each research agent NOT to consult or let
+  its own visible skill list bias which perspectives it proposes — derive from
+  the domain's real leadership archetypes and literature, not from what
+  happens to already be installed.
+
+**Honest limitation, stated plainly (verified directly, not assumed):** on this
+platform, a `delegate`-spawned sub-session — even with `context_depth="none"` —
+still receives an unconditional `hooks-skills-visibility` system-reminder
+listing dozens of installed skill names, regardless of what it was told or
+asked to do. This was confirmed by direct test: a cold, context-free sub-agent
+reported seeing the full skill list before any instruction reached it. **True
+technical isolation from the inventory is not currently achievable via
+`delegate` alone on this platform.** Treat the "don't consult the inventory"
+instruction above as a *policy constraint you are asking the model to honor*,
+not an architectural guarantee — and say so if you rely on it. If a stronger
+guarantee is ever needed, that requires a different mechanism than same-platform
+`delegate` (e.g., an external process with no skill-visibility hook at all);
+don't claim isolation you haven't verified holds.
 
 **Success criteria:** A candidate list where each entry has ONE question grounded
-in a named archetype, not a vibe.
+in a named archetype, not a vibe — derived from the domain's real needs first.
 
-### 3. Additive test — inventory and route every candidate
+### 3. Reconcile against the installed inventory — route every candidate
 
-Enumerate the FULL installed inventory before building anything:
-`load_skill(list=true)` for all lens skills, and identify every existing panel —
-`council` (6: intent-keeper, cranky-old-sam, crusty-old-engineer,
-restless-old-brian, user-advocate, tester-breaker), `design-council` (7 design
-lenses), `adversarial-review` (6: SRE, security, staff engineer, finance,
-operator, developer advocate — production/operational risk of a system design;
-note it also ships a recipe-callable `systems-design-critic` agent form of the
-same bench, a third composition pattern worth considering in Step 6's optional
-extension), plus any others surfaced by the inventory scan.
+Only now enumerate the FULL installed inventory: `load_skill(list=true)` for all
+lens skills, and identify every existing panel — `council` (6: intent-keeper,
+cranky-old-sam, crusty-old-engineer, restless-old-brian, user-advocate,
+tester-breaker), `design-council` (7 design lenses), `adversarial-review` (6:
+SRE, security, staff engineer, finance, operator, developer advocate —
+production/operational risk of a system design; note it also ships a
+recipe-callable `systems-design-critic` agent form of the same bench, a third
+composition pattern worth considering in Step 6's optional extension), plus any
+others surfaced by the inventory scan.
 
-Build a **coverage matrix**: candidate lens × existing lenses. Route each
-candidate to exactly one of:
+Build a **coverage matrix**: the Step 2 candidate list × existing lenses. Route
+each candidate to exactly one of:
 - **REUSE** — an existing lens already owns this exact question → compose by
   reference; record its home bundle + graceful-degradation note.
 - **BUILD-skill** — a real, distinct review question with no owner → Step 5.
 - **BUILD-agent** — not a review lens at all but an *active builder/specialist*
   → Step 4.
 
+**Don't let reconciliation silently re-inflate what Step 2 derived as ideal.**
+If an existing lens is a near-but-imperfect match for a Step 2 candidate,
+check whether it's a genuine REUSE or whether accepting it is convenience
+posing as fit — a real mismatch is still a BUILD, even if something adjacent
+already exists.
+
 Then apply the **needs-its-own-council test** (all three required): distinct
 target class; ≥4–5 net-new orthogonal lenses; folding them into an existing bench
 would make it incoherent or oversized (>~8). If it fails, STOP and recommend
 `personafy`-ing the 1–2 new lenses into the existing council instead.
+
+**Don't fix the headcount before this step produces it.** Naming a target
+number ("we want N lenses") before deriving the roster is the same bias this
+step exists to prevent, aimed at a different constraint — the count is an
+output of Steps 2–3, not an input to them. If real evidence (multiple
+independent derivations, actual usage history, a genuine overlap check) later
+argues for a different count than what a single pass produced, that's a reason
+to re-derive, not to trim or pad toward a number decided in advance.
 
 #### Bench-size guidance (a strong default, not a gate)
 
