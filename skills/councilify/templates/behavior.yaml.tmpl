@@ -1,0 +1,22 @@
+<!--
+councilify template: council behavior.yaml.
+Ground truth: amplifier-bundle-design-council/behaviors/design-council.yaml
+Fill every {{PLACEHOLDER}}, then delete this instruction block and the
+surrounding comment markers (this file must be valid YAML once filled — move
+this note out or convert to a '#' YAML comment before writing the final file).
+-->
+bundle:
+  name: {{DOMAIN}}-council
+  version: 0.1.0
+  description: "{{DOMAIN_TITLE}} Council — {{LENS_COUNT}} orthogonal {{DOMAIN_TITLE}} evaluation lenses"
+
+tools:
+  - module: tool-skills
+    source: git+https://github.com/microsoft/amplifier-bundle-skills@main#subdirectory=modules/tool-skills
+    config:
+      skills:
+        - "@{{DOMAIN}}-council:skills"
+
+context:
+  include:
+    - {{DOMAIN}}-council:context/{{DOMAIN}}-council-awareness.md

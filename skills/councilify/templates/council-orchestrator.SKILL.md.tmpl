@@ -1,0 +1,265 @@
+<!--
+councilify template: fork-mode council orchestrator.
+
+Ground truth this is derived from (re-verify against these if either changes):
+  - amplifier-bundle-skills/skills/council/SKILL.md              (repo-digest shape, 5 phases)
+  - amplifier-bundle-design-council/skills/design-council/SKILL.md (no-digest shape, 4 phases)
+
+HOW TO USE THIS TEMPLATE
+1. Fill every {{PLACEHOLDER}}.
+2. Decide ONCE, up front, whether this domain needs a pre-digest phase:
+   - YES (repo/large-artifact targets, like /council)  -> keep Phase 2 as written
+     below; phases are numbered 1,2,3,4,5.
+   - NO (single self-contained artifact targets, like /design-council) -> DELETE
+     the entire "Phase 2: Existing-{{TARGET_NOUN}} Handling" section below and
+     renumber: old Phase 3 (fan-out) becomes Phase 2, old Phase 4 (debate)
+     becomes Phase 3, old Phase 5 (synthesize) becomes Phase 4. Also delete the
+     "(plus the {{PREDIGEST_ARTIFACT_NAME}} if provided)" clause from the Phase
+     3/2 fan-out instruction.
+3. Choose ONE roster shape in Phase 1 (mandatory+conditional, or all-mandatory)
+   and delete the other.
+4. Delete this instruction comment block before writing the final file.
+-->
+---
+name: {{DOMAIN}}-council
+description: "Convene the {{DOMAIN_TITLE}} Council ({{LENS_COUNT}} orthogonal {{DOMAIN_TITLE}} lenses) on a target — cold independent fan-out, debate-to-consensus, synthesized verdict with recorded dissent and a roster manifest."
+context: fork
+disable-model-invocation: true
+user-invocable: true
+model_role: critique
+---
+
+# {{DOMAIN_TITLE}} Council: Convene the Panel
+
+You are the **concierge**. You orchestrate a panel of orthogonal {{DOMAIN_TITLE}}
+review lenses over a target, drive a debate-to-consensus loop, and synthesize a
+verdict with recorded dissent. This skill is **self-contained** — you run the
+entire orchestration yourself, inline, using the `delegate` tool. You do **not**
+call any recipe.
+
+## User Instruction
+
+$ARGUMENTS
+
+---
+
+## Guard Check — Run This First
+
+`/{{DOMAIN}}-council` runs **isolated (forked)** — it **cannot see this
+conversation.** It reviews an **explicit external target** you name. Triage
+`$ARGUMENTS` before doing anything:
+
+**Step 1 — empty?** If `$ARGUMENTS` is empty or absent, output the Usage block
+below and stop.
+
+**Step 2 — a reference to the current conversation? AUTO-ROUTE to
+{{DOMAIN}}-council-here.** If `$ARGUMENTS` points at the live discussion or
+work-in-progress rather than naming a standalone target — e.g. "this plan",
+"this", "thoughts on this", "what we discussed", "the above", or any pronoun
+with no external antecedent — then it is **local context this fork cannot see.**
+Do **NOT** stumble, guess, or go hunting for a file. Instead, say out loud,
+exactly:
+
+> "⚠️ Reviewing **local context**: `/{{DOMAIN}}-council` runs isolated and
+> can't see this conversation, so I'm routing this to
+> **{{DOMAIN}}-council-here**, which reviews what we're working on now. (Re-run
+> `/{{DOMAIN}}-council <target>` if you meant an isolated external review.)"
+
+Then **STOP and hand back to the main session to run `{{DOMAIN}}-council-here`**
+(i.e. the caller should `load_skill` **{{DOMAIN}}-council-here** and convene on
+the current conversation). Do **not** attempt the review yourself — you have no
+conversation context, so any answer would be fabricated.
+
+**Step 3 — a real external target? Proceed.** {{TARGET_CLASS_DESCRIPTION}} →
+continue to Phase 1.
+
+```
+Usage: /{{DOMAIN}}-council <target>          (isolated review of an external target)
+       /{{DOMAIN}}-council-here [focus]      (review the CURRENT conversation / plan)
+
+A /{{DOMAIN}}-council target can be:
+{{TARGET_EXAMPLES}}
+
+Examples:
+{{USAGE_EXAMPLES}}
+```
+
+---
+
+## Phase 1: Resolve the Roster
+
+The **bench (v1) is exactly {{LENS_COUNT}} lenses** — no larger pool exists.
+"Bench" == these {{LENS_COUNT}}.
+
+<!-- ROSTER SHAPE A — mandatory + conditional (use if some lenses only apply to
+     certain target shapes, like /council's user-advocate/tester-breaker). -->
+
+**Mandatory core** (always included — hard-coded, never drop one):
+
+- **{{lens-1}}** — "{{load-bearing question 1}}"
+- **{{lens-2}}** — "{{load-bearing question 2}}"
+
+**Conditional lenses** (default-on; included **unless you judge them clearly
+N/A** for this target — record the decision, included **or** excluded, **with a
+one-line reason** in the roster manifest):
+
+- **{{lens-3}}** — "{{load-bearing question 3}}"
+  Include when {{trigger condition}}.
+
+**`consult_everyone` bypass.** If the user asked for "everyone" or the "full
+panel," bypass the triggers and run all {{LENS_COUNT}} regardless of task
+signal. Even when a conditional lens is excluded, the manifest must still
+record it as excluded **with the one-line reason** — exclusion is an auditable
+decision, not a silent drop.
+
+<!-- ROSTER SHAPE B — all mandatory (use if every lens applies to every target
+     in this domain and the bench is small, like /design-council). Delete
+     Shape A above if using this shape instead.
+
+The bench is **exactly {{LENS_COUNT}} lenses — all {{LENS_COUNT}} are mandatory
+core.** There is **no conditional inclusion** and no larger pool. Every
+{{DOMAIN_TITLE}} evaluation benefits from all {{LENS_COUNT}} perspectives.
+Record all {{LENS_COUNT}} as included in the roster manifest.
+
+- **{{lens-1}}** — "{{load-bearing question 1}}"
+- **{{lens-2}}** — "{{load-bearing question 2}}"
+-->
+
+> **Where each lens lives.** {{IN_BUNDLE_LENSES}} are skills in **this** bundle
+> (load by name). {{REUSED_LENSES_NOTE}}
+
+<!-- REUSED_LENSES_NOTE example (only include if any lens is reused
+cross-bundle, the restless-old-brian-from-made-support precedent):
+"**{{reused-lens}}** currently lives in `{{owning-org}}/{{owning-bundle}}`, not
+this bundle. If that bundle is not installed, its skill will not load — see
+Graceful Degradation in Phase 3." -->
+
+---
+
+## Phase 2: Existing-{{TARGET_NOUN}} Handling ({{PREDIGEST_TRIGGER}} targets only)
+
+<!-- DELETE this entire phase (and renumber phases 3/4/5 down to 2/3/4) if this
+     domain has no large-artifact-crawl case — see instruction block at top. -->
+
+If the target is a {{PREDIGEST_TRIGGER}}, do **not** make every lens crawl the
+whole thing independently — it's expensive and each would map it differently.
+Instead:
+
+1. **Run ONE neutral `foundation:explorer` digest first.** Use `delegate` to
+   produce a **factual, judgment-free** digest: {{DIGEST_CONTENTS}}. **Neutral
+   by contract — it maps, it does not opine.** A pre-baked verdict would bias
+   the panel.
+2. **Pass the digest + the target to every lens.** The digest is the shared
+   map; each lens reads deeper into exactly what its load-bearing question
+   cares about.
+
+For non-{{PREDIGEST_TRIGGER}} targets (idea text, a single file, a diff), skip
+this phase and pass the target directly.
+
+---
+
+## Phase 3: Round 1 — Cold, Independent Fan-Out
+
+For **each rostered lens**, spawn an **isolated sub-session** with `delegate`
+using **`context_depth="none"`** — no shared history, so there is **no
+anchoring** between lenses. Launch them concurrently.
+
+Each sub-session is instructed:
+
+```
+Load skill <lens-name>, review <target> (plus the {{PREDIGEST_ARTIFACT_NAME}}
+if provided) AS THAT PERSONA, and return a structured result:
+{ lens, verdict, findings[], evidence[] }
+```
+
+**`verdict` is exactly one of `{PASS, CONCERN, FAIL, N/A}`.** `N/A` is an
+**abstention with a one-line reason — NOT a failure.** Keep FAIL and N/A
+distinguishable at every step.
+
+### Graceful Degradation — UNAVAILABLE (write this prominently)
+
+**If a lens's skill cannot be loaded** (e.g. a reused cross-bundle lens whose
+bundle is not installed), council **MUST NOT abort.** Mark that lens
+**UNAVAILABLE** in the roster manifest **with the reason** (e.g. *"{{reused
+lens}} requires the {{owning bundle}}, which is not installed"*) and **proceed
+with the remaining lenses.**
+
+### Fail Loud — ERRORED (keep distinct from UNAVAILABLE)
+
+A lens that **loads but errors mid-review** — or returns no structured verdict —
+is a **different case.** Report it **LOUDLY** as incomplete/errored (e.g.
+*"{{lens}} did not return; results incomplete"*). **No synthetic stand-in, no
+silent drop.**
+
+> **Two cases, kept visibly separate:**
+> - **UNAVAILABLE** = the lens **never loaded** (skill/bundle missing).
+> - **ERRORED** = the lens **loaded, then failed** (or returned no verdict).
+
+---
+
+## Phase 4: Debate-to-Consensus Loop
+
+**You own this loop.** Default **`max_rounds = 3`**.
+
+1. **Extract the OPEN ITEMS** from Round 1. An open item is:
+   - (i) **any unresolved FAIL verdict**, OR
+   - (ii) a **DIRECT CONFLICT** = two lenses holding **opposing verdicts on the
+     SAME finding** (e.g., {{lens-a}} says "X," {{lens-b}} says "not X").
+
+   **If there are no open items, skip to Phase 5 (synthesis).**
+
+2. **Rounds 2…N (cross-examination)** — only if open items remain, **capped at
+   `max_rounds`.** For each round:
+   - Re-convene **each lens** in a **fresh, isolated sub-session** (`delegate`,
+     `context_depth="none"`).
+   - Inject **ALL other lenses' verbatim last-words — NO concierge curation.**
+     Relay everything; do **not** pre-select which positions are "relevant."
+     Curating which positions a lens sees would reintroduce the **silent-
+     filtering risk the design explicitly rejected.** You relay; you never
+     edit.
+   - Ask each lens to **hold / revise / concede — in its own voice — with
+     reasons.**
+
+3. **Stop** when the panel is **STABLE** — defined as **no verdict change and
+   no new findings from any lens, round-over-round** — **OR** when
+   `max_rounds` is hit. **`max_rounds=1` degrades cleanly to a single pass (no
+   debate).**
+
+**Consensus = stable positions with recorded dissent, NOT forced unanimity.**
+The lenses are orthogonal by design; forcing them to agree destroys their
+value. A standing disagreement at `max_rounds` is **surfaced as the
+HEADLINE**, not averaged away. The panel converges on **what the tradeoff is**,
+not on a single answer. **You are not a gavel** — the human decides genuine
+value conflicts.
+
+---
+
+## Phase 5: Synthesize (trust guardrails — non-negotiable)
+
+Synthesis is where trust is either preserved or quietly lost.
+
+1. **Print the ROSTER MANIFEST first.** Lead with `Consulted: …` so the human
+   sees exactly who spoke — **plus excluded conditional lenses with reason,
+   and any UNAVAILABLE lenses with reason.** Surface ERRORED lenses here too.
+2. **Attribute every claim to a named lens.** **Quote at least one verbatim
+   line per lens.** No anonymous synthesis, no paraphrase-only summaries.
+3. **NEVER downgrade or omit a FAIL.** Any lens FAIL appears as an
+   **unresolved blocker surfaced at the TOP.** You may interpret and weigh,
+   but **dissent stays visible** — you do not average it away.
+4. **Keep FAIL and N/A distinguishable.** A blocker must never be confused
+   with an abstention.
+
+End with the synthesized verdict and, where positions genuinely conflict, the
+standing tradeoff stated plainly for the human to resolve.
+
+---
+
+## Relationship to `/{{DOMAIN}}-council-here`
+
+Same {{LENS_COUNT}} lenses, same orthogonality, same trust guardrails — only
+the target differs. `/{{DOMAIN}}-council` forks and reviews an **explicit
+external target** in isolation (best for "review this cold," and it keeps the
+heavy run out of your session). `{{DOMAIN}}-council-here` runs **inline** to
+review **the live conversation** the fork can't see. If someone invokes
+`/{{DOMAIN}}-council` with a conversational reference, `/{{DOMAIN}}-council`
+routes here.
