@@ -121,6 +121,56 @@ target class; ≥4–5 net-new orthogonal lenses; folding them into an existing 
 would make it incoherent or oversized (>~8). If it fails, STOP and recommend
 `personafy`-ing the 1–2 new lenses into the existing council instead.
 
+#### Bench-size guidance (a strong default, not a gate)
+
+Grounded in the real benches confirmed in this ecosystem, not invented round
+numbers: `council` runs exactly 6 (intent-keeper, cranky-old-sam,
+crusty-old-engineer, restless-old-brian, user-advocate, tester-breaker) —
+confirmed directly from its own `SKILL.md`. `adversarial-review` runs exactly
+6 (SRE, security, staff engineer, finance, operator, developer advocate) —
+confirmed via its own declared skill description, surfaced live in-session (its
+source file was not available to inspect directly, so this is a
+metadata-level confirmation, not a file-level one — say so if you're ever in
+the same position). `design-council` runs exactly 7 — confirmed directly from
+its own `SKILL.md`. A `product-council` instance in this ecosystem grew from 7
+to 8 after a genuinely orthogonal 8th lens passed the collapse-test gate
+against its single closest neighbor — confirmed directly from its own
+`SKILL.md` and bundle.md, which both flag 8 explicitly as "the edge, not the
+comfortable middle" of the range below.
+
+From these four real data points — **6, 6, 7, 8** — treat as a strong default:
+
+- **Hard floor ~4.** Below four lenses, you don't have enough irreducible
+  perspectives to justify calling the thing a "council" rather than just
+  adding a couple of extra reviewers to whatever bench already exists — the
+  orchestration overhead (roster manifest, cold fan-out, debate-to-consensus
+  machinery) stops paying for itself. No confirmed bench in this ecosystem
+  runs below 6; treat 4 as the line below which you should stop and ask
+  whether this needs the council mechanism at all, not just a smaller one.
+- **Typical/comfortable range 5–7.** Brackets all three of the smaller
+  confirmed working benches (6, 6, 7) — the load a synthesizer can hold in
+  its head, attribute every claim to, and quote verbatim from, per lens,
+  without the Phase-5/Phase-4 synthesis guardrails becoming unwieldy.
+- **Soft ceiling ~8.** `design-council`'s 7 is the largest *comfortable*
+  confirmed precedent; the one 8-lens bench on record explicitly flags
+  itself as sitting at the edge of the range, not inside it. Above 8, the
+  cost of full cold fan-out (every lens spawned in an isolated sub-session)
+  and the cognitive load on the human reading the synthesis both start to
+  degrade faster than the added orthogonality is worth — that's the signal
+  to fold an overlapping lens into a sibling, or split into two councils
+  with genuinely distinct target classes, rather than keep growing one
+  bench.
+
+**This is guidance for your judgment in this step, not a hard-coded gate.**
+Trust the model with the *why*, not a rigid headcount: if a candidate lens
+genuinely passes the orthogonality/collapse-test gate — a real, distinct,
+evidence-grounded load-bearing question with no existing owner — that is
+stronger evidence than a round number, and the bench should grow to fit the
+evidence, exactly as `product-council` did going from 7 to 8. The moment a
+9th genuinely-orthogonal candidate shows up for any bench, treat that as the
+trigger to seriously reconsider whether it's still one council — not a
+reason to silently wave the 9th one in past the ceiling above.
+
 - **Human checkpoint:** confirm the roster (reused + new), and the
   own-council-vs-add-lenses decision, before any building.
 
