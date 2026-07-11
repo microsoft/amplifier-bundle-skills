@@ -102,12 +102,9 @@ a conditional lens is excluded, the manifest must still record it as excluded
 **with the one-line reason** — exclusion is an auditable decision, not a silent
 drop.
 
-> **Where each lens lives.** intent-keeper, cranky-old-sam, crusty-old-engineer,
-> user-advocate, and tester-breaker are skills in **this** bundle (load by name).
-> **restless-old-brian currently lives in
-> `microsoft-amplifier/amplifier-bundle-made-support`, not this bundle.** If that
-> bundle is not installed, its skill will not load — see Graceful Degradation in
-> Phase 3.
+> **Where each lens lives.** All six lenses — intent-keeper, cranky-old-sam,
+> crusty-old-engineer, restless-old-brian, user-advocate, and tester-breaker — are
+> skills in **this** bundle (load by name). No cross-bundle dependency.
 
 ---
 
@@ -153,11 +150,11 @@ distinguishable at every step.
 
 ### Graceful Degradation — UNAVAILABLE (write this prominently)
 
-**If a lens's skill cannot be loaded** (e.g. restless-old-brian because the
-`made-support` bundle is not installed), council **MUST NOT abort.** Mark that
-lens **UNAVAILABLE** in the roster manifest **with the reason** (e.g.
-*"restless-old-brian requires the made-support bundle, which is not installed"*)
-and **proceed with the remaining lenses.**
+**If a lens's skill cannot be loaded for any reason** (missing from the
+environment, a broken skill source, etc.), council **MUST NOT abort.** Mark that
+lens **UNAVAILABLE** in the roster manifest **with the reason** (e.g. *"tester-
+breaker skill failed to load: <error>"*) and **proceed with the remaining
+lenses.**
 
 ### Fail Loud — ERRORED (keep distinct from UNAVAILABLE)
 
