@@ -99,10 +99,9 @@ included or excluded, with a one-line reason in the manifest):
 
 If the user asked for "everyone"/"the full panel," run all six regardless of triggers.
 
-> **Where each lens lives.** intent-keeper, cranky-old-sam, crusty-old-engineer,
-> user-advocate, tester-breaker are in **this** bundle. **restless-old-brian lives in
-> `microsoft-amplifier/amplifier-bundle-made-support`.** If that bundle isn't installed,
-> its skill won't load — handle via Graceful Degradation below.
+> **Where each lens lives.** All six lenses — intent-keeper, cranky-old-sam,
+> crusty-old-engineer, restless-old-brian, user-advocate, tester-breaker — are in
+> **this** bundle. No cross-bundle dependency.
 
 ### Round 1 — cold, independent fan-out
 
@@ -117,9 +116,10 @@ Load skill <lens-name>, review the TARGET BRIEF AS THAT PERSONA, and return:
 `verdict` is exactly one of `{PASS, CONCERN, FAIL, N/A}`. `N/A` is an **abstention with
 a one-line reason — NOT a failure.** Keep FAIL and N/A distinguishable throughout.
 
-**Graceful Degradation — UNAVAILABLE.** If a lens's skill cannot be loaded (e.g.
-restless-old-brian when `made-support` isn't installed), **do NOT abort** — mark it
-**UNAVAILABLE** in the manifest with the reason and proceed with the rest.
+**Graceful Degradation — UNAVAILABLE.** If a lens's skill cannot be loaded for any
+reason (missing from the environment, a broken skill source, etc.), **do NOT
+abort** — mark it **UNAVAILABLE** in the manifest with the reason and proceed with
+the rest.
 
 **Fail Loud — ERRORED.** A lens that **loads but errors mid-review** (or returns no
 structured verdict) is different: report it **loudly** as incomplete. No synthetic
