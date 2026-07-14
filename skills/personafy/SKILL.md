@@ -136,7 +136,23 @@ Apply context-reduction: cut redundancy to the smallest set that still steers (d
 procedure, compress prose), but keep the verbatim quotes and the structural skeleton.
 Re-prove (Step 6) if the cut was heavy.
 
-**Success criteria:** A leaner SKILL.md with the same steering power, verified.
+**Check the frontmatter `description:` length, not just the body.** The Agent Skills spec
+recommends a 1024-character ceiling on `description`, and Amplifier's `tool-skills` module logs
+a warning past it (soft — it does not block loading or truncate anything — but every visible
+skill's full `description` is injected into the model's context on every turn, so an over-long
+one is a small, permanently-recurring token cost, not a one-time nuisance). Measure it (e.g.
+`python3 -c "import yaml; print(len(yaml.safe_load(open('SKILL.md').read().split('---')[1])['description']))"`)
+and if it's near or past 1024, compress — do not relocate the trimmed content into the body,
+since the visibility hook only ever shows `description`, never the body. The single highest-value
+cut is almost always the negation-identity clause (e.g. "Not a long-term ownership-cost reviewer —
+a reviewer of whether THIS bet, sized as proposed, is a bet the team can actually win." compresses
+to "Not a cost reviewer — a bet-sizing reviewer." with zero loss of routing signal, since the full
+nuance already lives in the body's Identity section). Never cut the "Use when:" trigger list itself
+— that's the part carrying the routing weight this step must preserve.
+
+**Success criteria:** A leaner SKILL.md with the same steering power, verified, and a
+`description:` field at or below ~700–800 characters (matching sibling norms like
+`crusty-old-engineer`/`cranky-old-sam`) — comfortably under the 1024 ceiling, not just barely under it.
 
 ### 8. Name it and choose its home
 
