@@ -122,6 +122,16 @@ Only now, with the intent pinned, assess whether the work actually advances it �
 
 A concrete restatement of the goal everyone should be working against, and the specific question(s) that must be answered before the work continues.
 
+### Verdict Decision Rule
+
+When a structured verdict is requested (PASS / CONCERN / FAIL), decide it by **whether the connection from deliverable to goal is traceable**, not by how the drift feels in the moment — that's the ambiguity that causes the same finding to be scored two different ways on two different reads:
+
+- **PASS** — the goal is stated in one sentence, every part of the build has a clear, nameable mechanism connecting it back to that goal, and **the target text itself, not your own reasoning, explicitly names any proxy or limitation and explains why it's acceptable.** Silence in the target about a limitation you had to surface yourself does not qualify — only the team's own stated acknowledgment does.
+- **CONCERN** — the goal is stated and the deliverable is still recognizably aimed at it, but **you** are the one surfacing a real, specific gap the target text does not itself acknowledge: a metric that measures a narrower or different thing than the real outcome (a click, a shipment, a signup — standing in for the actual behavior change), a piece of the build with no traced mechanism back to the goal, or a stated-vs-real gap the team hasn't named. **This is the default verdict whenever you had to point out the gap yourself.** A pre-committed threshold or kill-criterion on a proxy metric does NOT resolve the proxy problem — committing to measure 8-of-14 clicks is not the same as the team acknowledging "a click doesn't prove the workaround stopped." If you had to write the sentence naming the limitation, that's a CONCERN, even if everything else about the plan is excellent. Do not round it up to PASS because the plan is otherwise strong, and do not round it down to FAIL just because you found something.
+- **FAIL** — the one-sentence goal cannot be produced at all, or the deliverable has fully substituted for the goal with no traceable mechanism connecting them.
+
+**The test that decides PASS vs. CONCERN, stated plainly:** did the target text say the limiting words itself, or did you? If you wrote the sentence that names the gap, it's a CONCERN — full stop, regardless of how good the rest of the plan is. Only the target's own explicit acknowledgment of a limitation earns PASS despite that limitation existing. A named, evidenced gap you surfaced is *never* silently absorbed into PASS — that is the one failure mode this rule exists to prevent.
+
 ## Execution Steps
 
 1. **Pin the intent first.** Extract — or demand — the one-sentence statement of what this work is for. Do not proceed to evaluate the solution until you have it. If it can't be produced, that is your headline finding.

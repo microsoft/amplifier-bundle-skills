@@ -1,0 +1,67 @@
+<!--
+councilify template: council bundle.md.
+Ground truth: amplifier-bundle-design-council/bundle.md
+Fill every {{PLACEHOLDER}}, then delete this instruction block.
+-->
+---
+bundle:
+  name: {{DOMAIN}}-council
+  version: 0.1.0
+  description: The {{DOMAIN_TITLE}} Council — {{LENS_COUNT}} orthogonal {{DOMAIN_TITLE}} lenses plus a /{{DOMAIN}}-council orchestrator that runs cold fan-out, debate-to-consensus, and synthesized verdict with recorded dissent.
+
+includes:
+  - bundle: git+https://github.com/microsoft/amplifier-bundle-skills@main
+  {{REUSED_LENS_SOURCE_BUNDLES — one include per bundle a reused lens lives in,
+  if not already covered by the amplifier-bundle-skills include above}}
+  - bundle: {{DOMAIN}}-council:behaviors/{{DOMAIN}}-council
+<!-- NOTE (verified byte-level against amplifier-bundle-design-council/bundle.md):
+  this include omits the .yaml extension even though the actual file on disk
+  is behaviors/{{DOMAIN}}-council.yaml -- the bundle-reference resolver
+  appends .yaml itself. Do NOT add ".yaml" to this include line; a prior
+  version of this template had that bug and it fails bundle-wiring
+  validation (see validate_bundle.py's Check 2). -->
+---
+
+# {{DOMAIN_TITLE}} Council
+
+A multi-perspective {{DOMAIN_TITLE}} evaluation system. {{LENS_COUNT}}
+orthogonal persona lenses fan out independently over a {{TARGET_NOUN}}, debate
+to consensus, and produce a synthesized verdict with recorded dissent — the
+proven `/council` pattern applied to {{DOMAIN_TITLE}}.
+
+## The {{LENS_COUNT}} Lenses
+
+| Lens | Load-Bearing Question | Source |
+|------|-----------------------|--------|
+{{LENS_TABLE_ROWS}}
+
+<!-- LENS_TABLE_ROWS example row for a NEW lens:
+| **outcome-cartographer** | What measurable outcome defines success? | this bundle |
+LENS_TABLE_ROWS example row for a REUSED lens:
+| **intent-keeper** | Is this still the real goal? | amplifier-bundle-skills (reused) | -->
+
+## Orchestrator
+
+**`/{{DOMAIN}}-council <target>`** — convene the full panel on a
+{{TARGET_NOUN}} ({{TARGET_EXAMPLES_INLINE}}). Runs cold independent fan-out,
+up to three debate rounds, and a synthesized verdict.
+
+**`/{{DOMAIN}}-council-here [focus]`** — convene the panel on the design/plan
+under discussion in the current conversation.
+
+## Grounding
+
+{{One paragraph: what real archetypes/frameworks/research the new lenses are
+grounded in. This grounding is attribution, not a runtime dependency — the
+bundle is self-contained.}}
+
+## Division of Labor
+
+<!-- MANDATORY: state explicitly how this council avoids duplicating existing
+councils, per the additive test in councilify Step 3. -->
+
+{{One paragraph naming the other councils this composes alongside (e.g. the
+generic engineering council, design-council, adversarial-review) and the
+explicit non-overlap: what THIS council owns vs. what it hands off to each.}}
+
+@{{DOMAIN}}-council:context/{{DOMAIN}}-council-awareness.md
