@@ -166,26 +166,29 @@ tools:
       visibility:
         enabled: true                # Show skills automatically (default: true)
         max_skills_visible: 50       # Limit for large collections (default: 50)
-        placement: request           # Where the index lands (default: request)
+        placement: prefix            # Where the index lands (default: prefix)
 ```
 
 #### `visibility.placement`
 
-- `request` (default) — inject the skills index on every `provider:request`
-  (today's behavior). The index typically rides a per-request message and is
-  re-sent as fresh input tokens on every LLM call.
-- `prefix` — place the index in the **system prompt** by wrapping the context
-  module's system-prompt factory (the surface `amplifier-foundation`
-  registers via `context.set_system_prompt_factory`). Providers hoist
-  system-role content into their cached prefix (Anthropic: single system
-  content block carrying the first cache breakpoint), so the index is billed
-  once and cache-read afterwards. The wrapper re-renders from the CURRENT
-  effective skill catalog on every request (cheap catalog hash; re-render
-  only on change), so mid-session skill changes (mode overlays) refresh the
-  prefix — one cache bust per change, never a stale copy. If the context
-  module offers no factory surface, the hook logs an ERROR and falls back to
-  per-request injection (skills stay visible; placement is detectably
-  degraded).
+- `prefix` (default) — place the index in the **system prompt** by wrapping
+  the context module's system-prompt factory (the surface
+  `amplifier-foundation` registers via `context.set_system_prompt_factory`).
+  Providers hoist system-role content into their cached prefix (Anthropic:
+  single system content block carrying the first cache breakpoint), so the
+  index is billed once and cache-read afterwards. **Why this is the
+  default:** measured 32–39% root-session cost reduction with identical
+  quality and 100% skill recall in controlled ablation. The wrapper
+  re-renders from the CURRENT effective skill catalog on every request
+  (cheap catalog hash; re-render only on change), so mid-session skill
+  changes (mode overlays) refresh the prefix — one cache bust per change,
+  never a stale copy. If the context module offers no factory surface, the
+  hook logs a one-time WARNING and falls back to per-request injection
+  (skills stay visible; placement is detectably degraded).
+- `request` — explicit opt-out: inject the skills index on every
+  `provider:request` (the pre-flip behavior). The index typically rides a
+  per-request message and is re-sent as fresh input tokens on every LLM
+  call.
 
 ### Configuration Priority
 

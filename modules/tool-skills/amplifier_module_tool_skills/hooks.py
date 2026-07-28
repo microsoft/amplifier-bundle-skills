@@ -59,12 +59,10 @@ class SkillsVisibilityHook:
         self.max_visible = config.get("max_skills_visible", 50)
         self.ephemeral = config.get("ephemeral", True)
         self.priority = config.get("priority", 20)
-        # Placement of the skills index (default "request" = per-request
-        # ephemeral injection, today's behavior byte-identical):
-        #   "request" — inject_context on every provider:request. The hook
-        #       registry merges all same-event injections into one message
-        #       (first hook's role/ephemeral win), so the index typically
-        #       rides a per-request tail message and is re-sent every call.
+        # Placement of the skills index (default "prefix" — measured 32-39%
+        # root-session cost reduction with identical quality and 100% skill
+        # recall in controlled ablation; "request" remains a fully supported
+        # explicit opt-out):
         #   "prefix"  — append the index to the SYSTEM PROMPT by wrapping the
         #       context module's system-prompt factory (the surface
         #       amplifier-foundation _prepared.py registers via
@@ -73,8 +71,13 @@ class SkillsVisibilityHook:
         #       role=system content into the stable cached prefix (anthropic:
         #       single system block, cache_control breakpoint #1), so the
         #       index is cached across requests and only re-billed when the
-        #       skill catalog actually changes.
-        self.placement = config.get("placement", "request")
+        #       skill catalog actually changes. Sessions without a factory
+        #       surface fall back to request mode with a one-time WARNING.
+        #   "request" — inject_context on every provider:request. The hook
+        #       registry merges all same-event injections into one message
+        #       (first hook's role/ephemeral win), so the index typically
+        #       rides a per-request tail message and is re-sent every call.
+        self.placement = config.get("placement", "prefix")
         if self.placement not in VALID_PLACEMENTS:
             raise ValueError(
                 f"Invalid visibility.placement={self.placement!r}. "
@@ -139,17 +142,22 @@ class SkillsVisibilityHook:
             if await self._ensure_prefix_placement():
                 return HookResult(action="continue")
             # Placement surface unavailable (no context module / no factory
-            # support). Loud, then fall back to request-mode injection so the
-            # agent is not silently blinded to its skills. The fallback is
-            # detectable: the index appears as an injected message, not in
-            # the system prompt.
+            # support). Warn once per instance, then fall back to
+            # request-mode injection so the agent is not silently blinded to
+            # its skills. WARNING, not ERROR: prefix is the DEFAULT now, so
+            # sessions that legitimately lack a factory surface (static
+            # system prompts, minimal test coordinators) hit this path
+            # without any user misconfiguration. The fallback is detectable:
+            # the index appears as an injected message, not in the system
+            # prompt.
             if not self._prefix_unavailable_logged:
-                logger.error(
-                    "visibility.placement='prefix' requested but the context "
-                    "module offers no system-prompt factory surface "
+                logger.warning(
+                    "visibility.placement='prefix' (the default) but the "
+                    "context module offers no system-prompt factory surface "
                     "(set_system_prompt_factory). Falling back to per-request "
-                    "injection — the skills index will NOT ride the stable "
-                    "cached prefix."
+                    "injection — the skills index will not ride the stable "
+                    "cached prefix. Set visibility.placement='request' to "
+                    "silence this warning."
                 )
                 self._prefix_unavailable_logged = True
 
@@ -198,7 +206,11 @@ class SkillsVisibilityHook:
             True when the index is (now) riding the system prompt; False when
             the surface is unavailable and the caller should fall back.
         """
-        context = self.coordinator.get("context") if self.coordinator else None
+        # Defensive lookup: prefix is the DEFAULT path now, and minimal
+        # coordinators (unit-test mocks, embedded hosts) may not expose
+        # .get() at all — that is "no surface", not a crash.
+        getter = getattr(self.coordinator, "get", None) if self.coordinator else None
+        context: Any = getter("context") if callable(getter) else None
         if context is None or not hasattr(context, "set_system_prompt_factory"):
             return False
 
@@ -294,9 +306,7 @@ class SkillsVisibilityHook:
             # the constructor flag wasn't already set.
             if not is_forked and self.coordinator is not None:
                 is_forked = bool(self.coordinator.get_capability("skills.fork_context"))
-            if is_forked and meta.context == "fork":
-                return False
-            return True
+            return not (is_forked and meta.context == "fork")
 
         regular_skills = {
             name: meta
