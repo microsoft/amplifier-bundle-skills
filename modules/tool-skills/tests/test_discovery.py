@@ -297,3 +297,61 @@ def test_non_git_dir_symlink_outside_skills_dir_is_blocked(tmp_path: Path):
         f"Evil skill escaped non-git strict boundary but should be blocked. "
         f"Found: {list(skills.keys())}"
     )
+
+
+def test_source_root_skill_skips_dirname_check(tmp_path: Path, caplog):
+    """A SKILL.md at the source root must not warn about directory name.
+
+    Git skill sources with SKILL.md at the repo root are cloned into
+    hash-suffixed cache directories (e.g. 'my-skill-865a2fe5cef82b7').
+    The author has no control over that directory name, so the
+    Agent Skills Spec dir-name check would be a false positive.
+    """
+    scan_dir = tmp_path / "my-skill-865a2fe5cef82b7"
+    scan_dir.mkdir()
+    (scan_dir / "SKILL.md").write_text(
+        "---\nname: my-skill\ndescription: A root-level skill\n---\nBody\n"
+    )
+
+    with caplog.at_level("WARNING"):
+        skills = discover_skills(scan_dir)
+
+    assert "my-skill" in skills
+    assert "mismatched directory name" not in caplog.text
+
+
+def test_nested_skill_dirname_mismatch_still_warns(tmp_path: Path, caplog):
+    """Nested skill directories keep the spec dir-name check."""
+    scan_dir = tmp_path / "skills"
+    nested = scan_dir / "wrong-dir-name"
+    nested.mkdir(parents=True)
+    (nested / "SKILL.md").write_text(
+        "---\nname: my-skill\ndescription: A nested skill\n---\nBody\n"
+    )
+
+    with caplog.at_level("WARNING"):
+        skills = discover_skills(scan_dir)
+
+    assert "my-skill" in skills
+    assert "mismatched directory name" in caplog.text
+
+
+def test_local_root_skill_skips_dirname_check(tmp_path: Path, caplog):
+    """A SKILL.md at the root of a LOCAL skills dir must not warn either.
+
+    The source-root exemption applies to any scanned root, not only git
+    cache clones: the root directory's name (~/.amplifier/skills, a
+    user-registered source path, a #subdirectory= root) is chosen by the
+    user or harness, never by the skill author.
+    """
+    scan_dir = tmp_path / "my-local-skills"
+    scan_dir.mkdir()
+    (scan_dir / "SKILL.md").write_text(
+        "---\nname: my-skill\ndescription: A local root-level skill\n---\nBody\n"
+    )
+
+    with caplog.at_level("WARNING"):
+        skills = discover_skills(scan_dir)
+
+    assert "my-skill" in skills
+    assert "mismatched directory name" not in caplog.text

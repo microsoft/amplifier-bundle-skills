@@ -217,9 +217,18 @@ def discover_skills(skills_dir: Path) -> dict[str, SkillMetadata]:
                     f"Continuing with discovery."
                 )
 
-            # Validate directory name matches skill name (per Agent Skills Spec)
+            # Validate directory name matches skill name (per Agent Skills Spec).
+            # Skip the check when SKILL.md sits at the source root itself: a
+            # root-level SKILL.md has no author-controllable parent directory
+            # in ANY case. Git sources are cloned into hash-suffixed cache
+            # directories, and local roots (~/.amplifier/skills,
+            # $AMPLIFIER_SKILLS_DIR, user-registered source paths,
+            # #subdirectory= roots) are named by the user or harness, not the
+            # skill author — so a mismatch there is a false positive the
+            # author cannot fix.
             parent_dir_name = skill_file.parent.name
-            if name != parent_dir_name:
+            skill_dir_is_source_root = skill_file.parent.resolve() == base_resolved
+            if not skill_dir_is_source_root and name != parent_dir_name:
                 logger.warning(
                     f"Skill '{name}' at {skill_file} has mismatched directory name. "
                     f"Expected directory '{name}', but found '{parent_dir_name}'. "
