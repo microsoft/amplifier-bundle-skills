@@ -166,7 +166,26 @@ tools:
       visibility:
         enabled: true                # Show skills automatically (default: true)
         max_skills_visible: 50       # Limit for large collections (default: 50)
+        placement: request           # Where the index lands (default: request)
 ```
+
+#### `visibility.placement`
+
+- `request` (default) — inject the skills index on every `provider:request`
+  (today's behavior). The index typically rides a per-request message and is
+  re-sent as fresh input tokens on every LLM call.
+- `prefix` — place the index in the **system prompt** by wrapping the context
+  module's system-prompt factory (the surface `amplifier-foundation`
+  registers via `context.set_system_prompt_factory`). Providers hoist
+  system-role content into their cached prefix (Anthropic: single system
+  content block carrying the first cache breakpoint), so the index is billed
+  once and cache-read afterwards. The wrapper re-renders from the CURRENT
+  effective skill catalog on every request (cheap catalog hash; re-render
+  only on change), so mid-session skill changes (mode overlays) refresh the
+  prefix — one cache bust per change, never a stale copy. If the context
+  module offers no factory surface, the hook logs an ERROR and falls back to
+  per-request injection (skills stay visible; placement is detectably
+  degraded).
 
 ### Configuration Priority
 

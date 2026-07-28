@@ -1,5 +1,6 @@
 """Skills visibility hook - makes available skills visible to agents."""
 
+import hashlib
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -9,6 +10,8 @@ if TYPE_CHECKING:
     from amplifier_core import ModuleCoordinator
 
 logger = logging.getLogger(__name__)
+
+VALID_PLACEMENTS = ("request", "prefix")
 
 
 class SkillsVisibilityHook:
@@ -56,9 +59,37 @@ class SkillsVisibilityHook:
         self.max_visible = config.get("max_skills_visible", 50)
         self.ephemeral = config.get("ephemeral", True)
         self.priority = config.get("priority", 20)
+        # Placement of the skills index (default "request" = per-request
+        # ephemeral injection, today's behavior byte-identical):
+        #   "request" — inject_context on every provider:request. The hook
+        #       registry merges all same-event injections into one message
+        #       (first hook's role/ephemeral win), so the index typically
+        #       rides a per-request tail message and is re-sent every call.
+        #   "prefix"  — append the index to the SYSTEM PROMPT by wrapping the
+        #       context module's system-prompt factory (the surface
+        #       amplifier-foundation _prepared.py registers via
+        #       context.set_system_prompt_factory; context-simple calls the
+        #       factory on EVERY get_messages_for_request). Providers hoist
+        #       role=system content into the stable cached prefix (anthropic:
+        #       single system block, cache_control breakpoint #1), so the
+        #       index is cached across requests and only re-billed when the
+        #       skill catalog actually changes.
+        self.placement = config.get("placement", "request")
+        if self.placement not in VALID_PLACEMENTS:
+            raise ValueError(
+                f"Invalid visibility.placement={self.placement!r}. "
+                f"Valid values: {', '.join(VALID_PLACEMENTS)}."
+            )
         self._is_forked_session = is_forked_session
         self.coordinator = coordinator
         self._tool = tool
+        # Prefix-placement state: the wrapped factory we registered (identity
+        # check for re-wrap detection), the catalog hash of the last render,
+        # and the cached rendered block (re-rendered only on catalog change).
+        self._prefix_factory: Any = None
+        self._prefix_skills_hash: str | None = None
+        self._prefix_rendered: str = ""
+        self._prefix_unavailable_logged = False
 
         logger.debug(
             f"Initialized SkillsVisibilityHook: enabled={self.enabled}, "
@@ -100,6 +131,28 @@ class SkillsVisibilityHook:
         if not self.enabled:
             return HookResult(action="continue")
 
+        if self.placement == "prefix":
+            # Prefix mode: the index lives in the system prompt (via the
+            # wrapped factory below), never as a per-request injection —
+            # returning continue here is what guarantees the two modes can
+            # never double-inject.
+            if await self._ensure_prefix_placement():
+                return HookResult(action="continue")
+            # Placement surface unavailable (no context module / no factory
+            # support). Loud, then fall back to request-mode injection so the
+            # agent is not silently blinded to its skills. The fallback is
+            # detectable: the index appears as an injected message, not in
+            # the system prompt.
+            if not self._prefix_unavailable_logged:
+                logger.error(
+                    "visibility.placement='prefix' requested but the context "
+                    "module offers no system-prompt factory surface "
+                    "(set_system_prompt_factory). Falling back to per-request "
+                    "injection — the skills index will NOT ride the stable "
+                    "cached prefix."
+                )
+                self._prefix_unavailable_logged = True
+
         effective = self._effective_skills()
         if not effective:
             return HookResult(action="continue")
@@ -116,6 +169,96 @@ class SkillsVisibilityHook:
             ephemeral=self.ephemeral,
             suppress_output=True,
         )
+
+    async def _ensure_prefix_placement(self) -> bool:
+        """Ensure the skills index rides the system prompt (stable prefix).
+
+        Wraps the context module's registered system-prompt factory so the
+        factory output becomes ``base + "\\n\\n" + skills_block``. Providers
+        hoist role=system content into their cached prefix (anthropic builds
+        a single system content block with the cache_control breakpoint), so
+        the index is billed once and cache-read afterwards — instead of
+        re-sent as fresh input tokens on every request.
+
+        Wrapping is LAZY (first provider:request) because the factory is
+        registered during session preparation (amplifier-foundation
+        _prepared.py -> context.set_system_prompt_factory) and mount order
+        vs. that registration is not guaranteed. Re-checked on every request:
+        if someone re-registered a new factory after us, we re-wrap around
+        the new one (identity check against our own wrapper).
+
+        Staleness: the factory contract is "called on EVERY
+        get_messages_for_request" (context-simple), and the wrapper renders
+        from the CURRENT effective skill catalog each call — so the prefix
+        always holds exactly one, current copy of the index. A catalog change
+        (e.g. mode overlays) changes the rendered text, which busts the
+        provider cache once; change is rare, so the cache rides otherwise.
+
+        Returns:
+            True when the index is (now) riding the system prompt; False when
+            the surface is unavailable and the caller should fall back.
+        """
+        context = self.coordinator.get("context") if self.coordinator else None
+        if context is None or not hasattr(context, "set_system_prompt_factory"):
+            return False
+
+        current = getattr(context, "_system_prompt_factory", None)
+        if current is None:
+            # No factory registered (static-system-message session). Wrapping
+            # would DROP the static system prompt (factory takes precedence
+            # over stored system messages in context-simple), so refuse.
+            return False
+        if current is self._prefix_factory:
+            return True  # already wrapped, still active
+
+        base_factory = current
+
+        async def _skills_prefixed_factory() -> str:
+            base = await base_factory()
+            block = self._render_prefix_block()
+            return f"{base}\n\n{block}" if block else base
+
+        await context.set_system_prompt_factory(_skills_prefixed_factory)
+        self._prefix_factory = _skills_prefixed_factory
+        logger.info(
+            "Skills index placement: system-prompt prefix (wrapped the "
+            "registered system-prompt factory)"
+        )
+        return True
+
+    def _render_prefix_block(self) -> str:
+        """Render the skills block for prefix placement, cached by catalog hash.
+
+        Re-renders ONLY when the effective skill catalog changes (cheap hash
+        over name/description/flags). A change means the system prompt text
+        changes, which busts the provider's prefix cache once — acceptable,
+        because catalog changes (mode overlays, runtime skill loads) are rare
+        events, and the alternative is a permanently stale index.
+        """
+        effective = self._effective_skills()
+        catalog_repr = repr(
+            sorted(
+                (
+                    name,
+                    meta.description,
+                    bool(meta.disable_model_invocation),
+                    getattr(meta, "context", None),
+                )
+                for name, meta in (effective or {}).items()
+            )
+        )
+        catalog_hash = hashlib.sha256(catalog_repr.encode()).hexdigest()
+        if catalog_hash != self._prefix_skills_hash:
+            if self._prefix_skills_hash is not None:
+                logger.info(
+                    "Skill catalog changed — refreshing skills index in the "
+                    "system prompt (one-time prefix cache bust)"
+                )
+            self._prefix_skills_hash = catalog_hash
+            self._prefix_rendered = (
+                self._format_skills_list(effective) if effective else ""
+            )
+        return self._prefix_rendered
 
     def _format_skills_list(self, skills: dict[str, Any] | None = None) -> str:
         """Format skills list as markdown with XML boundaries.
