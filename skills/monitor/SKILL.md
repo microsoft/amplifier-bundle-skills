@@ -160,7 +160,37 @@ session's accumulated history.
 **What you give up:** you cannot see the child's progress, and it cannot be
 steered once dispatched. Everything must be in the instruction: the exact
 check command, the done condition, the needs-attention conditions, the
-interval, the max duration, and the verdict-line format below.
+interval, the max duration, the verdict-line format below, and the sequential
+requirement below.
+
+**SEQUENTIAL ONLY -- state this explicitly in the instruction.** A child that
+is told to make N checks may issue all N as parallel tool calls in a single
+turn. Observed: a child asked for 15 checks emitted 15 simultaneous `tool_use`
+blocks, so all 15 "checks" sampled the same instant. It reported success. It
+had monitored nothing -- a batch of simultaneous checks can never observe a
+state change.
+
+Put this in every delegated instruction, verbatim:
+
+```
+SEQUENTIAL ONLY: Make ONE check, wait for its result, decide, then make the
+next. Never issue multiple checks in the same turn. Never batch or
+parallelize. Each check must observe the result of the previous one.
+```
+
+A condition-driven loop ("keep checking until X") is mostly self-protecting,
+because check N+1 depends on seeing check N's result. A count-driven loop
+("make N checks") has no such dependency and WILL be parallelized. Prefer
+condition-driven instructions, and state the rule regardless.
+
+**Sanity-check the result before you trust it.** A real sequential monitor
+costs roughly one LLM call per check and takes at least
+`interval x checks` of wall time. If the child returns far faster or far
+cheaper than that math predicts, it batched -- the result is void. Re-run it
+with the sequential rule stated. Measured reference: a 13-check monitor on a
+`fast` model took 14 LLM calls and 100 seconds. A batched 15-check imposter
+took 2 LLM calls and 18 seconds, and cost a third as much. Suspiciously cheap
+is the tell.
 
 **Dispatch latency is real -- measure your expectations against it.** In a live
 run, ~40 seconds elapsed between the parent issuing `delegate(...)` and the
