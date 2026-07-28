@@ -33,6 +33,7 @@ Packages the tool-skills module (at `modules/tool-skills/`) with context instruc
 | **msgraph-integration-patterns** | Probing, building, troubleshooting Microsoft Graph APIs from browser SPAs with MSAL.js; OData quirks, permissions/consent, recordings/transcripts, CSP, retry patterns, MSAL/EasyAuth auth loops |
 | **session-debug** | Session diagnostics — diagnoses misconfigured tools, failing operations, unexpected behavior |
 | **skills-assist** | Skills expert — authoritative consultant for authoring, spec, compatibility, and skills-vs-agents guidance |
+| **monitor** | Bounded polling loop — watch a thing until it finishes, fails, or needs you, so the end-of-turn notification fires honestly |
 
 ### Power Skills
 
@@ -109,12 +110,14 @@ amplifier-bundle-skills/
     │   └── SKILL.md
     ├── session-debug/            # Session diagnostics (power skill)
     │   └── SKILL.md
-    └── skills-assist/            # Skills authoring expert (expert skill)
-        ├── SKILL.md
-        ├── authoring-guide.md
-        ├── spec-reference.md
-        ├── compatibility-matrix.md
-        └── skills-vs-agents.md
+    ├── skills-assist/            # Skills authoring expert (expert skill)
+    │   ├── SKILL.md
+    │   ├── authoring-guide.md
+    │   ├── spec-reference.md
+    │   ├── compatibility-matrix.md
+    │   └── skills-vs-agents.md
+    └── monitor/                  # Bounded polling loop
+        └── SKILL.md
 ```
 
 **Design**: Two behaviors serve different consumers. The full behavior (`skills`) pre-configures the curated skills collection via `git+https://` URL. The minimal behavior (`skills-tool`) provides just the tool and instructions for bundles that manage their own skill sources.
@@ -137,12 +140,13 @@ These features are implemented by the tool-skills module at `modules/tool-skills
 
 ## CLI Integration
 
-Power skills register as slash commands and are available directly from the Amplifier CLI:
+Skills marked `user-invocable: true` register as slash commands and are available directly from the Amplifier CLI:
 
 - `/code-review` — Run parallel code review on recent changes
 - `/mass-change` — Decompose and execute a large change in parallel
 - `/session-debug` — Diagnose session issues
 - `/skills-assist` — Consult the skills authoring expert for help creating skills, spec compatibility questions, and skills-vs-agents guidance
+- `/monitor` — Watch something until it finishes, fails, or needs you (e.g. `/monitor the CI run for PR 412, check every 2m, stop after 1h`)
 
 These commands appear in `/help` and `/skills`. They are powered by the `SkillsDiscovery` capability exposed by the tool-skills module, which the CLI queries at startup to register user-invocable skills.
 
