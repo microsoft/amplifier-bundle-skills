@@ -1,17 +1,18 @@
 """Tests for visibility.placement — skills index in the stable system-prompt prefix.
 
-placement="request" (default) is today's behavior byte-identical: per-request
-inject_context. placement="prefix" wraps the context module's system-prompt
+placement="prefix" (default) wraps the context module's system-prompt
 factory (the surface amplifier-foundation _prepared.py registers via
 context.set_system_prompt_factory) so the index rides the provider-cached
-system block instead of being re-sent as fresh input tokens every request.
+system block instead of being re-sent as fresh input tokens every request —
+measured 32-39% root-session cost reduction with identical quality and 100%
+skill recall in controlled ablation. placement="request" is the fully
+supported explicit opt-out: per-request inject_context (pre-flip behavior).
 """
 
 from pathlib import Path
 from typing import Any
 
 import pytest
-
 from amplifier_module_tool_skills.discovery import SkillMetadata
 from amplifier_module_tool_skills.hooks import SkillsVisibilityHook
 
@@ -92,14 +93,59 @@ def fake_coordinator(context=None) -> Any:
 
 
 # ---------------------------------------------------------------------------
-# Default mode — regression: behavior byte-identical to pre-placement code
+# Default mode — prefix is now the default (measured 32-39% root-session cost
+# reduction, identical quality, 100% recall in controlled ablation);
+# "request" remains a fully supported explicit opt-out.
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_default_mode_unchanged(sample_skills):
-    """No placement key -> per-request inject_context, exactly as before."""
-    hook = SkillsVisibilityHook(sample_skills, {})
+async def test_default_is_prefix(sample_skills):
+    """No placement key -> prefix placement: index lands in the system
+    prompt via the wrapped factory; no per-request injection."""
+    context = FakeContext()
+    hook = SkillsVisibilityHook(
+        sample_skills, {}, coordinator=fake_coordinator(context)
+    )
+    assert hook.placement == "prefix"
+    result = await hook.on_provider_request("provider:request", {})
+
+    assert result.action == "continue"  # never a per-request injection
+    rendered = await context._system_prompt_factory()
+    assert rendered.startswith("BASE SYSTEM PROMPT")
+    assert '<system-reminder source="hooks-skills-visibility">' in rendered
+    assert "python-testing" in rendered
+
+
+@pytest.mark.asyncio
+async def test_default_without_surface_warns_and_falls_back(sample_skills, caplog):
+    """Default (prefix) with no factory surface -> ONE WARNING (not ERROR —
+    users who did nothing wrong shouldn't see error-level logs) + request-mode
+    fallback so skills stay visible."""
+    hook = SkillsVisibilityHook(sample_skills, {})  # no coordinator at all
+    with caplog.at_level("WARNING"):
+        r1 = await hook.on_provider_request("provider:request", {})
+        r2 = await hook.on_provider_request("provider:request", {})
+    assert r1.action == r2.action == "inject_context"  # fallback, not silence
+    assert "python-testing" in (r1.context_injection or "")
+    warnings = [
+        r for r in caplog.records if r.levelname == "WARNING" and "prefix" in r.message
+    ]
+    assert len(warnings) == 1  # once per instance, not per request
+    assert not [r for r in caplog.records if r.levelname == "ERROR"]
+
+
+@pytest.mark.asyncio
+async def test_explicit_request_optout(sample_skills):
+    """placement='request' opt-out: per-request inject_context with the
+    pre-flip shape, even when a factory surface IS available (and the
+    factory is left untouched)."""
+    context = FakeContext()
+    hook = SkillsVisibilityHook(
+        sample_skills,
+        {"placement": "request"},
+        coordinator=fake_coordinator(context),
+    )
     assert hook.placement == "request"
     result = await hook.on_provider_request("provider:request", {})
 
@@ -112,17 +158,9 @@ async def test_default_mode_unchanged(sample_skills):
     assert result.context_injection_role == "system"  # pre-existing default
     assert result.ephemeral is True
     assert result.suppress_output is True
-
-
-@pytest.mark.asyncio
-async def test_explicit_request_placement_identical(sample_skills):
-    """placement='request' is the same as omitting the key."""
-    implicit = SkillsVisibilityHook(sample_skills, {})
-    explicit = SkillsVisibilityHook(sample_skills, {"placement": "request"})
-    r1 = await implicit.on_provider_request("provider:request", {})
-    r2 = await explicit.on_provider_request("provider:request", {})
-    assert r1.action == r2.action == "inject_context"
-    assert r1.context_injection == r2.context_injection
+    # The system prompt is untouched — no double-inject in opt-out mode.
+    rendered = await context._system_prompt_factory()
+    assert "hooks-skills-visibility" not in rendered
 
 
 def test_invalid_placement_rejected(sample_skills):
@@ -246,18 +284,25 @@ async def test_prefix_mode_fork_filtering_applies(fork_skills):
 
 
 @pytest.mark.asyncio
-async def test_prefix_mode_falls_back_loudly_without_surface(sample_skills, caplog):
-    """No context module -> ERROR log + request-mode injection (agent never
-    silently loses skill visibility; the misplacement is detectable)."""
+async def test_prefix_mode_falls_back_with_warning_without_surface(
+    sample_skills, caplog
+):
+    """No context module -> WARNING log (prefix is the default now — a
+    factory-less session is not user misconfiguration) + request-mode
+    injection (agent never silently loses skill visibility; the
+    misplacement is detectable)."""
     hook = SkillsVisibilityHook(
         sample_skills,
         {"placement": "prefix"},
         coordinator=fake_coordinator(None),
     )
-    with caplog.at_level("ERROR"):
+    with caplog.at_level("WARNING"):
         result = await hook.on_provider_request("provider:request", {})
     assert result.action == "inject_context"  # fallback, not silence
-    assert any("prefix" in r.message for r in caplog.records)
+    assert any(
+        r.levelname == "WARNING" and "prefix" in r.message for r in caplog.records
+    )
+    assert not [r for r in caplog.records if r.levelname == "ERROR"]
 
 
 @pytest.mark.asyncio
