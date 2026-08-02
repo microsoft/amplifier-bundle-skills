@@ -120,6 +120,8 @@ The `config.skills` list accepts three source types:
 
 Git URLs support an optional `#subdirectory=` fragment to point at a subfolder within the repo.
 
+Bundle references (`@mybundle:skills`) resolve through the session's mention resolver, which becomes available shortly after modules mount — so skills from `@`-sources register at the first request of the session rather than at mount time. If a source cannot be resolved, a warning naming it appears in the session log.
+
 > **Warning:** Do NOT use a top-level `skills:` key in your bundle frontmatter. The foundation layer does not process it -- skill sources placed there will be **silently ignored**. Always use the `tools:` config pattern shown above.
 
 ## Skills Expert
