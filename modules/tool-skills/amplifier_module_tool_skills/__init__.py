@@ -11,6 +11,7 @@ from pathlib import Path
 from collections.abc import Callable, Coroutine
 from typing import TYPE_CHECKING, Any
 
+from amplifier_core import HookResult
 from amplifier_core import ToolResult
 
 try:
@@ -63,22 +64,31 @@ def _detect_fork_session(coordinator: "ModuleCoordinator") -> bool:
 
 async def _resolve_skill_sources(
     config: dict[str, Any], coordinator: "ModuleCoordinator"
-) -> list[Path]:
-    """Resolve skill sources from config, handling both local paths and git URLs.
+) -> tuple[list[Path], list[str]]:
+    """Resolve skill sources from config, handling local paths, git URLs, and @-mentions.
 
     Priority order:
-    1. 'skills' config (new format - supports git URLs)
+    1. 'skills' config (new format - supports git URLs and @namespace:path)
     2. 'skills_dirs' config (legacy - local paths only)
     3. 'skills_dir' config (legacy - single local path)
     4. Global settings via coordinator.config
     5. Default directories
+
+    ``@namespace:path`` sources resolve through the ``mention_resolver``
+    capability, which the app layer registers AFTER modules mount (see
+    amplifier-foundation ``bundle/_prepared.py``: ``session.initialize()``
+    runs mounts, ``mention_resolver`` is registered later). So unless a
+    resolver is already present (embedding hosts, tests), @-sources are
+    returned as *pending* for deferred one-shot resolution at the first
+    ``provider:request`` — see ``mount()`` and
+    ``SkillsTool.resolve_pending_mention_sources()``.
 
     Args:
         config: Tool configuration dict.
         coordinator: Module coordinator for accessing global config.
 
     Returns:
-        List of resolved local directory paths.
+        Tuple of (resolved local directory paths, pending @-mention sources).
     """
     sources: list[str] = []
 
@@ -120,7 +130,43 @@ async def _resolve_skill_sources(
     # 5. Fall back to defaults if no sources configured
     if not sources:
         logger.debug("No skill sources configured, using defaults")
-        return get_default_skills_dirs()
+        return get_default_skills_dirs(), []
+
+    # Partition @namespace:path sources — these resolve via the
+    # mention_resolver capability, not the filesystem/git logic below.
+    # Pre-fix, they fell into the local-path branch, failed Path.exists(),
+    # and were silently dropped: the doc-promised "@mybundle:skills" form
+    # never worked from config.
+    mention_sources = [s for s in sources if isinstance(s, str) and s.startswith("@")]
+    sources = [s for s in sources if not (isinstance(s, str) and s.startswith("@"))]
+
+    mention_dirs: list[Path] = []
+    pending_mentions: list[str] = []
+    if mention_sources:
+        resolver = (
+            coordinator.get_capability("mention_resolver") if coordinator else None
+        )
+        for source in mention_sources:
+            if resolver is None:
+                # Normal production case: resolver is registered after
+                # mounts run. Defer to first provider:request (see mount()).
+                pending_mentions.append(source)
+                continue
+            # Resolver already available (embedding hosts, tests): resolve
+            # eagerly so the skills are present from mount.
+            try:
+                resolved_mention = resolver.resolve(source)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Failed to resolve skill source %r: %s", source, exc)
+                continue
+            if resolved_mention is not None and Path(resolved_mention).exists():
+                mention_dirs.append(Path(resolved_mention))
+            else:
+                logger.warning(
+                    "Skill source %r did not resolve to an existing path; "
+                    "these skills will not be available",
+                    source,
+                )
 
     # Check if any sources are remote (need async resolution)
     has_remote = any(is_remote_source(s) for s in sources)
@@ -128,7 +174,7 @@ async def _resolve_skill_sources(
     if has_remote:
         # Resolve all sources (handles both local and remote)
         logger.info(f"Resolving {len(sources)} skill sources (includes remote)")
-        return await resolve_skill_sources(sources)
+        resolved = await resolve_skill_sources(sources)
     else:
         # All local - just expand paths
         resolved = []
@@ -138,7 +184,11 @@ async def _resolve_skill_sources(
                 resolved.append(path)
             else:
                 logger.debug(f"Local skill source does not exist: {path}")
-        return resolved if resolved else get_default_skills_dirs()
+
+    resolved.extend(mention_dirs)
+    if resolved or pending_mentions or has_remote:
+        return resolved, pending_mentions
+    return get_default_skills_dirs(), []
 
 
 async def mount(
@@ -151,8 +201,16 @@ async def mount(
         config: Tool configuration
 
     Configuration options:
-        skills: List of skill sources (local paths or git URLs)
-            Example: ["~/.amplifier/skills", "git+https://github.com/org/skills@main"]
+        skills: List of skill sources (local paths, git URLs, or @namespace:path
+            bundle references)
+            Example: ["~/.amplifier/skills",
+                      "git+https://github.com/org/skills@main",
+                      "@mybundle:skills"]
+            @namespace:path sources resolve through the mention_resolver
+            capability, which is registered after modules mount — so their
+            skills register at the FIRST provider:request (deferred one-shot
+            resolution), not at mount time, unless a resolver is already
+            present when mount runs.
         skills_dirs: Legacy alias for skills (local paths only)
         skills_dir: Legacy single directory option
 
@@ -173,10 +231,11 @@ async def mount(
     )
     coordinator.register_capability("observability.events", obs_events)
 
-    # Resolve skill sources (handles both local paths and git URLs)
-    resolved_dirs = await _resolve_skill_sources(config, coordinator)
+    # Resolve skill sources (handles local paths, git URLs, and @-mentions)
+    resolved_dirs, pending_mentions = await _resolve_skill_sources(config, coordinator)
 
     tool = SkillsTool(config, coordinator, resolved_dirs)
+    tool._pending_mention_sources = pending_mentions
 
     # Detect whether this session is a forked-skill child session. See the
     # _detect_fork_session helper docstring for why the marker lives in
@@ -194,6 +253,49 @@ async def mount(
     logger.info(
         f"Mounted SkillsTool with {len(tool.skills)} skills from {len(tool.skills_dirs)} sources"
     )
+
+    # Deferred @-mention source resolution. The mention_resolver capability is
+    # registered by the app layer AFTER session.initialize() (which is when
+    # mounts run) in both production session paths, so a mount-time
+    # get_capability("mention_resolver") returns None in every path today.
+    # Resolve @-sources one-shot at the first provider:request, by which point
+    # the resolver exists. This hook is registered UNCONDITIONALLY (not inside
+    # the visibility hook) so the fix works with visibility disabled.
+    # Priority 10 < the visibility hook's default 20, so on the same first
+    # request the merged skills are already visible in the injected index.
+    _unregister_mention_holder: list[Any] = []
+    if tool._pending_mention_sources:
+
+        async def _resolve_mention_sources_once(
+            event: str, data: dict[str, Any]
+        ) -> HookResult:
+            await tool.resolve_pending_mention_sources()
+            # One-shot: unregister after the first firing (best-effort; the
+            # handler is also a no-op on subsequent calls once pending is empty).
+            if _unregister_mention_holder and callable(_unregister_mention_holder[0]):
+                try:
+                    _unregister_mention_holder[0]()
+                except Exception:
+                    logger.debug(
+                        "Could not unregister skills-mention-sources hook",
+                        exc_info=True,
+                    )
+                _unregister_mention_holder.clear()
+            return HookResult(action="continue")
+
+        _unregister_mention_holder.append(
+            coordinator.hooks.register(
+                event="provider:request",
+                handler=_resolve_mention_sources_once,
+                priority=10,
+                name="skills-mention-sources",
+            )
+        )
+        logger.info(
+            "Deferred %d @-mention skill source(s) to first provider:request: %s",
+            len(tool._pending_mention_sources),
+            ", ".join(tool._pending_mention_sources),
+        )
 
     # Mount skills visibility hook if enabled
     visibility_config = config.get("visibility", {})
@@ -416,6 +518,11 @@ Skill Discovery:
         # Set to True by mount() when running inside a forked skill sub-session.
         # Prevents fork-from-fork infinite recursion.
         self._is_forked_session: bool = False
+        # @namespace:path sources from config that could not resolve at mount
+        # time (mention_resolver is registered after mounts run). Populated by
+        # mount(); consumed one-shot by resolve_pending_mention_sources() at
+        # the first provider:request.
+        self._pending_mention_sources: list[str] = []
 
         # Use pre-resolved dirs if provided, otherwise discover from config or defaults
         if resolved_dirs is not None:
@@ -571,6 +678,94 @@ Skill Discovery:
         # Local path
         path = Path(source).expanduser().resolve()
         return path if path.exists() else None
+
+    async def resolve_pending_mention_sources(self) -> None:
+        """Resolve deferred @namespace:path config sources and merge their skills.
+
+        Called one-shot at the first provider:request (registered by mount()).
+        The mention_resolver capability is registered by the app layer AFTER
+        modules mount, so @-sources from config.skills cannot resolve at mount
+        time; mount() stashes them in _pending_mention_sources and this method
+        resolves them on first use.
+
+        Skills merge with the same first-match-wins, in-place mutation pattern
+        as execute(source=...): existing skills win, and mutating self.skills
+        in place propagates to SkillsVisibilityHook and SkillsDiscovery, which
+        hold references to this same dict.
+
+        Failures are LOUD: any source that cannot be resolved is reported via
+        logger.warning naming the source (the pre-fix behavior silently
+        dropped @-sources at debug level).
+        """
+        pending, self._pending_mention_sources = self._pending_mention_sources, []
+        if not pending:
+            return
+
+        resolver = (
+            self.coordinator.get_capability("mention_resolver")
+            if self.coordinator
+            else None
+        )
+        if resolver is None:
+            logger.warning(
+                "Skill source(s) %s could not be resolved: no mention_resolver "
+                "capability is registered in this session. These skills will "
+                "not be available.",
+                ", ".join(repr(s) for s in pending),
+            )
+            return
+
+        for source in pending:
+            try:
+                resolved = resolver.resolve(source)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Failed to resolve skill source %r: %s", source, exc)
+                continue
+            if resolved is None:
+                logger.warning(
+                    "Skill source %r did not resolve to a path; "
+                    "these skills will not be available",
+                    source,
+                )
+                continue
+            resolved_path = Path(resolved)
+            if not resolved_path.exists():
+                logger.warning(
+                    "Skill source %r resolved to nonexistent path %s; "
+                    "these skills will not be available",
+                    source,
+                    resolved_path,
+                )
+                continue
+
+            new_skills = discover_skills(resolved_path)
+
+            # Merge with first-match-wins: existing skills take priority
+            # (same pattern as execute(source=...)).
+            added = []
+            for name, metadata in new_skills.items():
+                if name not in self.skills:
+                    self.skills[name] = metadata
+                    added.append(name)
+            self.skills_dirs.append(resolved_path)
+
+            logger.info(
+                "Resolved deferred skill source %r -> %s: %d skill(s), %d new",
+                source,
+                resolved_path,
+                len(new_skills),
+                len(added),
+            )
+
+            if self.coordinator:
+                await self.coordinator.hooks.emit(
+                    "skills:discovered",
+                    {
+                        "skill_count": len(new_skills),
+                        "skill_names": list(new_skills.keys()),
+                        "sources": [str(resolved_path)],
+                    },
+                )
 
     async def execute(self, input: dict[str, Any]) -> ToolResult:
         """
