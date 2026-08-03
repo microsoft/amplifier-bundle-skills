@@ -21,12 +21,17 @@ clone task fires per unique repo@ref.
 
 import asyncio
 import logging
+import subprocess
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from amplifier_module_tool_skills.sources import resolve_skill_sources
+
+# Intercept the clone at the module's own boundary, _run_clone, rather than at
+# subprocess.run/Popen -- see the note in test_sources.py.
+_CLONE_SEAM = "amplifier_module_tool_skills.sources._run_clone"
 
 
 # The 5 context-intelligence bundle sources that originally triggered the bug.
@@ -61,11 +66,8 @@ async def test_shared_repo_ref_cloned_exactly_once(tmp_path, caplog):
     sources = [f"{BASE_URL}#subdirectory={sd}" for sd in SUBDIRS]
     clone_call_count = 0
 
-    def fake_subprocess_run(cmd, **kwargs):
+    def fake_run_clone(cmd, **kwargs):
         nonlocal clone_call_count
-        result = MagicMock()
-        result.returncode = 0
-        result.stderr = ""
         if "clone" in cmd:
             clone_call_count += 1
             dest = Path(cmd[-1])
@@ -73,7 +75,7 @@ async def test_shared_repo_ref_cloned_exactly_once(tmp_path, caplog):
             # Populate every expected subdirectory so each source can resolve.
             for sd in SUBDIRS:
                 (dest / sd).mkdir(parents=True, exist_ok=True)
-        return result
+        return subprocess.CompletedProcess(cmd, 0, "", "")
 
     async def fake_create_subprocess_exec(*args, **kwargs):
         # Yield to the event loop — the critical interleaving point.
@@ -88,7 +90,7 @@ async def test_shared_repo_ref_cloned_exactly_once(tmp_path, caplog):
     with caplog.at_level(
         logging.WARNING, logger="amplifier_module_tool_skills.sources"
     ):
-        with patch("subprocess.run", side_effect=fake_subprocess_run):
+        with patch(_CLONE_SEAM, side_effect=fake_run_clone):
             with patch(
                 "asyncio.create_subprocess_exec",
                 side_effect=fake_create_subprocess_exec,

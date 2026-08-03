@@ -2,12 +2,20 @@
 
 import hashlib
 import json
+import subprocess
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from amplifier_module_tool_skills.sources import _resolve_remote_source
+
+# These tests intercept the clone at the module's own boundary, _run_clone,
+# rather than at subprocess.run/Popen. _run_clone is what _resolve_remote_source
+# actually calls, so the seam stays valid even if the helper's internals change
+# (it uses Popen + communicate to allow a process-TREE kill on timeout; mocking
+# Popen here would couple these tests to CPython plumbing).
+_CLONE_SEAM = "amplifier_module_tool_skills.sources._run_clone"
 
 
 def _compute_cache_path(source: str, cache_dir: Path) -> Path:
@@ -38,19 +46,16 @@ async def test_write_cache_meta_after_successful_clone(tmp_path):
 
     def fake_clone(cmd, **kwargs):
         """Simulate git clone by creating the destination directory."""
-        result = MagicMock()
-        result.returncode = 0
-        result.stderr = ""
         if "clone" in cmd:
             dest = Path(cmd[-1])
             dest.mkdir(parents=True, exist_ok=True)
-        return result
+        return subprocess.CompletedProcess(cmd, 0, "", "")
 
     mock_sha_proc = AsyncMock()
     mock_sha_proc.returncode = 0
     mock_sha_proc.communicate = AsyncMock(return_value=(b"abc1234deadbeef\n", b""))
 
-    with patch("subprocess.run", side_effect=fake_clone):
+    with patch(_CLONE_SEAM, side_effect=fake_clone):
         with patch("asyncio.create_subprocess_exec", return_value=mock_sha_proc):
             result = await _resolve_remote_source(source, cache_dir)
 
@@ -90,20 +95,17 @@ async def test_corrupt_cache_without_metadata_triggers_reclone(tmp_path):
 
     def fake_clone(cmd, **kwargs):
         """Simulate a successful git clone (re-clone after detecting corruption)."""
-        result = MagicMock()
-        result.returncode = 0
-        result.stderr = ""
         if "clone" in cmd:
             clone_called.append(cmd)
             dest = Path(cmd[-1])
             dest.mkdir(parents=True, exist_ok=True)
-        return result
+        return subprocess.CompletedProcess(cmd, 0, "", "")
 
     mock_sha_proc = AsyncMock()
     mock_sha_proc.returncode = 0
     mock_sha_proc.communicate = AsyncMock(return_value=(b"deadbeef12345678\n", b""))
 
-    with patch("subprocess.run", side_effect=fake_clone):
+    with patch(_CLONE_SEAM, side_effect=fake_clone):
         with patch("asyncio.create_subprocess_exec", return_value=mock_sha_proc):
             result = await _resolve_remote_source(source, cache_dir)
 
@@ -132,9 +134,7 @@ async def test_failed_clone_cleans_up_partial_directory(tmp_path):
 
     def fake_failing_clone(cmd, **kwargs):
         """Simulate a git clone that fails mid-download (creates a partial directory)."""
-        result = MagicMock()
-        result.returncode = 128  # git failure exit code
-        result.stderr = (
+        stderr = (
             "error: unable to write file .git/objects/pack/pack-abc.pack: "
             "No such file or directory\nfatal: unable to rename temporary '*.pack' file"
         )
@@ -143,9 +143,9 @@ async def test_failed_clone_cleans_up_partial_directory(tmp_path):
             dest = Path(cmd[-1])
             dest.mkdir(parents=True, exist_ok=True)
             (dest / ".git").mkdir()  # partial .git directory
-        return result
+        return subprocess.CompletedProcess(cmd, 128, "", stderr)  # 128 = git failure
 
-    with patch("subprocess.run", side_effect=fake_failing_clone):
+    with patch(_CLONE_SEAM, side_effect=fake_failing_clone):
         result = await _resolve_remote_source(source, cache_dir)
 
     assert result is None, "Expected None when clone fails"
@@ -182,8 +182,8 @@ async def test_valid_cache_with_metadata_returned_without_reclone(tmp_path):
         encoding="utf-8",
     )
 
-    with patch("subprocess.run") as mock_run:
+    with patch(_CLONE_SEAM) as mock_clone:
         result = await _resolve_remote_source(source, cache_dir)
 
     assert result == valid_cache, "Expected the pre-existing valid cache path"
-    mock_run.assert_not_called()  # no git clone should happen for a valid cache
+    mock_clone.assert_not_called()  # no git clone should happen for a valid cache
