@@ -10,7 +10,9 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
 import shutil
+import signal
 import subprocess
 from datetime import datetime
 from pathlib import Path
@@ -119,6 +121,68 @@ async def resolve_skill_source(
         return None
 
 
+def _descendants(root: int) -> list[int]:
+    """Every transitive child of `root`, read from /proc right now.
+
+    Must be read BEFORE the direct child is reaped: once it is, the orphan is
+    reparented to pid 1 and the ppid chain identifying it as ours is gone.
+    """
+    kids: dict[int, list[int]] = {}
+    try:
+        entries = os.listdir("/proc")
+    except OSError:
+        return []
+    for name in entries:
+        if not name.isdigit():
+            continue
+        try:
+            with open(f"/proc/{name}/stat", encoding="utf-8") as fh:
+                ppid = int(fh.read().rsplit(")", 1)[1].split()[1])
+        except (OSError, IndexError, ValueError):
+            continue
+        kids.setdefault(ppid, []).append(int(name))
+    out: list[int] = []
+    stack = list(kids.get(root, []))
+    while stack:
+        pid = stack.pop()
+        out.append(pid)
+        stack.extend(kids.get(pid, []))
+    return out
+
+
+def _run_clone(cmd: list[str], env: dict[str, str], timeout: int):
+    """`subprocess.run(capture_output=True, text=True, timeout=...)`, plus a
+    TREE kill on timeout.
+
+    CPython's `run()` kills only the DIRECT child when the timeout fires, so a
+    `git-remote-http` that is blocked on `/dev/tty` outlives it as an orphan
+    still holding the terminal. Defence in depth behind GIT_TERMINAL_PROMPT=0:
+    if anything in the tree ever blocks on the terminal for another reason,
+    the leak is still bounded by the timeout. The call remains SYNCHRONOUS --
+    `Popen` + `communicate(timeout=...)` is exactly what `run()` does.
+    """
+    with subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env=env,
+    ) as proc:
+        try:
+            out, err = proc.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            tree = _descendants(proc.pid)  # BEFORE the kill
+            proc.kill()
+            for pid in tree:
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                except (ProcessLookupError, PermissionError):
+                    pass
+            proc.wait()
+            raise
+        return subprocess.CompletedProcess(proc.args, proc.returncode, out, err)
+
+
 async def _resolve_remote_source(source: str, cache_dir: Path) -> Path | None:
     """Resolve a remote source URL by cloning the git repository.
 
@@ -192,7 +256,19 @@ async def _resolve_remote_source(source: str, cache_dir: Path) -> Path | None:
                 str(tmp_path),
             ]
             logger.info(f"Cloning skill source: {url}@{ref}")
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            # A clone issued from inside the REPL must never PROMPT. When the
+            # remote demands credentials, git opens /dev/tty BY PATH -- not the
+            # inherited stdin -- and blocks reading it. The descriptor is held
+            # by `git-remote-http`, which is NOT the process this timeout
+            # kills: CPython kills only the direct child. The orphan survives,
+            # keeps holding the terminal, and steals keystrokes from
+            # prompt_toolkit's stdin reader -- the REPL freeze.
+            # GIT_TERMINAL_PROMPT=0 makes git fail fast instead of prompting,
+            # so nothing opens /dev/tty and nothing is orphaned. Credential
+            # helpers, tokens embedded in the URL and GH_TOKEN-style auth are
+            # unaffected: only INTERACTIVE prompting is disabled.
+            env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+            result = _run_clone(cmd, env=env, timeout=120)
 
             if result.returncode != 0:
                 logger.error(f"Git clone failed: {result.stderr}")
