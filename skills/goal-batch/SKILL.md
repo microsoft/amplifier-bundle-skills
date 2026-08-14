@@ -12,6 +12,7 @@ description: >
   a lane's own claim that it finished. NOT for bounded edits that each end in
   their own PR — use mass-change for that. Requires git, tmux, the amplifier CLI
   on PATH, and the goalify and monitor skills.
+version: 2.0.0
 user-invocable: true
 argument-hint: "<the work to batch, or where it is enumerated>"
 allowed-tools: [bash, read_file, write_file, edit_file, grep, glob, delegate, load_skill, todo]
@@ -28,9 +29,8 @@ You are the ORCHESTRATOR. You plan, launch, watch, verify, merge, report. You do
 not do the lanes' work — if you catch yourself editing a lane's code mid-flight,
 stop and fix the goal file or relaunch instead.
 
-Every rule here was bought with a real failure across ~33 lanes of production
-use. **The rules are field-tested; this file's exact sequencing is not — it has
-driven few batches. Report what breaks.**
+Every rule here was bought with a real failure in production use — roughly 45
+lanes across three operators. Where a rule looks fussy, it is load-bearing.
 
 Shape references (plan screen, approval vocabulary, DONE.json, report) live in
 `examples/plan-and-report.md`. This file is the rules.
@@ -42,13 +42,21 @@ goal-batch skill and …"** in natural language — both load this skill reliabl
 itself, producing plausible branches with no gate, no manifest, and no lanes.
 Name the skill, or call `load_skill(skill_name="goal-batch", arguments=…)`.
 
+**If `$ARGUMENTS` is empty, you have no batch.** This skill forks — the
+sub-session cannot see the parent conversation, so an `arguments`-less
+`load_skill` call arrives with nothing to plan against. That happened in a real
+run and the whole invocation died silently. Do not produce an empty plan and do
+not guess: reconstruct the batch from whatever context you were given, and if
+there genuinely is none, say so in one line and ask for the work. One question,
+not an interview.
+
 **Running the companion scripts.** `load_skill` returns `skill_directory`.
 Resolve every script from it — `<skill_directory>/scripts/<name>.sh` — and use
 that absolute path. Never a bare relative path: the working directory is the
-target repo, not the skill, and once this ships in a bundle the skill lives
-under a hash-suffixed cache path that changes. **Never copy a script into the
-target repo** — a real run did exactly that, leaving `.amplifier/bin/` behind as
-untracked pollution in someone else's repository.
+target repo, not the skill, and in a bundle the skill lives under a
+hash-suffixed cache path that changes between installs. **Never copy a script
+into the target repo** — a real run did exactly that, leaving `.amplifier/bin/`
+behind as untracked pollution in someone else's repository.
 
 **Input** — `$ARGUMENTS`: the work to batch, or a pointer to where it is
 enumerated. If lane independence is unclear, that is Phase 1's job, not a
@@ -79,22 +87,50 @@ No lane cap. Width is bounded by the work.
 
 ## Phase 2 — Review and go
 
-**The one mandatory stop. Nothing is created and nothing launches before the
-user says go.**
+**Nothing is created and nothing launches before the user has seen the plan.**
 
-Show the plan on one screen — lane table, contested files, parked items, unowned
-files, per-lane time bound, watching mode. Fifteen seconds to read, one sentence
-to argue with. Shape in `examples/`.
+**Open with what the batch will NOT deliver.** The first two lines are:
+
+```
+When this finishes you WILL have: <the concrete end state>
+You will NOT have:                <what stays undone, and what it blocks>
+```
+
+This is the whole point of the gate and the one thing it has actually failed at.
+In a real run the fact that the batch *would not produce a working component*
+was disclosed — as the third bullet, inside a code block, under a heading about
+testing — and the user found out only after it finished: *"So the batch had post
+work associated with it? That was not clear to me."* Anything a reader would be
+upset to discover afterwards goes in line two, not in a section they will skim.
+
+Then the plan on one screen — lane table, contested files, parked items, unowned
+files, per-lane bounds, watching mode. Fifteen seconds to read, one sentence to
+argue with. Shape in `examples/`.
 
 Ask questions ONLY where a wrong guess costs a relaunch: an ownership call you
 cannot make from the code, a repo you are not sure you may push to, a
 human-reserved action. Bring a plan, not a form.
 
+**Every lane must trace to something the user asked for.** State the origin of
+each lane in the table. A run once invented a lane out of the orchestrator's own
+scratch notes and got 32 minutes into the gate before the user caught it:
+*"Lane F drafts five upstream feature requests against repos we don't own."
+What? Why are we changing other repos?* If you cannot name where a lane came
+from, it is not a lane.
+
 **Approval is conversational.** Accept a bare `go`, and accept a `go` carrying
-options — reporting cadence, per-lane time bounds, dropping a lane — and honor
-them without re-asking. Anything that is not an affirmative is feedback: revise,
-show the diff, re-present the gate. Never infer approval from enthusiasm,
-repetition, or silence.
+options — reporting cadence, per-lane bounds, dropping a lane — and honor them
+without re-asking. Anything that is not an affirmative is feedback: revise, show
+the diff, re-present. Never infer approval from enthusiasm, repetition, or
+silence.
+
+**Pre-authorization is valid and must be honored.** If the invocation itself
+grants approval — "pre-approved", "don't stop and ask", "go ahead and run it" —
+post the plan for the record and proceed without waiting. Users have started
+pre-arguing with the gate in the same breath as the request (*"but do NOT bug me
+about this simple design, then launch into /goal-batch"*), and the cleanest run
+in the field skipped the gate entirely. The plan is always shown; stopping is
+what a user may waive. Waiving is theirs to do, never yours to assume.
 
 ## Phase 3 — Compose the goal files
 
@@ -133,10 +169,17 @@ Every goal carries:
   shared services are read-only evidence to a lane; tests use fixtures.
 - **The time bound**, and that exceeding it is a terminal `BUDGET` state, not a
   reason to rush the work or skip the commit.
+- **Add `DONE.json` to the repo's `.gitignore` before writing it.** Four of five
+  lanes in one run committed theirs and the batch's own merge pass collided on
+  that file. It is a signal, not an artifact.
 - **Write `DONE.json` in the worktree root as your final act** — the terminal
   marker. Without it, an exited session is indistinguishable from a killed one.
-  Fields: `lane, verdict, branch, head, pushed, items[], residuals[],
-  pending_human[], suite`. Shape in `examples/`.
+  Fields: `lane, session_id, verdict, branch, head, pushed, items[],
+  residuals[], pending_human[], suite`. Shape in `examples/`.
+  **`verdict` is exactly one of `COMPLETE` / `BLOCKED` / `PARTIAL`**, and
+  `session_id` is this lane's own — two lanes in one batch wrote `"PASS"` and
+  `"success"`, which no parser reads the same way, and a `DONE.json` without a
+  session_id cannot be told apart from one inherited through the base commit.
 - **KNOWN section** — env setup, suite commands, baselines, footguns. Speed
   aid, not criteria.
 
@@ -160,19 +203,32 @@ their activity becomes unattributable.
 
 ## Phase 5 — Launch and register
 
-One tmux session per lane, via the companion script:
+One tmux session per lane, via the companion script — once per lane:
 
 ```bash
-scripts/launch_lane.sh <lane> <worktree> .amplifier/goals/<lane>.md \
-                       gb__<batch>__<lane> /tmp/gb-<batch>-<lane>.log [timeout_s]
+<skill_directory>/scripts/launch_lane.sh \
+    <batch> <lane> <worktree> .amplifier/goals/<lane>.md \
+    <repo>/.amplifier/goals/manifest.tsv [wall_s] [max_turns]
 ```
 
-It prints a manifest row and enforces four things you must not reimplement by
-hand: the tmux command contains **no user prose** (a lone apostrophe in a launch
-note silently truncated a real launch — put launch notes INSIDE the goal file);
-logging survives; the lane is wrapped in `timeout` in its own process group so a
-runaway dies with its children; and it **fails loud** if no session ID appears,
-rather than writing a blank into the crash anchor.
+**The script owns the manifest. Never hand-write it.** It writes the header on
+first call and appends one 8-column row per lane. Both users of v1 ended up
+hand-writing manifests because the launcher emitted 5 columns while the status
+probe read 7 — they never agreed, and no batch could use both tools as shipped.
+If you find yourself composing a `manifest.tsv` heredoc, stop: something is
+wrong and hand-writing it will hide the failure.
+
+The tmux session name and log path are **derived** from `<batch>`/`<lane>`, so
+the `gb__*` convention that the orphan sweep and pane-viewer match strings depend
+on cannot drift.
+
+It also enforces five things you must not reimplement by hand: the tmux command
+carries **no user prose** (a lone apostrophe in a launch note silently truncated
+a real launch — put launch notes INSIDE the goal file); logging survives; the
+lane runs under `timeout` in its own process group so a runaway dies with its
+children; any inherited `DONE.json` is purged before launch; and it **fails
+loud** if no session ID appears rather than writing a blank into the crash
+anchor.
 
 One-phase launch is mandatory. Never start a bare `amplifier` TUI and `send-keys`
 the `/goal` into it — keystrokes sent to a busy pane get swallowed silently (one
@@ -198,30 +254,52 @@ reconstruct the batch; without it, recovery was 40 minutes of archaeology.
 
 ## Phase 6 — Watch
 
-Load **monitor** for the polling discipline — it owns the SEQUENTIAL-ONLY rule
-and the batched-imposter check. Delegate the loop per its Step 3 and give it
-this batch's instrument:
+**Every claim you make about a lane must come from a probe you just ran.** This
+is the rule; everything below serves it. Watchers that narrated from memory or
+from a pane's last line have fabricated in multiple runs — one declared
+`TIMEOUT: reached 95-minute max duration` at 30 minutes actual, and one reported
+`No DONE.json files written` 68 seconds before the merge collided with those
+exact files. The run with the lowest overhead measured (7% of spend) is the one
+that probed for everything it said.
+
+The instrument:
 
 ```bash
-scripts/batch_status.sh <manifest.tsv> <BASE_SHA>     # one line per lane, ~8ms each
-SHOW_LAST=1 scripts/batch_status.sh <manifest.tsv>    # + last 3 turns per lane
+<skill_directory>/scripts/batch_status.sh <manifest.tsv> <BASE_SHA>
+SHOW_LAST=1 <skill_directory>/scripts/batch_status.sh <manifest.tsv>
 ```
 
-**Monitors lied in every prior run because they were reading `tail -1` of a
-TUI.** Give the watcher a real instrument and its job becomes mechanical. Three
-signals are counter-intuitive and the script exists to encode them:
+Its first line is `BATCH_ELAPSED`, computed from the manifest header — **that is
+the only elapsed time that means anything.** The per-lane `LANE_IDLE` column is
+seconds since that lane last emitted an event; reading it as batch elapsed time
+is what killed a watch an hour early.
 
+Five signals are counter-intuitive and the script encodes them so you do not
+have to reason about them:
+
+- Terminal is `DONE.json`, checked against the manifest's session_id — an
+  inherited one from the base commit otherwise reads as a finished lane.
+- Alive is `kill -0` on the lane PID, **not** tmux presence. The tmux server has
+  died mid-batch in three separate runs, leaving healthy lanes running as
+  orphans while tmux-keyed probes went blind.
 - Liveness is `events.jsonl` mtime, **not** `transcript.jsonl` mtime — the
-  transcript freezes completely while a lane delegates to a sub-agent.
-- Progress is assistant turns counted from the transcript, **not**
+  transcript freezes entirely while a lane delegates to a sub-agent.
+- Progress is assistant turns from the transcript, **not**
   `metadata.turn_count`, which is corrupt (reports 1 for a 21-turn session).
 - Pushed is `git ls-remote`, **not** `@{upstream}`, never set by an
   explicit-refspec push.
 
+**Wait on state change, not on a clock.** Sleep between probes; do not spend a
+model call to decide whether to sleep again. In one run 51 of 70 monitor calls
+were bare `sleep`, and monitoring ran 3.9× longer than the work it watched.
+Load **monitor** if you delegate the loop — it owns the SEQUENTIAL-ONLY rule and
+the batched-imposter check — but the loop's job here is mechanical: probe,
+compare, sleep, repeat.
+
 Report per the mode approved in Phase 2. Interrupt regardless for: a lane
-`DIED`, a lane asking a human a question, or the probe itself failing twice.
-Stall thresholds (120s/900s) are starting guesses — calibrate before letting
-`STALLED` justify killing anything.
+`DIED`, a `STALE-DONE-IGNORED` verdict, a lane asking a human a question, or the
+probe itself failing twice. Stall thresholds (120s/900s) are starting guesses —
+calibrate before letting `STALLED` justify killing anything.
 
 **Verify the watcher's verdict yourself before acting on it.** Both false-DONE
 and false-crash have happened.
