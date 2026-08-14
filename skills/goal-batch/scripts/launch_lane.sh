@@ -68,6 +68,34 @@ if [ -z "$AMP" ]; then
   echo "NOTE $LANE: amplifier only on the login PATH; pinning $AMP" >&2
 fi
 
+# --- lane-environment preflight ----------------------------------------------
+# A lane inherits the TMUX SERVER's environment, not this shell's. When a var
+# the settings interpolate is missing there, it resolves EMPTY -- e.g.
+# `base_url: ${ANTHROPIC_BASE_URL}` becomes "" and every LLM call dies with
+# "Connection error" that looks exactly like a network outage. That killed three
+# lanes twice in one day while the API was reachable the whole time. Refuse to
+# launch rather than die mid-run.
+# Vars are discovered from the settings files, not hardcoded -- a provider this
+# script has never heard of is covered for free.
+if tmux has-session 2>/dev/null || tmux ls >/dev/null 2>&1; then
+  VARS=$(cat ~/.amplifier/settings.yaml .amplifier/settings.yaml 2>/dev/null \
+         | grep -oE '\$\{[A-Z_][A-Z0-9_]*\}' | tr -d '${}' | sort -u)
+  missing=""
+  for v in $VARS; do
+    here="$(printenv "$v" 2>/dev/null || true)"
+    there="$(tmux show-environment -g "$v" 2>/dev/null | sed "s/^$v=//")"
+    case "$there" in "-$v"|"") there="" ;; esac
+    [ -n "$here" ] && [ -z "$there" ] && missing="$missing $v"
+  done
+  if [ -n "$missing" ]; then
+    echo "FATAL $LANE: set in this shell but EMPTY in the tmux server env:$missing" >&2
+    echo "  The lane would inherit empty values and fail with a misleading" >&2
+    echo "  'Connection error' on its first LLM call. Fix, then relaunch:" >&2
+    for v in $missing; do echo "    tmux set-environment -g $v \"\$$v\"" >&2; done
+    exit 2
+  fi
+fi
+
 BRANCH=$(git -C "$WT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?')
 
 # A DONE.json inherited from the base commit means "finished" to every reader.
@@ -77,11 +105,43 @@ rm -f "$WT/DONE.json" "$PIDFILE"
 if [ "$MAXTURNS" -gt 0 ]; then PROMPT="/goal --max-turns ${MAXTURNS} @${GOAL}"
 else                           PROMPT="/goal @${GOAL}"; fi
 
+# --- tmux guard: MECHANICAL, because knowledge failed twice -------------------
+# A lane that runs `tmux kill-server` without -L/-S kills the server it is
+# RUNNING IN. tmux resolves -S > -L > $TMUX > TMUX_TMPDIR, and $TMUX is set in
+# every process descended from an attached client -- so TMUX_TMPDIR is NOT
+# isolation. This has happened twice on this class of machine: 73 live sessions
+# destroyed 2026-08-08, 81 more on 2026-08-12. The second lane had the
+# precedence rule documented in its own context when it ran the command.
+# Documentation does not stop this. A shim on the lane's PATH does.
+# Lanes have no legitimate business on the shared server; isolated work must
+# name its socket on EVERY call, including the teardown -- the teardown is the
+# call that bites.
+GUARD_DIR="/tmp/gb-tmux-guard"
+REAL_TMUX="$(command -v tmux || true)"
+if [ -n "$REAL_TMUX" ]; then
+  mkdir -p "$GUARD_DIR"
+  cat > "$GUARD_DIR/tmux" <<GUARD
+#!/usr/bin/env bash
+# Auto-installed by goal-batch launch_lane.sh. Applies to LANES only.
+for a in "\$@"; do
+  case "\$a" in -L|-S|-L*|-S*) exec "$REAL_TMUX" "\$@" ;; esac
+done
+echo "[gb-tmux-guard] REFUSED: tmux invoked without an explicit -L <name> or -S <path>." >&2
+echo "[gb-tmux-guard] TMUX_TMPDIR is NOT isolation -- \\\$TMUX outranks it. That exact" >&2
+echo "[gb-tmux-guard] mistake destroyed 73 live sessions on 2026-08-08 and 81 on 08-12." >&2
+echo "[gb-tmux-guard] Use an isolated socket and pass -L <unique-name> on EVERY call," >&2
+echo "[gb-tmux-guard] including teardown. You are a lane; you do not need the shared server." >&2
+exit 78
+GUARD
+  chmod +x "$GUARD_DIR/tmux"
+fi
+
 # Wrapper keeps quoting off the tmux command line and owns process-group cleanup
 # that plain `timeout` does not do (it signals only its direct child).
 WRAP="$(mktemp "/tmp/gb-wrap-${BATCH}-${LANE}-XXXXXX.sh")"
 {
   echo '#!/usr/bin/env bash'
+  [ -n "$REAL_TMUX" ] && printf 'export PATH=%q:"$PATH"\n' "$GUARD_DIR"
   printf 'echo $$ > %q\n' "$PIDFILE"
   echo 'trap '\''kill -- -$$ 2>/dev/null'\'' EXIT'
   if [ "$WALL" -gt 0 ]; then

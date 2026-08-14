@@ -318,6 +318,18 @@ calibrate before letting `STALLED` justify killing anything.
 **Verify the watcher's verdict yourself before acting on it.** Both false-DONE
 and false-crash have happened.
 
+**Inherited artifacts are the single biggest source of false signals.** A lane's
+worktree starts as a full copy of the base commit, so every status file, every
+evidence directory, every `BLOCKED.md` that was already tracked appears to
+belong to the lane. Three false alarms in one day came from this: a `BLOCKED.md`
+byte-identical to main — *whose first line read "The lane is not blocked"* —
+read as a real block; "23 evidence files, great progress" where 20 were
+inherited; a monitor citing a device transcript that shipped with the branch.
+Before reading any artifact as a lane's own output, prove the lane wrote it:
+compare against the base commit (`git log <BASE_SHA>..HEAD -- <path>`, or a
+checksum against base). `launch_lane.sh` purges `DONE.json` for exactly this
+reason; every other artifact is on you.
+
 **Provider rate-limit errors in a pane are healthy, not a stall.** If a lane
 dies of them, that is a model-routing problem: switch the model and relaunch.
 Do not serialize the batch.
@@ -334,7 +346,18 @@ forever. Never let a bounded-out lane vanish silently from the Phase 7 report.
 **Re-verify everything. Lane self-reports are hints.** Two lanes reported green
 honestly from a suite run that predated their own last file.
 
-1. `git fetch`. Diff-stat each landed branch against main.
+1. `git fetch`. Diff-stat each landed branch with **three dots** —
+   `git diff main...HEAD` — not two. Two dots compares against main's *current*
+   tip, so every commit main gained while the lane ran shows up as the lane's
+   work. That produced a near-miss ownership accusation against a lane that had
+   touched none of the files.
+2. **Read the diffs across lanes, not just within them.** File ownership does
+   not catch two lanes inventing the *same* thing at *different* paths — two
+   lanes once created separate `ThreadVisibility` singletons, one written by
+   one lane and read by the other, and **both lanes' tests passed** while the
+   behavior was silently broken. It was caught only by reading the combined
+   diff. Anything that looks like a new shared abstraction deserves a
+   cross-lane look before merging.
 2. Merge **sequentially, ascending by churn, `--no-ff`**. Run the full suite
    yourself after EVERY merge. Verify actual test counts from result files, not
    "BUILD SUCCESSFUL".
