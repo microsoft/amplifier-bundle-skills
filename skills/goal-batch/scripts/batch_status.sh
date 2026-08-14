@@ -1,33 +1,32 @@
 #!/usr/bin/env bash
 # batch_status.sh <manifest.tsv> [base_sha]
 #
-# One line per lane. This is the instrument the monitor reads.
-# Cost: stat-only liveness, ~8ms per lane. File size is irrelevant --
-# a 750MB events.jsonl costs the same as an empty one.
+# One line per lane. This is the instrument the watcher reads.
+# Reads the 8-column manifest that launch_lane.sh writes. Never hand-write it.
 #
-# Manifest is TSV, one row per lane, comment lines start with '#':
-#   lane <TAB> worktree <TAB> branch <TAB> tmux <TAB> goal <TAB> log <TAB> session_id
+# SHOW_LAST=1  also print each lane's last 3 top-level turns.
 #
-# SHOW_LAST=1  also print the last 3 top-level turns per lane.
+# --- what each signal is, and why NOT the obvious alternative ----------------
+# TERMINAL  = DONE.json in the worktree root, verified against the manifest's
+#             session_id when present. Pane death alone cannot distinguish
+#             "goal satisfied" from "killed".
+# ALIVE     = kill -0 on the lane PID. NOT tmux presence: the tmux server has
+#             died mid-batch in three separate real runs, leaving healthy lanes
+#             running as orphans while a tmux-keyed probe went blind.
+# LIVENESS  = newest events.jsonl mtime in the lane's workspace. NOT
+#             transcript.jsonl mtime, which freezes entirely while a lane
+#             delegates to a sub-agent (measured: 4 live sessions, 124s apart,
+#             zero transcript movement).
+# PROGRESS  = assistant turns counted from the transcript. NOT
+#             metadata.turn_count, which is corrupt (reports 1 for 21 turns).
+# PUSHED    = git ls-remote. NOT @{upstream}, never set by explicit-refspec push.
 #
-# --- signals, and why these and not the obvious ones -------------------------
-# LIVENESS  = newest events.jsonl mtime anywhere in the lane's workspace.
-#   NOT transcript.jsonl mtime. transcript.jsonl only advances on completed
-#   ROOT-LEVEL tool calls, so a lane delegating to a sub-agent for 20 minutes
-#   has a completely frozen transcript. Measured: 4 live sessions sampled 124s
-#   apart showed ZERO transcript movement, including one blocked inside a single
-#   delegate call. events.jsonl mtime tracked wall clock (+76s/+80s over 78s).
-# PROGRESS  = assistant turns counted from the transcript.
-#   NOT metadata.turn_count -- it is corrupt. Observed: turn_count=1 on a
-#   session with 21 assistant turns; turn_count=40 on one with 348.
-# PUSHED    = git ls-remote.
-#   NOT @{upstream} -- `git push origin <branch>` sets no tracking config, so a
-#   pushed branch reads as never-pushed.
-# TERMINAL  = DONE.json written by the lane as its final act.
-#   Pane death alone cannot distinguish "goal satisfied" from "killed".
+# BATCH_ELAPSED comes from the manifest header, NOT from any lane's idle timer.
+# A watcher once read a lane's idle seconds as batch elapsed time and killed the
+# watch at 30 minutes claiming 95. The per-lane column is named LANE_IDLE so the
+# two can never be confused again.
 #
 # Requires GNU find (-printf), jq, git, tmux.
-# -----------------------------------------------------------------------------
 
 set -uo pipefail
 
@@ -38,29 +37,59 @@ WARM="${GOAL_BATCH_WARM:-120}"    # idle < WARM -> WORKING
 COLD="${GOAL_BATCH_COLD:-900}"    # idle < COLD -> SLOW, else STALLED
 CI_BASE="${AMPLIFIER_CONTEXT_INTELLIGENCE_BASE_PATH:-$HOME/.amplifier/projects}"
 
+[ -s "$MAN" ] || { echo "FATAL: manifest missing or empty: $MAN" >&2; exit 2; }
 mkdir -p "$STATE"
 NOW=$(date +%s)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-printf '%-14s %-19s %-8s %-10s %-8s %-6s %-7s %s\n' \
-  LANE VERDICT IDLE TURNS COMMITS DIRTY PUSHED BRANCH
+# --- batch-level elapsed, from the manifest header ---------------------------
+LAUNCHED=$(sed -n 's/.*launched_at=\([0-9]*\).*/\1/p' "$MAN" | head -1)
+if [ -n "${LAUNCHED:-}" ]; then
+  E=$(( NOW - LAUNCHED ))
+  printf 'BATCH_ELAPSED %02d:%02d:%02d   manifest=%s\n' $((E/3600)) $((E%3600/60)) $((E%60)) "$MAN"
+else
+  printf 'BATCH_ELAPSED unknown (manifest header has no launched_at)   manifest=%s\n' "$MAN"
+fi
 
-while IFS=$'\t' read -r lane wt branch tmuxname goal log sid; do
+printf '%-14s %-19s %-10s %-10s %-8s %-6s %-7s %s\n' \
+  LANE VERDICT LANE_IDLE TURNS COMMITS DIRTY PUSHED BRANCH
+
+while IFS=$'\t' read -r lane wt branch tmuxname goal log sid pid; do
   case "${lane:-}" in ''|'#'*) continue ;; esac
 
-  done_json=no
-  [ -f "$wt/DONE.json" ] && done_json=yes
+  # --- terminal marker, guarded against a stale/inherited file ---------------
+  done_state=no
+  if [ -f "$wt/DONE.json" ]; then
+    done_sid=$(jq -r '.session_id // empty' "$wt/DONE.json" 2>/dev/null)
+    if [ -n "$done_sid" ] && [ -n "${sid:-}" ] && [ "$done_sid" != "$sid" ]; then
+      done_state=stale
+    else
+      done_state=yes
+    fi
+  fi
 
-  # --- liveness (stat only, never a read) ------------------------------------
+  # --- verdict normalisation: the enum drifted across lanes in one real batch
+  verdict_field=""
+  if [ "$done_state" = yes ]; then
+    verdict_field=$(jq -r '(.verdict // "") | ascii_upcase' "$wt/DONE.json" 2>/dev/null)
+    case "$verdict_field" in
+      COMPLETE|PASS|SUCCESS|OK|DONE) verdict_field=COMPLETE ;;
+      BLOCKED)                       verdict_field=BLOCKED ;;
+      PARTIAL)                       verdict_field=PARTIAL ;;
+      "")                            verdict_field=COMPLETE ;;
+      *)                             verdict_field="ODD:$verdict_field" ;;
+    esac
+  fi
+
+  # --- liveness (stat only, never a read) -----------------------------------
   slug="$(printf '%s' "$wt" | tr '/' '-')"
   ws="$CI_BASE/$slug/sessions"
-  newest=$(find "$ws" -maxdepth 2 -name events.jsonl -printf '%T@\n' 2>/dev/null \
-           | sort -rn | head -1)
+  newest=$(find "$ws" -maxdepth 2 -name events.jsonl -printf '%T@\n' 2>/dev/null | sort -rn | head -1)
   newest="${newest%%.*}"
   if [ -n "${newest:-}" ]; then idle=$(( NOW - newest )); idle_s="${idle}s"
   else                          idle=-1;                 idle_s="n/a"; fi
 
-  # --- progress --------------------------------------------------------------
+  # --- progress -------------------------------------------------------------
   turns='-'
   tr_file="$ws/${sid:-__none__}/transcript.jsonl"
   if [ -f "$tr_file" ]; then
@@ -70,7 +99,7 @@ while IFS=$'\t' read -r lane wt branch tmuxname goal log sid; do
     turns="${n}+$(( n - prev ))"
   fi
 
-  # --- git facts -------------------------------------------------------------
+  # --- git facts ------------------------------------------------------------
   if [ -d "$wt" ]; then
     dirty=$(git -C "$wt" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
     if [ -n "$BASE_SHA" ]; then
@@ -83,23 +112,29 @@ while IFS=$'\t' read -r lane wt branch tmuxname goal log sid; do
     dirty='-'; commits='-'; pushed='-'
   fi
 
+  # --- alive: PID first, tmux only as corroboration -------------------------
   alive=no
-  tmux has-session -t "$tmuxname" 2>/dev/null && alive=yes
-
-  # --- verdict (precedence matters; liveness only applies while alive) --------
-  if   [ ! -d "$wt" ];                                                    then v=WORKTREE-MISSING
-  elif [ "$done_json" = yes ] && [ "$dirty" != 0 ];                       then v=LANDED-DIRTY
-  elif [ "$done_json" = yes ] && [ "$pushed" = 0 ];                       then v=LANDED-NOT-PUSHED
-  elif [ "$done_json" = yes ];                                            then v=LANDED
-  elif [ "$alive" = yes ] && [ "$idle" -lt 0 ];                           then v=STARTING
-  elif [ "$alive" = yes ] && [ "$idle" -lt "$WARM" ];                     then v=WORKING
-  elif [ "$alive" = yes ] && [ "$idle" -lt "$COLD" ];                     then v=SLOW
-  elif [ "$alive" = yes ];                                                then v=STALLED
-  elif [ "$idle" -lt 0 ];                                                 then v=NOT-STARTED
-  else                                                                         v=DIED
+  if [ -n "${pid:-}" ] && [ "$pid" != "-" ] && kill -0 "$pid" 2>/dev/null; then
+    alive=yes
+  elif tmux has-session -t "$tmuxname" 2>/dev/null; then
+    alive=yes
   fi
 
-  printf '%-14s %-19s %-8s %-10s %-8s %-6s %-7s %s\n' \
+  # --- verdict (precedence matters) -----------------------------------------
+  if   [ ! -d "$wt" ];                                        then v=WORKTREE-MISSING
+  elif [ "$done_state" = stale ];                             then v=STALE-DONE-IGNORED
+  elif [ "$done_state" = yes ] && [ "$dirty" != 0 ];          then v="${verdict_field}-DIRTY"
+  elif [ "$done_state" = yes ] && [ "$pushed" = 0 ];          then v="${verdict_field}-NOT-PUSHED"
+  elif [ "$done_state" = yes ];                               then v="$verdict_field"
+  elif [ "$alive" = yes ] && [ "$idle" -lt 0 ];               then v=STARTING
+  elif [ "$alive" = yes ] && [ "$idle" -lt "$WARM" ];         then v=WORKING
+  elif [ "$alive" = yes ] && [ "$idle" -lt "$COLD" ];         then v=SLOW
+  elif [ "$alive" = yes ];                                    then v=STALLED
+  elif [ "$idle" -lt 0 ];                                     then v=NOT-STARTED
+  else                                                             v=DIED
+  fi
+
+  printf '%-14s %-19s %-10s %-10s %-8s %-6s %-7s %s\n' \
     "$lane" "$v" "$idle_s" "$turns" "$commits" "$dirty" "$pushed" "$branch"
 
   if [ "${SHOW_LAST:-0}" = 1 ] && [ -f "$tr_file" ]; then
