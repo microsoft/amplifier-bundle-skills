@@ -40,7 +40,10 @@ goal-batch skill and …"** in natural language — both load this skill reliabl
 (measured). What does NOT work is a bare `/goal-batch …` in a headless
 `amplifier run "<prompt>"`: the model reads the token as prose and does the work
 itself, producing plausible branches with no gate, no manifest, and no lanes.
-Name the skill, or call `load_skill(skill_name="goal-batch", arguments=…)`.
+In a headless one-shot, **direct the assistant in natural language** — e.g.
+`amplifier run "Use the goal-batch skill and run this batch: …"` — or call
+`load_skill(skill_name="goal-batch", arguments=…)` outright. Naming the skill
+is what loads it; the bare slash token is not.
 
 **If `$ARGUMENTS` is empty, you have no batch.** This skill forks — the
 sub-session cannot see the parent conversation, so an `arguments`-less
@@ -187,10 +190,21 @@ Every goal carries:
 
 Fail loud here. Never launch degraded.
 
-- **Every lane repo has a reachable remote.** `git remote -v` plus a dry push. A
-  lane with no remote is a lane whose work dies with the folder — one real run
-  produced 47MB of genuine output into a remoteless repo and landed nothing in
-  git. A waiver is the user's to give, in writing.
+- **Every lane's output must be COMMITTABLE — not necessarily pushable.** A
+  local-only repo is fine: a lane commits to its own branch, and those commits
+  live in the main repo's object store, so they survive `git worktree remove`
+  and merge normally with no network at all. Verify that, not a remote.
+  - **A remote is recommended, not required.** With one, lanes push as they
+    commit and a crash costs minutes; without one, the work is still safe on
+    disk but only on this machine. Say which the user is getting, once, and
+    move on — do not block the batch.
+  - **What actually loses work is output that is never committed at all.** The
+    real 47MB loss came from a repo that *had* two remotes: the lane's entire
+    output sat under gitignored paths, so it was never committed and pushing
+    would have saved none of it. So check the thing that matters: will each
+    lane's deliverables land in a commit? If a lane's real product is a
+    gitignored artifact directory, say so at the gate — that is a batch that
+    cannot deliver, and no remote fixes it.
 - **Smoke-test the launcher once**, ~90s, thrown away, and confirm any
   capability a lane depends on is reachable from inside a lane.
 - **Create worktrees**, skipping any that already exist rather than failing on
