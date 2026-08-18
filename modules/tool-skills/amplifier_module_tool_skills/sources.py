@@ -11,11 +11,12 @@ import hashlib
 import json
 import logging
 import os
-import shutil
 import signal
 import subprocess
 from datetime import datetime
 from pathlib import Path
+
+from ._rmtree import rmtree_robust
 
 logger = logging.getLogger(__name__)
 
@@ -236,13 +237,22 @@ async def _resolve_remote_source(source: str, cache_dir: Path) -> Path | None:
                 logger.warning(
                     f"Removing corrupt skills cache (no metadata): {cache_path}"
                 )
-                shutil.rmtree(cache_path)
+                # rmtree_robust (not shutil.rmtree): a corrupt cache dir is a git
+                # checkout whose pack files are read-only; on Windows plain rmtree
+                # raises PermissionError and the cache can never heal. Loud (no
+                # ignore_errors) so a genuinely stuck dir is reported, not hidden.
+                rmtree_robust(cache_path)
 
         # Clone into a temp path so the final cache_path is never visible
         # without metadata (atomic publish on rename).
         tmp_path = cache_path.with_name(cache_path.name + ".tmp")
         if tmp_path.exists():
-            shutil.rmtree(tmp_path, ignore_errors=True)
+            # Loud (no ignore_errors): this staging dir is cloned into on the
+            # very next line, so a swallowed failure here surfaces later as
+            # git's misleading "destination path already exists" -- the exact
+            # symptom this healing exists to remove. A dir that survives even
+            # the read-only-clear retry is locked or in use; say so.
+            rmtree_robust(tmp_path)
 
         try:
             cmd = [
@@ -274,7 +284,7 @@ async def _resolve_remote_source(source: str, cache_dir: Path) -> Path | None:
                 logger.error(f"Git clone failed: {result.stderr}")
                 # Clean up partial clone
                 if tmp_path.exists():
-                    shutil.rmtree(tmp_path, ignore_errors=True)
+                    rmtree_robust(tmp_path, ignore_errors=True)
                 return None
 
             # Write cache metadata to the temp dir (still not visible at cache_path)
@@ -305,7 +315,7 @@ async def _resolve_remote_source(source: str, cache_dir: Path) -> Path | None:
             # If cache_path now exists (cross-process race; another OS process
             # beat us), discard our temp clone and use theirs.
             if cache_path.exists():
-                shutil.rmtree(tmp_path, ignore_errors=True)
+                rmtree_robust(tmp_path, ignore_errors=True)
             else:
                 tmp_path.rename(cache_path)
 
@@ -320,12 +330,12 @@ async def _resolve_remote_source(source: str, cache_dir: Path) -> Path | None:
         except subprocess.TimeoutExpired:
             logger.error(f"Git clone timed out for: {url}")
             if tmp_path.exists():
-                shutil.rmtree(tmp_path, ignore_errors=True)
+                rmtree_robust(tmp_path, ignore_errors=True)
             return None
         except Exception as e:
             logger.error(f"Failed to clone skill source '{source}': {e}")
             if tmp_path.exists():
-                shutil.rmtree(tmp_path, ignore_errors=True)
+                rmtree_robust(tmp_path, ignore_errors=True)
             return None
 
 
