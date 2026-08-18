@@ -29,8 +29,10 @@ MAX_SHELL_OUTPUT_BYTES = 1_048_576  # 1 MB
 # The POSIX set below is joined by a Windows set: create_subprocess_shell spawns via
 # cmd.exe on Windows, and omitting SystemRoot/ComSpec/PATHEXT/etc. from a custom env=
 # makes cmd.exe (and many programs it launches) fail to start entirely -- so on Windows
-# these are essential, not secrets. Matching is case-insensitive (Windows env-var names
-# are case-insensitive; os.environ preserves whatever case was set).
+# these are essential, not secrets. Matching is case-insensitive because Windows env-var
+# names are case-insensitive, and CPython's os.environ upper-cases keys on Windows while
+# preserving case on POSIX -- so neither the stored case nor the literal above is a
+# reliable key to match on.
 _SAFE_ENV_KEYS_POSIX: frozenset[str] = frozenset(
     {"PATH", "HOME", "TMPDIR", "LANG", "TERM", "USER", "SHELL", "LC_ALL"}
 )
