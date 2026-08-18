@@ -84,7 +84,13 @@ def parse_skill_frontmatter(skill_path: Path) -> dict[str, Any] | None:
         Dictionary of frontmatter fields, or None if invalid
     """
     try:
-        content = skill_path.read_text(encoding="utf-8")
+        # utf-8-sig (not utf-8): a SKILL.md authored on Windows (Notepad,
+        # PowerShell Out-File, many editors) is UTF-8 WITH a BOM. Reading it as
+        # plain utf-8 leaves the BOM (\ufeff) as the file's first char, so
+        # content.startswith("---") is False and the skill is silently dropped
+        # ("missing YAML frontmatter"). utf-8-sig strips a leading BOM if present
+        # and is identical to utf-8 for files without one.
+        content = skill_path.read_text(encoding="utf-8-sig")
     except (OSError, UnicodeDecodeError) as e:
         logger.warning(f"Failed to read {skill_path}: {e}")
         return None
@@ -120,7 +126,9 @@ def extract_skill_body(skill_path: Path) -> str | None:
         Markdown content after frontmatter, or None if invalid
     """
     try:
-        content = skill_path.read_text(encoding="utf-8")
+        # utf-8-sig: strip a Windows-authored BOM so the frontmatter delimiter is
+        # detected here exactly as in parse_skill_frontmatter (see note there).
+        content = skill_path.read_text(encoding="utf-8-sig")
     except (OSError, UnicodeDecodeError) as e:
         logger.warning(f"Failed to read {skill_path}: {e}")
         return None

@@ -26,21 +26,56 @@ MAX_SHELL_OUTPUT_BYTES = 1_048_576  # 1 MB
 
 # Only these environment variables are passed to subprocesses spawned by shell commands.
 # This prevents API keys and secrets from leaking into subprocess environments.
-_SAFE_ENV_KEYS: frozenset[str] = frozenset(
+# The POSIX set below is joined by a Windows set: create_subprocess_shell spawns via
+# cmd.exe on Windows, and omitting SystemRoot/ComSpec/PATHEXT/etc. from a custom env=
+# makes cmd.exe (and many programs it launches) fail to start entirely -- so on Windows
+# these are essential, not secrets. Matching is case-insensitive because Windows env-var
+# names are case-insensitive, and CPython's os.environ upper-cases keys on Windows while
+# preserving case on POSIX -- so neither the stored case nor the literal above is a
+# reliable key to match on.
+_SAFE_ENV_KEYS_POSIX: frozenset[str] = frozenset(
     {"PATH", "HOME", "TMPDIR", "LANG", "TERM", "USER", "SHELL", "LC_ALL"}
 )
+_SAFE_ENV_KEYS_WINDOWS: frozenset[str] = frozenset(
+    {
+        "PATH",
+        "PATHEXT",
+        "SYSTEMROOT",
+        "SYSTEMDRIVE",
+        "COMSPEC",
+        "WINDIR",
+        "USERPROFILE",
+        "HOMEDRIVE",
+        "HOMEPATH",
+        "TEMP",
+        "TMP",
+        "APPDATA",
+        "LOCALAPPDATA",
+        "PROGRAMDATA",
+        "PROGRAMFILES",
+        "PROGRAMFILES(X86)",
+        "NUMBER_OF_PROCESSORS",
+        "PROCESSOR_ARCHITECTURE",
+    }
+)
+# Retained for backward-compatibility / tests that import the original name.
+_SAFE_ENV_KEYS: frozenset[str] = _SAFE_ENV_KEYS_POSIX
 
 
 def _build_safe_env() -> dict[str, str]:
     """Build a minimal environment dict for subprocess execution.
 
-    Returns only the keys in _SAFE_ENV_KEYS that are present in os.environ,
-    preventing API keys and other secrets from leaking into subprocesses.
+    Returns only the safe keys present in os.environ, preventing API keys and
+    other secrets from leaking into subprocesses. On Windows the allowlist is the
+    Windows-essential set (matched case-insensitively); on POSIX it is the POSIX
+    set.
 
     Returns:
         Dict containing only the safe subset of the current environment.
     """
-    return {k: v for k, v in os.environ.items() if k in _SAFE_ENV_KEYS}
+    allowed = _SAFE_ENV_KEYS_WINDOWS if os.name == "nt" else _SAFE_ENV_KEYS_POSIX
+    allowed_upper = {k.upper() for k in allowed}
+    return {k: v for k, v in os.environ.items() if k.upper() in allowed_upper}
 
 
 def _substitute_system_variables(body: str, skill_dir: Path) -> str:
@@ -147,9 +182,17 @@ async def _run_shell_command(command: str, cwd: Path) -> str:
                 proc.communicate(), timeout=30.0
             )
         except asyncio.TimeoutError:
+            # os.killpg/os.getpgid/SIGKILL are POSIX-only -- they do not exist on
+            # Windows (AttributeError), and start_new_session (used above) is a
+            # silent no-op there, so there is no process group to signal anyway.
+            # On Windows, terminate the child directly; on POSIX, kill the whole
+            # process group so shell-spawned grandchildren die too.
             try:
-                os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-            except (ProcessLookupError, PermissionError):
+                if os.name == "nt":
+                    proc.kill()
+                else:
+                    os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+            except (ProcessLookupError, PermissionError, AttributeError):
                 proc.kill()
             await proc.communicate()
             logger.warning(f"Shell command timed out: {command!r}")
