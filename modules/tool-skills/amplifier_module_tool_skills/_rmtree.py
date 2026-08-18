@@ -104,9 +104,6 @@ def rmtree_robust(path: Path | str, *, ignore_errors: bool = False) -> None:
     """
     target = Path(path)
 
-    if not target.exists():
-        return
-
     if sys.version_info >= (3, 12):
         # onerror is deprecated since 3.12 in favor of onexc.
         shutil.rmtree(target, onexc=_onexc)

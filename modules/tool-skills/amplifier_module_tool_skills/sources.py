@@ -247,7 +247,12 @@ async def _resolve_remote_source(source: str, cache_dir: Path) -> Path | None:
         # without metadata (atomic publish on rename).
         tmp_path = cache_path.with_name(cache_path.name + ".tmp")
         if tmp_path.exists():
-            rmtree_robust(tmp_path, ignore_errors=True)
+            # Loud (no ignore_errors): this staging dir is cloned into on the
+            # very next line, so a swallowed failure here surfaces later as
+            # git's misleading "destination path already exists" -- the exact
+            # symptom this healing exists to remove. A dir that survives even
+            # the read-only-clear retry is locked or in use; say so.
+            rmtree_robust(tmp_path)
 
         try:
             cmd = [
