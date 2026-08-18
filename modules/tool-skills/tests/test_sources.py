@@ -156,6 +156,79 @@ async def test_failed_clone_cleans_up_partial_directory(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_leftover_readonly_tmp_is_healed_before_reclone(tmp_path):
+    """A prior failed clone can leave a read-only ``.tmp`` staging dir behind.
+
+    Reproduces the Windows-permanent-failure bug: git marks pack files
+    (``.git/objects/pack/*.idx``) read-only. On Windows the read-only
+    attribute lives on the file and blocks deletion, so the old
+    ``shutil.rmtree(tmp_path, ignore_errors=True)`` at the pre-clone cleanup
+    silently no-ops, the ``.tmp`` survives, and every subsequent clone dies
+    with 'destination path already exists and is not an empty directory' --
+    forever. ``rmtree_robust`` must clear the read-only bit and remove it so
+    the re-clone proceeds.
+
+    On POSIX a read-only file is removable when its parent dir is writable, so
+    this test passes trivially on Linux/macOS. It genuinely fails pre-fix and
+    passes post-fix on Windows; keeping it cross-platform documents the
+    contract and guards it once a Windows CI leg exists.
+    """
+    import os
+    import stat
+
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    source = "git+https://github.com/example/my-skills@main"
+
+    expected_cache = _compute_cache_path(source, cache_dir)
+    # Pre-seed the orphaned .tmp a prior failed clone would have left behind,
+    # with a read-only pack file inside it (the exact thing that jams Windows).
+    tmp_leftover = expected_cache.with_name(expected_cache.name + ".tmp")
+    pack_dir = tmp_leftover / ".git" / "objects" / "pack"
+    pack_dir.mkdir(parents=True)
+    stuck = pack_dir / "pack-abc.idx"
+    stuck.write_text("readonly pack index", encoding="utf-8")
+    os.chmod(stuck, stat.S_IREAD)  # 0o444 — read-only, as git leaves it
+
+    def fake_clone(cmd, **kwargs):
+        """A now-successful clone into the (freshly cleared) tmp dir."""
+        if "clone" in cmd:
+            dest = Path(cmd[-1])
+            # git refuses a non-empty destination; if the leftover wasn't
+            # cleared this returns 128 and the test's assertions below fail.
+            if dest.exists() and any(dest.iterdir()):
+                return subprocess.CompletedProcess(
+                    cmd,
+                    128,
+                    "",
+                    f"fatal: destination path '{dest}' already exists and is "
+                    "not an empty directory.",
+                )
+            dest.mkdir(parents=True, exist_ok=True)
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    mock_sha_proc = AsyncMock()
+    mock_sha_proc.returncode = 0
+    mock_sha_proc.communicate = AsyncMock(return_value=(b"feedface00000000\n", b""))
+
+    try:
+        with patch(_CLONE_SEAM, side_effect=fake_clone):
+            with patch("asyncio.create_subprocess_exec", return_value=mock_sha_proc):
+                result = await _resolve_remote_source(source, cache_dir)
+    finally:
+        # Never leave a read-only file that would jam pytest's own tmp cleanup.
+        if stuck.exists():
+            os.chmod(stuck, stat.S_IWRITE | stat.S_IREAD)
+
+    assert not tmp_leftover.exists(), (
+        "The orphaned read-only .tmp staging dir must be cleared before the "
+        "re-clone; if it survives, git aborts on a non-empty destination and "
+        "the source can never resolve again."
+    )
+    assert result is not None, "Expected a resolved path after the leftover was healed"
+
+
+@pytest.mark.asyncio
 async def test_valid_cache_with_metadata_returned_without_reclone(tmp_path):
     """A cache directory with .amplifier_cache_meta.json is returned directly.
 
