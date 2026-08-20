@@ -24,7 +24,6 @@ Provides the [Agent Skills](https://agentskills.io/specification) system for Amp
 
 | Skill | Description |
 |-------|-------------|
-| **goal-batch** | Plan a batch of independent work into isolated lanes, run each as an autonomous /goal session in its own worktree/branch/tmux, and verify and merge the results yourself |
 | **image-vision** | LLM-based image analysis across multiple providers (Anthropic, OpenAI, Gemini, Azure) |
 | **cli-packaging-patterns** | CLI tool packaging with one-line install (`uv tool install`/`npm install -g`), subcommand dispatch, 3-tier config resolution |
 | **config-state-patterns** | Configuration files with defaults merging, atomic state writes, conventional file locations (XDG), safe concurrent access |
