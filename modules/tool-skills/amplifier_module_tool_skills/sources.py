@@ -20,8 +20,35 @@ from ._rmtree import rmtree_robust
 
 logger = logging.getLogger(__name__)
 
-# Default cache directory for remote skills
-DEFAULT_SKILLS_CACHE_DIR = Path("~/.amplifier/cache/skills").expanduser()
+
+def default_skills_cache_dir() -> Path:
+    """Return the default cache directory for remote skills.
+
+    Honours ``AMPLIFIER_HOME``, matching ``amplifier_foundation.paths``'s
+    ``get_amplifier_home()``, which is the ecosystem's single source of truth
+    for where an application's Amplifier data lives::
+
+        env_home = os.environ.get("AMPLIFIER_HOME")
+        if env_home:
+            return Path(env_home).expanduser().resolve()
+        return (Path.home() / ".amplifier").resolve()
+
+    Previously this was a module-level constant hardcoded to
+    ``~/.amplifier/cache/skills``.  That made this module the one part of the
+    skills tool that ignored the variable every other cache path in the stack
+    respects, so an application that relocated its Amplifier home still had its
+    remote skill clones written into ``~/.amplifier`` -- shared with, and
+    indistinguishable from, any other Amplifier app on the machine.
+
+    Resolved per call rather than at import so that a caller which sets
+    ``AMPLIFIER_HOME`` during startup is not silently defeated by import order.
+    """
+    env_home = os.environ.get("AMPLIFIER_HOME")
+    base = (
+        Path(env_home).expanduser() if env_home else Path("~/.amplifier").expanduser()
+    )
+    return base / "cache" / "skills"
+
 
 # Per-cache-path asyncio locks — defence-in-depth against concurrent clones.
 # The primary guard is deduplication in resolve_skill_sources; the lock
@@ -104,7 +131,7 @@ async def resolve_skill_source(
     Returns:
         Path to local directory containing skills, or None if resolution fails.
     """
-    cache_dir = cache_dir or DEFAULT_SKILLS_CACHE_DIR
+    cache_dir = cache_dir or default_skills_cache_dir()
 
     # Local path - just expand and return
     if not is_remote_source(source):
@@ -360,7 +387,7 @@ async def resolve_skill_sources(
     Returns:
         List of resolved local paths (in priority order).
     """
-    cache_dir = cache_dir or DEFAULT_SKILLS_CACHE_DIR
+    cache_dir = cache_dir or default_skills_cache_dir()
 
     # Separate local and remote sources while preserving order info
     local_sources: list[tuple[int, str]] = []
