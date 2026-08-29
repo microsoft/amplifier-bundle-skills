@@ -485,7 +485,6 @@ Operations:
   companion files referenced in the skill.
 
 Usage Guidelines:
-- Start tasks by listing or searching skills to discover relevant domain knowledge
 - Use info operation to check skills before loading to conserve context
 - Skills may reference companion files - use the returned skill_directory path with read_file tool
   Example: If skill returns skill_directory="/path/to/skill", you can read companion files with

@@ -12,41 +12,13 @@ Skills are domain knowledge packages following the [Agent Skills specification](
 
 ## Skills Visibility
 
-When skills are available, you'll see them automatically in your context before each request:
-
-```
-<available_skills>
-Available skills (use load_skill tool):
-
-- **python-testing**: Best practices for Python testing with pytest
-- **git-workflow**: Git branching and commit message standards
-- **api-design**: RESTful API design patterns and conventions
-</available_skills>
-```
-
-You don't need to call `load_skill(list=true)` first - skills are made visible automatically through the visibility hook.
+The available-skills catalog is injected into your context automatically before each
+request. You don't need to call `load_skill(list=true)` first.
 
 ## Available Tool: load_skill
 
-**Operations:**
-
-- `load_skill(list=true)` - List all available skills
-- `load_skill(search="pattern")` - Filter by keyword
-- `load_skill(info="skill-name")` - Get metadata only
-- `load_skill(skill_name="skill-name")` - Load full content
-
-**Usage Examples:**
-
-```
-# List available skills (if not already visible)
-load_skill(list=true)
-
-# Search for specific skills
-load_skill(search="python")
-
-# Load a skill
-load_skill(skill_name="example-skill")
-```
+Operations and usage are in the `load_skill` tool description. The common case is
+`load_skill(skill_name="…")` to load a skill's full content.
 
 ## Enhanced Skills (Fork Execution)
 
@@ -71,58 +43,13 @@ Three power skills ship with the curated collection. These are user-invoked via 
 
 These skills have `disable-model-invocation: true`, meaning they won't appear in the automatic skills visibility list. They are invoked by the user explicitly — via slash command (`/session-debug`, `/code-review`, `/mass-change`) or by calling `load_skill(skill_name="session-debug")` directly. When the user types one of these slash commands, load and execute the corresponding skill.
 
-## Skills Discovery
+## Discovering, Configuring, and Authoring Skills
 
-Skills are discovered from these locations by default:
-1. `.amplifier/skills/` (workspace)
-2. `~/.amplifier/skills/` (user home)
-3. `AMPLIFIER_SKILLS_DIR` environment variable
-
-When multiple directories contain the same skill name, the first match wins (priority order matches the list order).
-
-## Configuration
-
-The skills tool supports custom directory configuration:
-
-```yaml
-tools:
-  - module: tool-skills
-    config:
-      skills_dirs:
-        - /custom/path/to/skills
-        - /another/path
-      visibility:
-        enabled: true              # Show skills automatically (default: true)
-        max_skills_visible: 50     # Limit for large collections (default: 50)
-```
-
-## Configuring Skills in Bundles
-
-If your bundle ships its own skills or depends on community skills, configure them through the `tools:` section as module config for `tool-skills`:
-
-```yaml
-tools:
-  - module: tool-skills
-    source: git+https://github.com/microsoft/amplifier-bundle-skills@main#subdirectory=modules/tool-skills
-    config:
-      skills:
-        - "git+https://github.com/my-org/my-skills-repo@main#subdirectory=skills"
-        - "@mybundle:skills"
-```
-
-The `config.skills` list accepts three source types:
-
-| Source type | Example | When to use |
-|-------------|---------|-------------|
-| Git URL | `git+https://github.com/org/repo@main#subdirectory=skills` | Remote community or shared skill repos |
-| Bundle reference | `@mybundle:skills` | Skills shipped inside your own bundle |
-| Local path | `/absolute/path/to/skills` | Development and testing |
-
-Git URLs support an optional `#subdirectory=` fragment to point at a subfolder within the repo.
-
-Bundle references (`@mybundle:skills`) resolve through the session's mention resolver, which becomes available shortly after modules mount — so skills from `@`-sources register at the first request of the session rather than at mount time. If a source cannot be resolved, a warning naming it appears in the session log.
-
-> **Warning:** Do NOT use a top-level `skills:` key in your bundle frontmatter. The foundation layer does not process it -- skill sources placed there will be **silently ignored**. Always use the `tools:` config pattern shown above.
+Skill discovery paths and precedence, `tool-skills` configuration (`skills_dirs`,
+`visibility`), and how to ship skills from a bundle (`config.skills` source types, the
+`#subdirectory=` fragment, the silently-ignored top-level `skills:` key) are bundle-author
+concerns. Load `load_skill(skill_name="skills-assist")` or read its `authoring-guide.md`
+companion when you need them.
 
 ## Skills Expert
 
