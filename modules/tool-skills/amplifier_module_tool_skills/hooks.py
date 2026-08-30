@@ -2,9 +2,13 @@
 
 import hashlib
 import logging
+import re
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from amplifier_core import HookResult
+
+from amplifier_module_tool_skills.discovery import parse_skill_frontmatter
 
 if TYPE_CHECKING:
     from amplifier_core import ModuleCoordinator
@@ -12,6 +16,20 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 VALID_PLACEMENTS = ("request", "prefix")
+
+# Default token budget for the regular-skills index (used when neither
+# visibility_token_budget nor max_skills_visible is configured).
+DEFAULT_VISIBILITY_TOKEN_BUDGET = 5000
+
+# Header for the regular (model-invocable) skills section. Kept as a single
+# constant so the budget renderer and the legacy count renderer emit identical
+# text.
+REGULAR_SKILLS_HEADER = "Available skills (use load_skill tool):"
+
+# Detail tiers a regular skill can be rendered at, cheapest first.
+_TIER_INDEX = 0  # name only (full-coverage floor)
+_TIER_SUMMARY = 1  # name + one-line summary
+_TIER_FULL = 2  # name + full description
 
 
 class SkillsVisibilityHook:
@@ -59,6 +77,39 @@ class SkillsVisibilityHook:
         self.max_visible = config.get("max_skills_visible", 50)
         self.ephemeral = config.get("ephemeral", True)
         self.priority = config.get("priority", 20)
+
+        # Token-budget rendering (the new default). ``visibility_token_budget``
+        # bounds how much DETAIL the regular-skills index spends while
+        # GUARANTEEING that every regular skill still appears at least as a
+        # name-only line (full coverage — no skill is ever silently dropped, the
+        # defect the alphabetical ``max_skills_visible`` cap caused). The token
+        # estimate is deterministic and dependency-free: ``len(text) // 4``. No
+        # tokenizer, no network, no LLM calls. See ``_assemble_budgeted_regular``
+        # for the tier algorithm.
+        #
+        # Mode selection (back-compat):
+        #   * ``visibility_token_budget`` set -> budget mode (wins even when
+        #     ``max_skills_visible`` is also present).
+        #   * only ``max_skills_visible`` set -> legacy count-cap mode, behavior
+        #     unchanged.
+        #   * neither set -> budget mode with the default budget.
+        budget_raw = config.get("visibility_token_budget")
+        if budget_raw is not None:
+            self._budget_mode = True
+            self.token_budget = self._coerce_budget(
+                budget_raw, DEFAULT_VISIBILITY_TOKEN_BUDGET
+            )
+        elif "max_skills_visible" in config:
+            self._budget_mode = False
+            self.token_budget = DEFAULT_VISIBILITY_TOKEN_BUDGET
+        else:
+            self._budget_mode = True
+            self.token_budget = DEFAULT_VISIBILITY_TOKEN_BUDGET
+
+        # Per-path cache of each skill's parsed ``visibility:`` frontmatter
+        # mapping, so the renderer reads any given SKILL.md at most once per
+        # session (frontmatter is static for a session's lifetime).
+        self._visibility_cache: dict[str, dict[str, Any]] = {}
         # Placement of the skills index (default "prefix" — measured 32-39%
         # root-session cost reduction with identical quality and 100% skill
         # recall in controlled ablation; "request" remains a fully supported
@@ -321,20 +372,26 @@ class SkillsVisibilityHook:
 
         lines = []
 
-        # Build regular skills section (with max_visible cap)
+        # Build regular skills section.
         if regular_skills:
-            skills_items = sorted(regular_skills.items())[: self.max_visible]
-            lines.append("Available skills (use load_skill tool):")
-            lines.append("")
-            for name, metadata in skills_items:
-                lines.append(f"- **{name}**: {metadata.description}")
-            # Show truncation if applicable
-            if len(regular_skills) > self.max_visible:
-                remaining = len(regular_skills) - self.max_visible
+            if self._budget_mode:
+                # Budget mode: full coverage, detail bounded by the token budget.
+                lines.extend(self._assemble_budgeted_regular(regular_skills))
+            else:
+                # Legacy count-cap mode (unchanged): alphabetical, first N shown,
+                # remainder summarized as a "(N more ...)" line.
+                skills_items = sorted(regular_skills.items())[: self.max_visible]
+                lines.append(REGULAR_SKILLS_HEADER)
                 lines.append("")
-                lines.append(
-                    f"_({remaining} more - use load_skill(list=true) to see all)_"
-                )
+                for name, metadata in skills_items:
+                    lines.append(f"- **{name}**: {metadata.description}")
+                # Show truncation if applicable
+                if len(regular_skills) > self.max_visible:
+                    remaining = len(regular_skills) - self.max_visible
+                    lines.append("")
+                    lines.append(
+                        f"_({remaining} more - use load_skill(list=true) to see all)_"
+                    )
 
         # Build user-invoked skills section (no cap)
         if user_invoked_skills:
@@ -352,3 +409,174 @@ class SkillsVisibilityHook:
 
         # Wrap in system-reminder tag with source attribution
         return f'<system-reminder source="hooks-skills-visibility">\n{skills_content}\n</system-reminder>'
+
+    # ------------------------------------------------------------------
+    # Token-budget tier assembly
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _coerce_budget(value: Any, default: int) -> int:
+        """Coerce a configured budget into a non-negative int.
+
+        Falls back to ``default`` (with a warning) for non-numeric or negative
+        values, so a typo in config degrades gracefully instead of crashing the
+        request path.
+        """
+        try:
+            budget = int(value)
+        except (TypeError, ValueError):
+            logger.warning(
+                "Invalid visibility_token_budget=%r; falling back to %d.",
+                value,
+                default,
+            )
+            return default
+        if budget < 0:
+            logger.warning(
+                "Negative visibility_token_budget=%r; falling back to %d.",
+                value,
+                default,
+            )
+            return default
+        return budget
+
+    @staticmethod
+    def _estimate_tokens(text: str) -> int:
+        """Cheap, deterministic, dependency-free token estimate (~4 chars/token)."""
+        return len(text) // 4
+
+    def _skill_visibility(self, meta: Any) -> dict[str, Any]:
+        """Return a skill's optional ``visibility:`` frontmatter mapping.
+
+        Resolution order:
+          1. A ``visibility`` attribute already present on the metadata object
+             (lets discovery, overlays, or tests carry the mapping directly with
+             no file I/O).
+          2. The ``visibility:`` block parsed from the skill's SKILL.md
+             frontmatter, cached per path so each file is read at most once.
+
+        Returns an empty mapping when nothing is available, which yields the
+        neutral defaults (priority 0, summary derived from the description).
+        """
+        direct = getattr(meta, "visibility", None)
+        if isinstance(direct, dict):
+            return direct
+
+        path = getattr(meta, "path", None)
+        if path is None:
+            return {}
+        key = str(path)
+        cached = self._visibility_cache.get(key)
+        if cached is not None:
+            return cached
+
+        mapping: dict[str, Any] = {}
+        try:
+            frontmatter = parse_skill_frontmatter(Path(path))
+            if frontmatter:
+                raw = frontmatter.get("visibility")
+                if isinstance(raw, dict):
+                    mapping = raw
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Could not read visibility frontmatter for %s: %s", key, exc)
+        self._visibility_cache[key] = mapping
+        return mapping
+
+    def _skill_priority(self, meta: Any) -> int:
+        """Render priority (default 0); higher sorts earlier."""
+        raw = self._skill_visibility(meta).get("priority", 0)
+        # bool is an int subclass — treat True/False as "no explicit priority".
+        if isinstance(raw, bool) or not isinstance(raw, int):
+            return 0
+        return raw
+
+    def _skill_summary(self, meta: Any) -> str:
+        """One-line summary for the summary tier.
+
+        Uses an explicit ``visibility.summary`` string when present, otherwise
+        falls back to the first sentence of the description (truncated).
+        """
+        raw = self._skill_visibility(meta).get("summary")
+        if isinstance(raw, str) and raw.strip():
+            return raw.strip()
+        return self._first_sentence(getattr(meta, "description", "") or "")
+
+    @staticmethod
+    def _first_sentence(description: str, limit: int = 140) -> str:
+        """First sentence of ``description``, whitespace-collapsed and truncated
+        to ``limit`` characters (ellipsis added when truncation occurs)."""
+        text = " ".join(description.split())
+        if not text:
+            return ""
+        match = re.search(r"[.!?](?:\s|$)", text)
+        sentence = text[: match.start() + 1] if match else text
+        if len(sentence) > limit:
+            sentence = sentence[: limit - 3].rstrip() + "..."
+        return sentence
+
+    def _skill_line(self, name: str, meta: Any, tier: int) -> str:
+        """Render one regular-skill line at the given detail tier."""
+        if tier <= _TIER_INDEX:
+            return f"- **{name}**"
+        if tier == _TIER_SUMMARY:
+            return f"- **{name}**: {self._skill_summary(meta)}"
+        return f"- **{name}**: {meta.description}"
+
+    def _regular_section_lines(
+        self, ranked: list[tuple[str, Any]], tiers: dict[str, int]
+    ) -> list[str]:
+        """Assemble the regular-skills section (header + one line per skill)."""
+        lines = [REGULAR_SKILLS_HEADER, ""]
+        for name, meta in ranked:
+            lines.append(self._skill_line(name, meta, tiers[name]))
+        return lines
+
+    def _assemble_budgeted_regular(
+        self, regular_skills: dict[str, Any]
+    ) -> list[str]:
+        """Render the regular-skills section under the token budget.
+
+        Invariant: every regular skill is present at least as a name-only index
+        line. The budget bounds DETAIL, never coverage — no skill is dropped
+        even if the index floor alone exceeds the budget.
+
+        Assembly is deterministic:
+          1. Reserve a name-only index line for every regular skill.
+          2. Upgrade index -> one-line summary, in rank order, while the budget
+             allows.
+          3. Upgrade summary -> full description, in rank order, while the
+             budget allows.
+
+        Rank order is ``(-priority, name)``: higher priority first, ties broken
+        alphabetically.
+        """
+        if not regular_skills:
+            return []
+
+        ranked: list[tuple[str, Any]] = sorted(
+            regular_skills.items(),
+            key=lambda item: (-self._skill_priority(item[1]), item[0]),
+        )
+        tiers: dict[str, int] = {name: _TIER_INDEX for name, _ in ranked}
+
+        def within_budget() -> bool:
+            text = "\n".join(self._regular_section_lines(ranked, tiers))
+            return self._estimate_tokens(text) <= self.token_budget
+
+        # Pass 1: index -> summary, in rank order, while the budget allows.
+        for name, _meta in ranked:
+            tiers[name] = _TIER_SUMMARY
+            if not within_budget():
+                tiers[name] = _TIER_INDEX
+                break
+
+        # Pass 2: summary -> full description, in rank order, while allowed.
+        for name, _meta in ranked:
+            if tiers[name] != _TIER_SUMMARY:
+                continue
+            tiers[name] = _TIER_FULL
+            if not within_budget():
+                tiers[name] = _TIER_SUMMARY
+                break
+
+        return self._regular_section_lines(ranked, tiers)

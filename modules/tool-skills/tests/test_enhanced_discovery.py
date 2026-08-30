@@ -689,21 +689,24 @@ Body content.
             "status": "completed",
         }
 
-    # Set up routing matrix that resolves 'reasoning' to provider_preferences
-    class MockRoutingMatrix:
-        def resolve(self, model_role: str):
+    # Set up the model_role_resolver capability that resolves 'reasoning' to
+    # provider_preferences. The production _execute_fork path looks the resolver
+    # up under "model_role_resolver" and awaits its .resolve() coroutine, so the
+    # mock must match that (async) contract.
+    class MockModelRoleResolver:
+        async def resolve(self, model_role: str):
             if model_role == "reasoning":
                 return [{"provider": "anthropic", "model": "claude-opus-*"}]
             return None
 
     coordinator = MockCoordinatorWithSpawn(spawn_fn=mock_spawn_fn)
-    coordinator.capabilities["routing_matrix"] = MockRoutingMatrix()
+    coordinator.capabilities["model_role_resolver"] = MockModelRoleResolver()
     tool = SkillsTool({}, coordinator, resolved_dirs=[tmp_path])  # type: ignore[arg-type]
     result = await tool._load_skill("model-resolve-skill")
 
     assert result.success is True
     assert len(spawn_calls) == 1
-    # routing matrix should have resolved model_role → provider_preferences
+    # resolver should have resolved model_role → provider_preferences
     assert spawn_calls[0]["provider_preferences"] == [
         {"provider": "anthropic", "model": "claude-opus-*"}
     ]
