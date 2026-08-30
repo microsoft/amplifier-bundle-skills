@@ -20,7 +20,6 @@ allowed-tools:
   - bash
   - delegate
 visibility:
-  priority: 5
   summary: >-
     Build a new domain council — orthogonal review lenses that fan out cold, debate to
     consensus, and return a verdict with dissent.
