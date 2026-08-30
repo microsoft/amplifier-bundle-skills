@@ -1,9 +1,9 @@
 ---
 name: config-state-patterns
-description: >
-  Use when your tool needs persistent configuration files with safe defaults
-  merging, atomic state writes that survive crashes, or conventional file
-  locations for config vs state vs secrets.
+description: >-
+  Use when a tool needs config and state that survive crashes and live in the right place.
+  Covers safe defaults merging, atomic state writes, and conventional locations for config
+  vs state vs secrets.
 ---
 
 # Configuration & State Management

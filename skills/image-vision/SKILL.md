@@ -1,6 +1,10 @@
 ---
 name: image-vision
-description: "Analyze images using LLM vision APIs (Anthropic Claude, OpenAI GPT-4, Google Gemini, Azure OpenAI). Use when tasks require: (1) Understanding image content, (2) Describing visual elements, (3) Answering questions about images, (4) Comparing images, (5) Extracting text from images (OCR). Provides ready-to-use scripts - no custom code needed for simple cases."
+description: >-
+  Analyze images using LLM vision APIs (Anthropic Claude, OpenAI GPT-4, Google Gemini,
+  Azure OpenAI). Use when a task requires understanding image content, describing visual
+  elements, answering questions about images, comparing images, or extracting text from
+  images (OCR). Provides ready-to-use scripts.
 license: MIT
 ---
 

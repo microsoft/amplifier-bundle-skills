@@ -1,9 +1,9 @@
 ---
 name: auth-tls-patterns
-description: >
-  Use when your service needs authentication that works without friction
-  locally but secures remote access, automatic TLS certificate setup, or
-  token-based auth with auto-generation and localhost bypass.
+description: >-
+  Use when a service needs auth that stays frictionless locally but secures remote access,
+  or automatic TLS. Covers token-based auth with auto-generation, localhost bypass, and
+  certificate setup.
 ---
 
 # Authentication & TLS

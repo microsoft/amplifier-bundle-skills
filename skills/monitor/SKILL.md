@@ -1,17 +1,16 @@
 ---
 name: monitor
-description: >
-  Run a bounded, self-checking polling loop (sleep -> check -> decide, repeat)
-  WITHOUT ENDING THE TURN, so the turn only ends when the watched thing is done,
-  has failed, or genuinely needs the user's attention -- which is what makes
-  Amplifier's end-of-turn notification fire correctly and honestly. Primarily
-  invoked explicitly via `/monitor <thing to watch>`, e.g. `/monitor the CI run
-  for PR 412, check every 2m, stop after 1h`. May also be self-invoked (not via
-  slash command) in the rare case you are about to tell the user "I'll keep
-  working and let you know" for something with a genuinely checkable, bounded
-  condition -- see the self-invocation guard below before doing that. For
-  continuous multi-lane parallel work toward an outcome, see the
-  ten-lane-highway skill (ships with the Amplifier CLI).
+description: >-
+  Run a bounded, self-checking polling loop (sleep -> check -> decide, repeat) WITHOUT
+  ENDING THE TURN. The turn ends only when the watched thing is done, has failed, or
+  genuinely needs the user's attention — which is what makes Amplifier's end-of-turn
+  notification fire correctly and honestly. Primarily invoked explicitly via `/monitor
+  <thing to watch>`, e.g. `/monitor the CI run for PR 412, check every 2m, stop after 1h`.
+  May also be self-invoked in the rare case you are about to tell the user "I'll keep
+  working and let you know" for something with a genuinely checkable, bounded condition —
+  see the self-invocation guard below before doing that. For continuous multi-lane
+  parallel work toward an outcome, see the ten-lane-highway skill (ships with the
+  Amplifier CLI).
 version: 1.0.0
 user-invocable: true
 # Deliberately NOT `context: fork`: a fork would put the loop behind a second

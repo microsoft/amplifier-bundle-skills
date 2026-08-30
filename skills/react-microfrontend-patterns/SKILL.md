@@ -1,9 +1,9 @@
 ---
 name: react-microfrontend-patterns
-description: >
-  Use when building a React frontend that dynamically loads independent
-  bundles sharing a single React instance via import maps, needs frecency-based
-  autocomplete, dynamic schema-driven forms, or Zustand state with localStorage.
+description: >-
+  Use when building a React frontend that dynamically loads independent bundles sharing a
+  single React instance. Covers import maps, frecency-based autocomplete, dynamic
+  schema-driven forms, and Zustand state with localStorage.
 ---
 
 # React Micro-Frontend Patterns
