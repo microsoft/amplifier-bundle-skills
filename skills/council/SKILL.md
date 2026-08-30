@@ -1,6 +1,9 @@
 ---
 name: council
-description: "Convene the persona panel (six orthogonal review lenses) on a target — cold independent fan-out, debate-to-consensus, synthesized verdict with recorded dissent and a roster manifest."
+description: >-
+  Convene the persona panel — six orthogonal review lenses — on a target. Cold independent
+  fan-out, debate-to-consensus, synthesized verdict with recorded dissent and a roster
+  manifest.
 context: fork
 disable-model-invocation: true
 user-invocable: true

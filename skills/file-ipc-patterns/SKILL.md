@@ -1,9 +1,9 @@
 ---
 name: file-ipc-patterns
-description: >
-  Use when processes need to communicate via the filesystem without a message
-  broker — JSONL event logs, atomic state snapshots, async request/response
-  via file pairs, or SSE streaming from file tailing.
+description: >-
+  Use when processes must communicate through the filesystem with no message broker.
+  Covers JSONL event logs, atomic state snapshots, async request/response via file pairs,
+  and SSE streaming from file tailing.
 ---
 
 # File-Based IPC & Events

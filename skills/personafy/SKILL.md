@@ -1,14 +1,13 @@
 ---
 name: personafy
-description: >
+description: >-
   Build a new opinionated advisor-persona skill — a reviewer "lens" like
-  crusty-old-engineer — modeled on a real person or archetype and proven from real
-  evidence. Mines the subject's authentic voice and discipline, defines its one
-  distinct load-bearing question, drafts it to the family template, proves it steers
-  in a live session, reduces it, and publishes it to a skills bundle. Use when
-  creating or authoring a persona/advisor skill, adding a sibling to the
-  crusty-old-engineer family, or turning a person's real direction style into a
-  reusable reviewer skill. Also triggers on "personafy" / "personify".
+  crusty-old-engineer, modeled on a real person or archetype. Mines the subject's
+  authentic voice, defines its one load-bearing question, drafts it to the family
+  template, and proves it steers a live session before publishing to a skills bundle. Use
+  when creating or authoring a persona/advisor skill, adding a sibling to the
+  crusty-old-engineer family, or turning a person's real direction style into a reusable
+  reviewer skill. Also triggers on "personafy" / "personify".
 user-invocable: true
 shortcut: personify
 model_role: reasoning

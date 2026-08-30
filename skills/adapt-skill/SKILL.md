@@ -1,14 +1,10 @@
 ---
 name: adapt-skill
-description: >
-  Adapt a skill written for another AI coding assistant (Claude Code, Cursor,
-  etc.) into a properly structured Amplifier SKILL.md file. Reads the source
-  skill, identifies platform-specific conventions, researches the source
-  platform if needed, and produces an Amplifier-native skill conforming to
-  the Agent Skills specification with Amplifier extensions.
-  Use when the user wants to adapt a skill, port a skill, convert a skill
-  to amplifier, translate a skill, or has a SKILL.md from another platform
-  they want to bring into Amplifier.
+description: >-
+  Adapt a skill written for another AI assistant (Claude Code, Cursor, etc.) into a proper
+  Amplifier SKILL.md. Use when the user wants to adapt a skill, port a skill, convert a
+  skill to amplifier, translate a skill, or has a SKILL.md from another platform they want
+  to bring into Amplifier.
 user-invocable: true
 allowed-tools:
   - read_file

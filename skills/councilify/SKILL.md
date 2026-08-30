@@ -1,17 +1,14 @@
 ---
 name: councilify
-description: >
-  Build a NEW complete "council" for a domain — a panel of orthogonal review
-  lenses that fan out cold, debate to consensus, and return a synthesized verdict
-  with recorded dissent, exactly like /council and /design-council. Identifies the
-  distinct lenses the domain needs (one load-bearing question each, mined from real
-  archetypes — not invented), reuses existing lenses where they already cover an
-  axis, builds only the genuinely-missing ones (persona SKILLs via personafy, or
-  agents when the role is an active builder), assembles the orchestrator + bench
-  into an invocable council bundle, and proves it convenes end-to-end. Use when
-  creating a council, standing up a review panel for a domain (product, security,
-  performance, data), or when someone says "councilify", "make a council",
-  "build a <domain> council".
+description: >-
+  Build a NEW complete "council" for a domain — a panel of orthogonal review lenses that
+  fan out cold, debate to consensus, and return a synthesized verdict with recorded
+  dissent, exactly like /council and /design-council. Identifies the distinct lenses a
+  domain needs (one load-bearing question each, mined from real archetypes — not
+  invented), reuses existing lenses, and builds only the genuinely-missing ones (persona
+  SKILLs via personafy, or agents when the role is an active builder). Use when creating a
+  council, standing up a review panel for a domain (product, security, performance, data),
+  or when someone says "councilify", "make a council", "build a <domain> council".
 user-invocable: true
 model_role: reasoning
 allowed-tools:
@@ -22,6 +19,10 @@ allowed-tools:
   - grep
   - bash
   - delegate
+visibility:
+  summary: >-
+    Build a new domain council — orthogonal review lenses that fan out cold, debate to
+    consensus, and return a verdict with dissent.
 ---
 
 # Councilify

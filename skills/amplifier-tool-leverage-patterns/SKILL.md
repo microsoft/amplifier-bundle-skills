@@ -1,13 +1,11 @@
 ---
 name: amplifier-tool-leverage-patterns
-description: >
-  Use when building an Amplifier-powered workflow or automation tool and
-  deciding how to expose it — as standalone .dot attractor pipelines (incl.
-  inside the Resolve dot-graph resolver), an importable Python lib, agent-callable
-  tool modules, or a CLI. Covers the four leverage levels, the DRY rule that keeps
-  logic in ONE home, the judgment for which levels a real consumer actually needs
-  (and when adding a level is just ceremony), and the maximally-DRY attractor-only
-  specialization where the .dot pipeline is the sole logic home.
+description: >-
+  Use when deciding how to expose an Amplifier workflow or automation tool — .dot
+  attractor pipeline, Python lib, tool module, or CLI. Covers the four leverage levels,
+  the DRY rule that keeps logic in ONE home, which levels a real consumer actually needs
+  (and when a level is just ceremony), and the attractor-only case where the .dot pipeline
+  is the sole logic home.
 ---
 
 # Amplifier Tool Leverage Levels

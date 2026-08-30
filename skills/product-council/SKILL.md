@@ -1,6 +1,9 @@
 ---
 name: product-council
-description: "Convene the Product Development Council (six orthogonal product-delivery lenses, anchored by a mandatory problem-validation gate) on a target — cold independent fan-out, debate-to-consensus, synthesized verdict with recorded dissent and a roster manifest."
+description: >-
+  Convene the Product Development Council — six orthogonal product-delivery lenses
+  anchored by a mandatory problem-validation gate. Cold independent fan-out,
+  debate-to-consensus, synthesized verdict with recorded dissent and a roster manifest.
 context: fork
 disable-model-invocation: true
 user-invocable: true
