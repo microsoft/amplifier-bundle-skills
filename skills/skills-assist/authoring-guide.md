@@ -84,11 +84,13 @@ Skills are loaded lazily to conserve context. The skill loading system has three
 
 | Level | What is Loaded | Token Cost | When |
 |-------|---------------|------------|------|
-| **Metadata** | `name`, `description`, frontmatter fields only | ~100 tokens | Always — at session startup, Amplifier loads all skill metadata to populate the routing context |
+| **Metadata** | `name`, `description`, frontmatter fields only | ~100 tokens/skill (provisional ceiling: see `foundation:context/shared/description-authoring-principles.md`) | Always — at session startup, Amplifier loads all skill metadata to populate the routing context |
 | **Content** | Full `SKILL.md` body (instructions, examples, workflow) | ~1–5K tokens | On demand — when the skill is invoked by name or matched to a user request |
 | **References** | Companion files (`setup.md`, `patterns.md`, `examples/`) | 0 until read | Explicit — companion files are never auto-loaded; the skill body must call `read_file` to pull them in |
 
 **Design implication:** Put the minimum required instructions in `SKILL.md`. Move large reference material, examples, and setup docs to companion files. The forked context window only pays the cost of what it reads.
+
+**Metadata is a shared, capped budget, not a per-skill allowance.** The visibility hook renders the "Available skills" catalog under `visibility_token_budget` (default 5000 tokens) or, in legacy count-cap mode, `max_skills_visible` (default 50) -- either way every skill's `description` competes with every other visible skill's for the *same fixed budget*. At the default 50-skill cap, the current curated collection's top-50 already runs ≈ 8k tokens/session at full detail before the budget renderer starts trimming skills to name-only. A verbose description does not just cost its own author's skill -- it pushes other skills further down the detail tiers.
 
 ---
 
