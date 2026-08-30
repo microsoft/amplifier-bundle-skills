@@ -1,9 +1,9 @@
 ---
 name: container-orchestration-patterns
-description: >
-  Use when running tasks in Docker containers with safety limits, watchdog
-  monitoring for resource enforcement, orphan container recovery, sidecar
-  container provisioning, or scripting reproducible dev stack environments.
+description: >-
+  Use when running tasks in Docker containers with safety limits and resource enforcement.
+  Covers watchdog monitoring, orphan container recovery, sidecar provisioning, and
+  scripting reproducible dev stack environments.
 ---
 
 # Container Orchestration & Dev Stacks

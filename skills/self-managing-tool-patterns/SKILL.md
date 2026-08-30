@@ -1,9 +1,9 @@
 ---
 name: self-managing-tool-patterns
-description: >
-  Use when adding a doctor diagnostic command, self-update/upgrade mechanism,
-  cross-platform service installation (systemd and launchd), or post-upgrade
-  verification to a CLI tool.
+description: >-
+  Use when a CLI tool needs to manage itself. Covers a doctor diagnostic command,
+  self-update/upgrade, cross-platform service installation (systemd and launchd), and
+  post-upgrade verification.
 ---
 
 # Self-Managing Tool Lifecycle

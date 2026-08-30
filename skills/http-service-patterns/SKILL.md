@@ -1,9 +1,9 @@
 ---
 name: http-service-patterns
-description: >
-  Use when building an HTTP service with FastAPI lifecycle management,
-  background poll loops, SPA static file serving with API reverse proxy,
-  bidirectional WebSocket relay, or SSE event streaming.
+description: >-
+  Use when building an HTTP service with FastAPI. Covers lifecycle management, background
+  poll loops, SPA static file serving with API reverse proxy, bidirectional WebSocket
+  relay, and SSE event streaming.
 ---
 
 # HTTP Services & Proxies

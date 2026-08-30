@@ -1,8 +1,8 @@
 ---
 name: instance-storage-patterns
-description: >
-  Use when your system manages multiple concurrent instances or sessions that
-  each need isolated storage directories, per-instance file locking, or a
+description: >-
+  Use when a system manages multiple concurrent instances or sessions that each need
+  isolated storage. Covers per-instance directories, file locking, and a
   prepare-once/create-many session factory pattern.
 ---
 

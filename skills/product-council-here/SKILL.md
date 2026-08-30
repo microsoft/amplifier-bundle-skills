@@ -1,6 +1,10 @@
 ---
 name: product-council-here
-description: "Convene the Product Development Council on the CURRENT conversation / work-in-progress — the plan, roadmap, or scope decision you've been building in this session. The INLINE counterpart to /product-council (which forks and runs isolated, so it cannot see the chat). Use when you want the council to critique what we're working on right now."
+description: >-
+  Convene the Product Development Council on the CURRENT conversation — the plan, roadmap,
+  or scope decision built in this session. The INLINE counterpart to /product-council
+  (which forks isolated and cannot see the chat). Use when you want the council to
+  critique what we're working on right now.
 disable-model-invocation: true
 user-invocable: true
 model_role: critique

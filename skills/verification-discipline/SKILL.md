@@ -1,10 +1,9 @@
 ---
 name: verification-discipline
-description: >
-  Use when verifying that completed work actually works. Auto-surface during
-  /verify mode, post-implementation review, or before claiming a task is done.
-  Teaches the discipline of testing outcomes vs implementation, the
-  unit/integration/smoke gradient, and what "done" actually means.
+description: >-
+  Use when verifying that completed work actually works. Auto-surface during /verify mode,
+  post-implementation review, or before claiming a task is done. Teaches testing outcomes
+  vs implementation, the unit/integration/smoke gradient, and what "done" actually means.
 ---
 
 # Verification Discipline

@@ -1,9 +1,9 @@
 ---
 name: plugin-discovery-patterns
-description: >
-  Use when making a system extensible with runtime plugin discovery via
-  Python entry points, a file-based plugin registry, multi-backend provider
-  abstractions, or schema-driven input validation.
+description: >-
+  Use when making a system extensible at runtime. Covers plugin discovery via Python entry
+  points, a file-based plugin registry, multi-backend provider abstractions, and
+  schema-driven input validation.
 ---
 
 # Plugin Discovery & Abstractions

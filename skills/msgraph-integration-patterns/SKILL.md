@@ -1,17 +1,14 @@
 ---
 name: msgraph-integration-patterns
-description: >
-  Hard-won patterns for probing, building, troubleshooting, and iterating against
-  Microsoft Graph API endpoints -- especially from a browser SPA using delegated
-  MSAL.js auth calling Graph directly with no backend (lessons generalize to any
-  Graph integration). Covers the throwaway-probe-file methodology for de-risking
-  before building, OData/query quirks, permission and admin-consent sequencing,
-  recordings/transcripts access patterns (SharePoint REST, not Graph), CSP
-  requirements for a pure-browser SPA, retry/pagination/backoff patterns, and the
-  MSAL/EasyAuth auth-redirect-loop debugging saga. Use when integrating with
-  Microsoft Graph, Teams APIs, MSAL.js, or EasyAuth; when hitting an unexpected
-  Graph error (400/403/429), a silent missing-scope failure, an auth redirect
-  loop, or a CSP violation that only appears in production; or when deciding how
+description: >-
+  Hard-won patterns for probing, building, and debugging Microsoft Graph integrations,
+  especially from a browser SPA with no backend. Covers delegated MSAL.js auth, the
+  throwaway-probe-file methodology, OData/query quirks, permission and admin-consent
+  sequencing, recordings/transcripts via SharePoint REST (not Graph), CSP requirements for
+  a pure-browser SPA, retry/pagination/backoff, and the MSAL/EasyAuth redirect-loop saga.
+  Use when integrating with Microsoft Graph, Teams APIs, MSAL.js, or EasyAuth; when
+  hitting an unexpected Graph error (400/403/429), a silent missing-scope failure, an auth
+  redirect loop, or a CSP violation that only appears in production; or when deciding how
   to validate a new Graph capability before committing it to a codebase.
 model_role: coding
 allowed-tools: [read_file, write_file, edit_file, bash, web_fetch]

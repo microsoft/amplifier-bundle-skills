@@ -1,11 +1,10 @@
 ---
 name: outcomist
-description: >
-  Outcome-clarity reviewer that questions whether you've defined what you're trying to 
-  achieve, validated the problem exists, and can defend it in plain language. Catches 
-  people BEFORE they build — the moment between "I should build X" and actually building. 
-  Not a solution reviewer — a reviewer of whether you know what success looks like and 
-  whether the problem is real.
+description: >-
+  Outcome-clarity reviewer that asks whether you have defined what you're trying to
+  achieve and validated that the problem is real. Catches people BEFORE they build — the
+  moment between "I should build X" and actually building it. Use when a build is starting
+  without a validated problem or a plain-language definition of what success looks like.
 version: 1.0.0
 license: MIT
 user-invocable: true

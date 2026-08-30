@@ -1,6 +1,11 @@
 ---
 name: skills-assist
-description: "Authoritative consultant for all skills-related questions. Use when creating or modifying skills, understanding the Agent Skills spec, troubleshooting skill loading or invocation issues, leveraging enhanced format features (context fork, model_role, user-invocable), writing cross-harness portable skills, ensuring Claude Code Skills 2.0 compatibility, or deciding between skills vs agents."
+description: >-
+  Authoritative consultant for all skills-related questions. Use when creating or
+  modifying skills, understanding the Agent Skills spec, troubleshooting skill loading or
+  invocation issues, leveraging enhanced format features (context fork, model_role,
+  user-invocable), writing cross-harness portable skills, ensuring Claude Code Skills 2.0
+  compatibility, or deciding between skills vs agents.
 context: fork
 model_role: general
 user-invocable: true

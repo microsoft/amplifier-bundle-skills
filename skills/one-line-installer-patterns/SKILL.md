@@ -1,12 +1,11 @@
 ---
 name: one-line-installer-patterns
-description: >
-  Use when designing a curl-piped install script for a project that cannot use
-  uv tool install or npm publish — multi-service stacks (Docker Compose),
-  raw TS/React apps, tools that bootstrap system dependencies, or installs
-  for non-technical audiences. Documents the security trade-off, the community
-  convention used by rustup, bun, deno, fly, ollama, and supabase, and the
-  cases where this pattern is the wrong answer.
+description: >-
+  Use when designing a curl-piped install script for a project that cannot use uv tool
+  install or npm publish. Covers multi-service stacks (Docker Compose), raw TS/React apps,
+  tools that bootstrap system dependencies, installs for non-technical audiences, the
+  security trade-off, the convention used by rustup, bun, deno, fly, ollama, and supabase,
+  and when this pattern is the wrong answer.
 ---
 
 # One-Line Installer Patterns

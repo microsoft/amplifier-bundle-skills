@@ -1,9 +1,9 @@
 ---
 name: cli-packaging-patterns
-description: >
-  Use when building a new CLI tool that needs one-line install via uv or npm,
-  subcommand dispatch with a default action, or 3-tier config resolution
-  (CLI flags, config file, hardcoded defaults).
+description: >-
+  Use when building a new CLI tool that needs one-line install, subcommand dispatch, or
+  layered config. Covers uv/npm install, a default-action dispatcher, and 3-tier config
+  resolution (flags, config file, defaults).
 ---
 
 # CLI Packaging & Distribution
