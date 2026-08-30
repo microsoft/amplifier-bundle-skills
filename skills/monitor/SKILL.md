@@ -9,7 +9,9 @@ description: >
   for PR 412, check every 2m, stop after 1h`. May also be self-invoked (not via
   slash command) in the rare case you are about to tell the user "I'll keep
   working and let you know" for something with a genuinely checkable, bounded
-  condition -- see the self-invocation guard below before doing that.
+  condition -- see the self-invocation guard below before doing that. For
+  continuous multi-lane parallel work toward an outcome, see the
+  ten-lane-highway skill (ships with the Amplifier CLI).
 version: 1.0.0
 user-invocable: true
 # Deliberately NOT `context: fork`: a fork would put the loop behind a second
