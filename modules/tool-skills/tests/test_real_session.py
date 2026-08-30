@@ -51,7 +51,11 @@ This skill should be visible to the agent.""")
         print(f"stderr: {result.stderr}")
         print(f"returncode: {result.returncode}")
 
-        assert result.returncode == 0 or "No such option: --dry-run" in result.stderr
+        # Either the command ran clean, or the CLI rejected the unknown
+        # --dry-run option. The exact phrasing/quoting of that rejection has
+        # drifted across CLI versions (e.g. "No such option: --dry-run" vs
+        # "No such option '--dry-run'."), so match on the stable prefix only.
+        assert result.returncode == 0 or "No such option" in result.stderr
 
 
 if __name__ == "__main__":
