@@ -54,8 +54,32 @@ An item admits exactly one holder. **An N-lane batch against a 1-item spec there
 lanes structurally unable to claim**, and no amount of waiting or retrying changes that: the holder
 is not stalled, it is working.
 
-**Recommended fix:** file one item per repo, or one parent with 13 children, so the claim lock
-matches the lane fan-out.
+**Measured, not inferred.** Four lane worktrees carry a `GOAL.md` naming this same item:
+
+```
+$ grep -rl model_performance-smy5 lanes/*/ --include=GOAL.md
+lanes/smy5-patch-app-cli/amplifier-app-cli/GOAL.md
+lanes/smy5-patch-routing-matrix/amplifier-bundle-routing-matrix/GOAL.md
+lanes/smy5-patch-skills/amplifier-bundle-skills/GOAL.md      <- this lane
+lanes/smy5-patch-wayfinder/amplifier-bundle-wayfinder/GOAL.md
+```
+
+**One item, four lanes, each told by Procedure step 1 to claim it. One wins; three are refused.**
+
+And the holder is genuinely live, so this is not reapable:
+
+```
+$ ps -p 3875147 -o pid,etime,cmd
+   3875147   16:20  amplifier run /goal @GOAL.md      <- holder agent-spark-1-3875147
+$ ps -p 3875318 -o pid,etime,cmd
+   3875318   16:19  amplifier run /goal @GOAL.md      <- this lane agent-spark-1-3875318
+```
+
+Two processes started ~60 s apart, racing the same lock. `work_status` reports `held_stale: 0`.
+
+**Filed as its own work item: `model_performance-mzle`**, with both fixes — (1) one item per repo,
+or one parent with N children, so the claim lock matches the lane fan-out; (2) a stop-condition that
+accepts branch C, since this goal's own Procedure step 1 prescribes C for a refused claim.
 
 ## 4. `work_release` — not applicable, and why that is stated rather than skipped
 
