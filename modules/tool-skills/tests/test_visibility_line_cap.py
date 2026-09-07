@@ -212,6 +212,27 @@ def test_composed_block_is_pinned_to_the_lean_shape():
     assert hook._format_skills_list(PINNED_CATALOG) == PINNED_BLOCK
 
 
+def test_block_is_exactly_one_physical_line_per_skill():
+    """AC2's "yields the v1 shape" made checkable: ONE LINE PER SKILL, exactly.
+
+    The v1 captured head is 57 physical lines for 50 skills — 7 template lines
+    (wrapper open/close, two headers, three blanks) plus one line per skill and
+    not one more. Stock spilled multi-paragraph descriptions across extra
+    physical lines; this asserts the composed block never does.
+    """
+    hook = SkillsVisibilityHook(
+        PINNED_CATALOG,
+        {"visibility_token_budget": 5000, "visibility_line_char_cap": 180},
+    )
+    block = hook._format_skills_list(PINNED_CATALOG)
+    physical = block.split("\n")
+    # 7 template lines when both sections are present.
+    assert len(physical) == len(PINNED_CATALOG) + 7, physical
+    # `charlie-multiline` carries embedded newlines; it must still be one line.
+    charlie = [line for line in physical if "charlie-multiline" in line]
+    assert len(charlie) == 1
+
+
 def test_pinned_block_holds_the_shape_invariants():
     """The pin above is not just a string -- it encodes the contract."""
     lines = PINNED_BLOCK.split("\n")

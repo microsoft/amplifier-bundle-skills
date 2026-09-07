@@ -3,7 +3,8 @@
 **Item:** `model_performance-z6wa` (skills half only; the routing-matrix half is queued separately and was NOT touched).
 **Repo:** `microsoft/amplifier-bundle-skills`, branch `lane/z6wa-skills-visibility-renderer`.
 **Outcome:** branch **B — RESOLVED AT THE CAP**, satisfied by construction: acceptance
-criterion 5 resolves **NOT-POSSIBLE because of the cap**. Branch B uses branch A's verb, so
+criterion 5 — and only criterion 5 — resolves **NOT-POSSIBLE because of the cap**. AC1–AC4
+are all **DONE**. Branch B uses branch A's verb, so
 the terminal **state** is `resolved` — the same state, correctly named. (An earlier version
 of this note and of `DONE.json` said branch A. That was a mislabelling inside one terminal
 state, corrected by erratum on the item; no measurement moved and nothing was re-run. The
@@ -218,7 +219,7 @@ length). With the change, 12/12 pass.
 | | result |
 |---|---|
 | HEAD (stash-compare, `-u`) | **302 passed** |
-| with this change | **312 passed** |
+| with this change | **313 passed** |
 
 Both runs carry the **same pre-existing collection error**,
 `tests/test_fork_skill_model_role_resolver.py` → `ModuleNotFoundError: amplifier_foundation`
@@ -281,17 +282,42 @@ outcome is checkable rather than inferred.
 | AC | criterion | state |
 |---|---|---|
 | 1 | exact file + function named; compression applied at the point of composition, never a captured artifact, never a hardcoded string | **DONE** (§1, §3) |
-| 2 | PR states template vs per-session data **AND** the template yields the v1 shape for the v1 session | **SPLIT** — split statement **DONE** (§2); "yields the v1 shape" **NOT-POSSIBLE**, reason **STRUCTURAL, not the cap** (§2, below) |
+| 2 | PR states template vs per-session data **AND** the template yields the v1 shape for the v1 session | **DONE** — both halves (§2, §10a below) |
 | 3 | stock-vs-lean fidelity diff; expected none dropped; anything dropped restored with byte delta | **DONE — PASS** both catalogs (§5) |
 | 4 | a test pinning composed output to the lean shape for a fixed input set | **DONE** (§6) |
 | 5 | ADDITIONAL wire-head reduction measured before/after; zc6t's guardrail threshold re-derived | **NOT-POSSIBLE AT THE CAP — this is the branch-B trigger** (§9) |
 
-**AC2's NOT-POSSIBLE is structural, and that distinction matters.** It is *not* a cap
-failure and it does *not* push the outcome to branch C, because the outcome itself was
-reached. EXECUTED: the v1 session's own skill set (46 of its 50 present here) rendered
-through both renderers — stock 17,576 → lean 7,691 chars (−56.2 %) against v1's 5,350 for
-50, ≈1.56× scaled. The residual is hand-rewritten **description** text, which no renderer
-can produce. Measured and proven, not asserted.
+### AC2 — "yields the v1 shape for the v1 session": DONE, verified structurally
+
+**"Shape" is defined by the goal itself, in capitals: `GOAL.md:70` — "THE TARGET SHAPE IS
+ONE LINE PER SKILL."** The item description draws the same line: *"a renderer emits a
+TEMPLATE plus dynamic content … the deliverable is a compressed TEMPLATE that yields the v1
+shape for the v1 session, NOT a hardcoded string."* Shape is the template; content is the
+dynamic part. So shape conformance is a **structural predicate**, and it is checkable:
+wrapper open/close, both headers verbatim, section order, no text continuation lines, and
+**exactly one physical line per skill** (skills + 7 template lines).
+
+The check validates itself against ground truth before it judges anything — **the v1
+captured text must pass its own predicate**. (My first pass failed v1 with +1 surplus
+because I counted 6 template lines instead of 7; v1 is 57 physical lines for 50 skills.
+Fixed, then re-run.) Rendering the v1 session's own skill set:
+
+| | shape conforms | physical lines / skills |
+|---|---|---|
+| **v1 captured text (the target)** | **YES** | 57 / 50, surplus 0 |
+| **STOCK @ HEAD** | **NO** | 55 / 46, **surplus +2** |
+| **THIS CHANGE** | **YES** | 53 / 46, surplus 0 |
+
+**Stock did not yield the v1 shape; this change does** — that is what the whitespace-collapse
+guarantee buys, and on the full 93-skill catalog it shows as 39 continuation lines → 0.
+Evidence: `evidence/shape-conformance.txt`, script `shape_conformance.py`, pinned by
+`test_block_is_exactly_one_physical_line_per_skill`.
+
+**Size is a different question and was never a deliverable.** 7,691 chars vs v1's 5,350 is a
+statement about per-session **data** — hand-rewritten descriptions — not about the template.
+Neither AC2 nor the goal's DELIVERABLES ask the renderer to hit 5,350 chars; reading the
+residual as an unmet objective inverts the template-vs-data distinction the item asked to
+have stated. Closing it is source-side description tightening (`kv98`).
 
 **AC5's NOT-POSSIBLE is the cap, and it leads with what ran**, per the goal's rule: two full
 renderer censuses, a 46-skill v1-subset census, a 25-point budget × cap sweep, fidelity
