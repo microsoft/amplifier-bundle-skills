@@ -127,7 +127,10 @@ This lane's per-repo work is **complete, verified, and published**. BLOCKED is t
 the **item** for this lane; it is not a statement that the work failed, and nothing here is being
 withdrawn.
 
-- **Draft PR:** https://github.com/microsoft/amplifier-bundle-skills/pull/65 — open, draft, not merged
+- **PR:** https://github.com/microsoft/amplifier-bundle-skills/pull/65 — opened draft, **marked ready**
+  (`isDraft: false`, `state: OPEN`, `mergedAt: null`, `mergeable: MERGEABLE`), **not merged** — the
+  manager merges. Ready because the PR's only check (`license/cla`) passes and the repo has no CI
+  workflows that could be pending or red; leaving it draft would block the manager's merge stage.
 - **Branch:** `lane/smy5-patch-skills` @ `50f6cb3544b519419861f5d691aa247234a4f2d7` (read back from the remote)
 - **Applied:** `context/skills-instructions.md` 4,478 → 1,993 chars (clean `git apply`, byte-identical
   to zc6t's lean.md); `load_skill` description 1,647 → 968 chars (hand-ported — its patch targets a
