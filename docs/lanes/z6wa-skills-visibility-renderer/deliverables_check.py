@@ -59,9 +59,9 @@ def d2_template_not_hardcoded() -> None:
     v1_block = json.loads(V1.read_text())[11]["new"]
     # No fragment of the captured v1 text may be baked into the renderer.
     v1_lines = [
-        l for l in v1_block.split("\n") if l.startswith("- **") and len(l) > 60
+        line for line in v1_block.split("\n") if line.startswith("- **") and len(line) > 60
     ]
-    leaked = [l for l in v1_lines if l.strip() in src]
+    leaked = [line for line in v1_lines if line.strip() in src]
     # And the block must be assembled from parts, not returned as one literal.
     assembles = 'f"- **{name}**: ' in src or '"- **{name}**: ' in src
     note = NOTE.read_text()
