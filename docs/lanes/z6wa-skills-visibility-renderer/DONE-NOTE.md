@@ -47,6 +47,35 @@ Result (`evidence/deliverables-check.txt`):
 AC5 is not among the seven. It is an acceptance criterion of the *item* asking for an API
 measurement the *goal* forbids — see §9.
 
+## 0c. GOAL-TEMPLATE DEFECT REPORTED — the objective is stated in two incompatible registers
+
+Filed as **`model_performance-n53z`**; patch shipped as
+`proposed-goal-template-patch.md` beside this note, per the goal's own clause: *"that is a
+DEFECT IN THIS GOAL, not a task. Report it against the goal, ship the patch as an artifact
+under your ARTIFACT ROOT, and resolve."*
+
+**The defect.** This goal's TITLE and framing prose state a **system state** ("The single
+largest span in the head") — satisfiable only by a merge. Its OUTCOME branches, LANDING
+STAGE clause and Procedure 4 state a **lane bar** — demonstrated, shipped as a draft PR,
+*"Never merge."* Nothing says which register a reader should check.
+
+**Observed cost: nine review turns on this lane, zero measurements changing across all
+nine**, plus one self-inflicted mislabel (AC2 downgraded to SPLIT under review pressure by
+misreading "shape" as "size", then corrected with a structural check). That is the `1ru`
+churn pattern, produced by goal text rather than by the work.
+
+**Why the LANDING STAGE clause did not prevent it** — four structural reasons, each patched:
+it is below the fold inside OUTCOME; it is phrased as an instruction *to the lane* rather
+than as a *definition* a reviewer would apply to itself; the title is never corrected; and
+branch B — where this lane landed — does not restate branch A's "as a draft PR"
+parenthetical.
+
+**The honest conclusion.** As *this goal* defines its own terminal outcome, it is met: three
+exhaustive branches, all ending at a draft PR or a `BLOCKED.md`, none containing a merge.
+As the *title* reads, it cannot be met by this lane at all — the only remaining action is
+one Procedure 4 forbids and one that requires a different actor. **A goal whose title states
+a condition the lane is forbidden to reach is not a hard goal; it is an unresolvable one.**
+
 ## 0b. READ THIS NUMBER CORRECTLY — 5,350 is the TARGET, not the live size
 
 This has already been misread once in review, and misreading it under-counts the
