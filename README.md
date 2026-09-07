@@ -30,7 +30,7 @@ Packages the tool-skills module (at `modules/tool-skills/`) with context instruc
 | **image-vision** | LLM-based image analysis across multiple providers (Anthropic, OpenAI, Gemini, Azure) |
 | **code-review** | Parallel code review — spawns 3 agents (code reuse, quality, efficiency) to review recent changes |
 | **mass-change** | Parallel work orchestration — decomposes large changes into 5-30 independent units |
-| **msgraph-integration-patterns** | Probing, building, troubleshooting Microsoft Graph APIs from browser SPAs with MSAL.js; OData quirks, permissions/consent, recordings/transcripts, CSP, retry patterns, MSAL/EasyAuth auth loops |
+| **engineering-patterns** | Thirteen engineering pattern guides behind one catalog entry — CLI packaging, one-line installers, config/state, HTTP services, auth/TLS, file IPC, plugin discovery, instance storage, container orchestration, React microfrontends, MS Graph integration, self-managing tools, Amplifier tool leverage. Each is an L3 reference read on demand. |
 | **session-debug** | Session diagnostics — diagnoses misconfigured tools, failing operations, unexpected behavior |
 | **skills-assist** | Skills expert — authoritative consultant for authoring, spec, compatibility, and skills-vs-agents guidance |
 | **monitor** | Bounded polling loop — watch a thing until it finishes, fails, or needs you, so the end-of-turn notification fires honestly |

@@ -1,5 +1,6 @@
 ---
 name: intent-keeper
+disable-model-invocation: true
 version: 1.0.0
 description: >-
   Goal-clarity reviewer that refuses to judge a solution until the intent behind it is

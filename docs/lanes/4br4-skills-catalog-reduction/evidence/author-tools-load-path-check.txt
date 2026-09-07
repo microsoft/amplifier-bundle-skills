@@ -1,0 +1,43 @@
+IS ANY HAND-RUN AUTHORING TOOL REACHED MODEL-INITIATED?  ($0, static)
+=====================================================================
+
+QUESTION (from the goal): hide skillify only if its loads are exclusively
+user-initiated; if the model ever reaches for it on its own, KEEP IT VISIBLE.
+
+INSTRUMENT: count documented instructions of the form
+  load_skill(skill_name="<skill>")
+in every .md/.yaml under ~/.amplifier/cache -- i.e. every bundle mounted on
+the owner's real app list -- EXCLUDING the skill's own directory (a skill
+citing itself is not another skill reaching for it). A hit means some other
+skill/agent/bundle-context tells the model to load it as a workflow step.
+
+INSTRUMENT VALIDATION (this is the part that was got wrong twice first):
+  A first attempt used goalify as the positive control and returned 0 for
+  everything. goalify was MOVED OUT of this repo in c2e2049 and is not in
+  the cache at all -- so that 0 was the instrument, not the data. A second
+  attempt used ripgrep, which is NOT INSTALLED on this host; every count
+  came back 0 from 'rg: command not found'. Both are recorded, not buried.
+  Re-run with plain grep and three controls known to be model-reachable:
+
+    skills-assist            : 8   <- positive control
+    claiming-work-safely     : 1   <- positive control
+    work-tracker-operations  : 1   <- positive control
+    digital-twin-universe    : 12  <- positive control
+    ---
+    skillify                 : 0
+    adapt-skill              : 0
+    councilify               : 0
+    personafy                : 0
+
+VERDICT: all four authoring tools show ZERO model-initiated load paths on an
+instrument that finds 1..12 for four known positives. skillify is HIDDEN.
+
+SECOND SOURCE, ATTEMPTED AND FAILED -- reported, not silently dropped:
+  A historical census over the 33,083 captured events.jsonl files on this
+  host was attempted to count actual runtime loads. It could not be
+  completed: tool-call arguments are stored as ESCAPED JSON inside the event
+  payload, so the obvious "skill_name": "x" pattern does not match, and the
+  context-intelligence graph-analyst -- the right tool for this -- failed to
+  start on this host with LLMError: cannot import name 'path_template' from
+  'openai._utils'. So the runtime-frequency half of the question is UNKNOWN,
+  not zero. The static result above is what the decision rests on.

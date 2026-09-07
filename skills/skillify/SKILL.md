@@ -1,5 +1,6 @@
 ---
 name: skillify
+disable-model-invocation: true
 description: >-
   Capture a repeatable process from the current session into a reusable Amplifier SKILL.md
   skill file. Use when the user wants to create a skill, save a workflow as a skill, turn

@@ -1,0 +1,14 @@
+THREE-ARM CENSUS -- all four renders taken back-to-back against the SAME host
+cache, so the full-catalog arms are comparable. (The host bundle cache is live:
+other sessions update it, so a render taken an hour apart is NOT comparable.)
+Renderer: SkillsVisibilityHook._format_skills_list, visibility_token_budget=2500
+(the shipped default in behaviors/skills.yaml), visibility_line_char_cap=180.
+arm A = origin/main dbd5201 (git worktree)   arm B = fold only   arm C = fold + hide
+taken: 2026-09-07T15:49:50-07:00
+
+  arm A  small  catalog= 38  model-invocable= 31  user-invoked=  7  block=  6276 chars
+  arm A  full   catalog=107  model-invocable= 96  user-invoked= 11  block= 11693 chars
+  arm B  small  catalog= 26  model-invocable= 19  user-invoked=  7  block=  4824 chars
+  arm B  full   catalog= 95  model-invocable= 84  user-invoked= 11  block= 11709 chars
+  arm C  small  catalog= 26  model-invocable=  7  user-invoked= 19  block=  4824 chars
+  arm C  full   catalog= 95  model-invocable= 72  user-invoked= 23  block= 13984 chars

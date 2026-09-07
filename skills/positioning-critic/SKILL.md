@@ -1,5 +1,6 @@
 ---
 name: positioning-critic
+disable-model-invocation: true
 version: 1.0.0
 description: >-
   Competitive-differentiation reviewer that refuses to accept "the user wants this" as

@@ -1,0 +1,75 @@
+REAL-SESSION VERIFICATION -- scratch AMPLIFIER_HOME, owner's real app list
+=========================================================================
+
+SETUP (owner's own ~/.amplifier untouched):
+  AMPLIFIER_HOME=<lane>/scratch-home, seeded with a COPY of the owner's
+  settings.yaml (same 20-entry bundle.app list), then the cached clone of
+  amplifier-bundle-skills/skills replaced by a symlink to THIS branch's
+  skills/ so the session mounts the branch under test.
+  Proof the swap took (amplifier tool invoke load_skill info=councilify):
+    'path': '<lane>/amplifier-bundle-skills/skills/councilify/SKILL.md'
+  Model: anthropic/claude-haiku-4-5. Total spend across all three runs: ~$0.9.
+
+RUN 1 -- every hidden skill still loads by name (14/14 LOADED)
+-------------------------------------------------------------
+ Skill                 LOADED yes/no  First line of loaded body           
+ ──────────────────────────────────────────────────────────────────────── 
+ bet-sizer             yes            # Bet Sizer                         
+ cranky-old-sam        yes            # Cranky Old Sam (COSam) Advisor    
+ crusty-old-engineer   yes            # Crusty Old Engineer (COE) Advisor 
+ intent-keeper         yes            # Intent-Keeper (IK) Advisor        
+ outcome-cartographer  yes            # Outcome Cartographer              
+ outcomist             yes            # Outcomist Advisor                 
+ positioning-critic    yes            # Positioning Critic                
+ user-advocate         yes            # User-Advocate (UA) Advisor        
+ adapt-skill           yes            # Adapt Skill                       
+ councilify            yes            # Councilify                        
+ personafy             yes            # Personafy                         
+ skillify              yes            # Skillify                          
+ engineering-patterns  yes            # Engineering Patterns              
+ tester-breaker        yes            # Tester/Breaker (TB) Advisor       
+                                                                          
+
+REFERENCE FILE: # Microsoft Graph Integration Patterns                          
+
+RUN 2 -- /council still fans out to its lenses BY NAME
+------------------------------------------------------
+(load_skill(skill_name="council", arguments=...) -- the same call the
+ /council slash command makes. Lines are from the forked concierge.)
+223:    │  arguments: "Review the self-contained design target: “Should a CLI tool store its config in a single JSON file, or in one file per concern?” Act as intent-keeper and return the requir
+231:           # crusty-old-engineer
+239:           # intent-keeper
+250:    │  arguments: "Review this self-contained design decision as the cranky-old-sam lens: “Should a CLI tool store its config in a single JSON file, or in one file per concern?” Return only 
+261:           # cranky-old-sam
+277:           # user-advocate
+288:    │  arguments: "Review this self-contained target as the restless-old-brian lens: “Should a CLI tool store its config in a single JSON file, or in one file per concern?” Return the reques
+296:           # restless-old-brian
+304:{ lens: "intent-keeper", verdict: "FAIL", findings: ["No outcome is stated. The 
+353:{ lens: "restless-old-brian", verdict: "CONCERN", findings: ["Start with one    
+393:{ lens: "crusty-old-engineer", verdict: "CONCERN", findings: ["This is not a    
+430:"lens": "user-advocate",                                                        
+510:{"lens":"cranky-old-sam","verdict":"CONCERN","findings":["Default to one small, 
+708:           # crusty-old-engineer
+
+RUN 3 -- /product-council still fans out to its lenses BY NAME
+--------------------------------------------------------------
+240:           # intent-keeper
+270:           # user-advocate
+278:           # outcomist
+300:           # outcome-cartographer
+316:           # positioning-critic
+335:           # bet-sizer
+343:{ lens: "intent-keeper", verdict: "FAIL", findings: ["No outcome is stated.     
+363:{ lens: "outcome-cartographer", verdict: "FAIL", findings: ["Deliverable: ship a
+414:{ lens: "outcomist", verdict: "CONCERN", findings: ["Do not decide to ship a    
+459:{ lens: "user-advocate", verdict: "CONCERN", findings: ["No specific CLI user,  
+493:{ "lens": "positioning-critic", "verdict": "FAIL", "findings": ["Against the    
+531:{ lens: "bet-sizer", verdict: "CONCERN", findings: ["Riskiest unknown: whether a
+720:           # outcome-cartographer
+739:           # bet-sizer
+
+RUN 2b -- /design-council (NOT this lane's change; its 9 lenses live in the
+anderlpz fork, a separate repo, and were not touched). Recorded because the
+FIRST /council attempt mis-routed to it on haiku, which is itself evidence
+design-council still convenes:
+Consulted: Originality Critic, Coherence Guardian, Craft Inspector, Emotion     

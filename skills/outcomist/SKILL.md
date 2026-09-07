@@ -1,5 +1,6 @@
 ---
 name: outcomist
+disable-model-invocation: true
 description: >-
   Outcome-clarity reviewer that asks whether you have defined what you're trying to
   achieve and validated that the problem is real. Catches people BEFORE they build — the

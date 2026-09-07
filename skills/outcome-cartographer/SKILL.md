@@ -1,5 +1,6 @@
 ---
 name: outcome-cartographer
+disable-model-invocation: true
 version: 1.0.0
 description: >-
   Outcome-validity reviewer that refuses to count shipped work as progress until it maps

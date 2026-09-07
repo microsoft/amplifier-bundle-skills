@@ -1,5 +1,6 @@
 ---
 name: adapt-skill
+disable-model-invocation: true
 description: >-
   Adapt a skill written for another AI assistant (Claude Code, Cursor, etc.) into a proper
   Amplifier SKILL.md. Use when the user wants to adapt a skill, port a skill, convert a

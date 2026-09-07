@@ -1,5 +1,6 @@
 ---
 name: user-advocate
+disable-model-invocation: true
 version: 1.0.0
 description: >-
   User-need reviewer that speaks for the person who isn't in the room — the one who will
