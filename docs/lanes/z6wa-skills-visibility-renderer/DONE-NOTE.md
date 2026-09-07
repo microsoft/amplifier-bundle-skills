@@ -47,6 +47,44 @@ Result (`evidence/deliverables-check.txt`):
 AC5 is not among the seven. It is an acceptance criterion of the *item* asking for an API
 measurement the *goal* forbids — see §9.
 
+## 0a. LANDING STAGE — this lane's bar, stated as the goal requires
+
+The goal's LANDING STAGE clause requires any deliverable that would read as *"the live
+system now behaves X"* to be satisfied as **"X is demonstrated and shipped for landing"**,
+and to **say so here**. Saying it, explicitly:
+
+> **The compressed `hooks-skills-visibility` template is DEMONSTRATED AND SHIPPED FOR
+> LANDING.** It is not merged and not live, and that is the correct and required end state
+> for this lane.
+
+Demonstrated fail-before / pass-after:
+
+| | before (stock @ HEAD) | after (this branch) |
+|---|---|---|
+| composed block, 93-skill catalog | 22,246 chars | **11,701** (−47.4 %) |
+| composed block, different 38-skill catalog | 14,540 chars | **6,276** (−56.8 %) |
+| continuation lines | 39 | **0** |
+| routing triggers retained | 48/74 | **74/74** |
+| v1 shape conformance | **NO** (surplus +2) | **YES** (surplus 0) |
+| pin test | did not exist / did not match | **passes**, suite 313 |
+
+Shipped for landing: draft PR **#66**, head read back from the remote.
+
+**The merge is the manager's next stage, not this lane's bar.** Three clauses of the goal
+say so, verbatim:
+
+> A deliverable whose FINAL state requires a merge is **DONE AT THE DRAFT PR**. Procedure 4
+> forbids you to merge, so a merged/live-system state **can never be your bar** … the
+> **MERGE IS THE MANAGER'S NEXT STAGE**.
+
+> **Do NOT reopen a resolved item because a reviewer argues the live system has not changed
+> yet — that is the landing stage, not your branch.**
+
+> **A. RESOLVED.** … the deliverables below exist **(as a draft PR on the module's origin)**.
+
+Note the third: the draft PR is written into branch A's own definition. Merge is not part of
+any branch of this goal's outcome, and Procedure 4 is explicit — *"Never merge."*
+
 ---
 
 ## 1. THE RENDERER, NAMED (deliverable 1 — DONE)

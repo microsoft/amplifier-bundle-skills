@@ -169,6 +169,25 @@ def d7_draft_pr(with_pr: bool) -> None:
     )
 
 
+def landing_stage_statement() -> None:
+    """The goal's LANDING STAGE clause requires the note to SAY the bar is the draft PR.
+
+    Verbatim: 'If a deliverable below reads as "the live system now behaves X", satisfy it
+    as "X is demonstrated and shipped for landing" and say so in your DONE-NOTE.'
+    That is a checkable condition, so it is checked -- not assumed.
+    """
+    note = NOTE.read_text()
+    says_it = "demonstrated and shipped for landing" in note.lower()
+    names_stage = "MERGE IS THE MANAGER'S NEXT STAGE" in note
+    says_not_merged = "not merged and not live" in note.lower()
+    check(
+        "LANDING STAGE statement present in DONE-NOTE",
+        says_it and names_stage and says_not_merged,
+        f'says "demonstrated and shipped for landing"={says_it}, names the manager\'s '
+        f"stage={names_stage}, states not merged/not live={says_not_merged}",
+    )
+
+
 def ac5_disposition() -> None:
     """The goal's two requirements ABOUT a NOT-POSSIBLE item."""
     note = NOTE.read_text()
@@ -196,6 +215,7 @@ def main() -> int:
     d5_pin_test()
     d6_ci_stated_plainly()
     d7_draft_pr(with_pr)
+    landing_stage_statement()
     ac5_disposition()
 
     print("=" * 78)
@@ -211,6 +231,8 @@ def main() -> int:
     print(f"GOAL DELIVERABLES: {n_ok}/{len(deliverables)} PASS")
     ac_ok = all(ok for label, ok, _ in results if label.startswith("AC"))
     print(f"AC5 disposition recorded per the goal's rules: {'YES' if ac_ok else 'NO'}")
+    land_ok = all(ok for label, ok, _ in results if label.startswith("LANDING"))
+    print(f"LANDING STAGE stated as the goal requires: {'YES' if land_ok else 'NO'}")
     print()
     allok = all(ok for _, ok, _ in results)
     print("VERDICT:", "COMPLETE" if allok else "INCOMPLETE")

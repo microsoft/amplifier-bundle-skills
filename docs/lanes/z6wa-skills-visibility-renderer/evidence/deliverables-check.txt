@@ -11,16 +11,19 @@ Checked against shipped artefacts, not against this lane's own claims.
   [PASS] D4 FIDELITY TABLE, nothing dropped
          fidelity-full.txt=PASS, fidelity-small.txt=PASS
   [PASS] D5 test pinning the composed output (suite green)
-         pin test present=True, suite: 313 passed, 1 warning in 0.84s
+         pin test present=True, suite: 313 passed, 1 warning in 0.79s
   [PASS] D6 CI stated plainly (repo has none)
          .github present=False, note says no CI=True, names the one org check=True, disclaims a green run=True
   [PASS] D7 DRAFT PR, not merged
          #66 draft=True state=OPEN https://github.com/microsoft/amplifier-bundle-skills/pull/66
+  [PASS] LANDING STAGE statement present in DONE-NOTE
+         says "demonstrated and shipped for landing"=True, names the manager's stage=True, states not merged/not live=True
   [PASS] AC5 NOT-POSSIBLE recorded per the goal's rules
          leads with what was executed=True, names the authority that would close it=True, quotes the goal's prohibition=True, follow-on filed=True
 
 GOAL DELIVERABLES: 7/7 PASS
 AC5 disposition recorded per the goal's rules: YES
+LANDING STAGE stated as the goal requires: YES
 
 VERDICT: COMPLETE
   All seven DELIVERABLES shipped. AC5 is NOT-POSSIBLE because the goal
