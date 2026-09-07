@@ -261,24 +261,34 @@ green)"*, and with this red left in place that deliverable could never be satisf
 recreating the unsatisfiable-deliverable pattern. The fix is **its own commit** and can be reverted
 alone. No sibling lane touches this repo.
 
-### 6a. Why the PR was marked ready even though this repo has no CI
+### 6a. PR draft state — reverted to DRAFT, matching the batch ruling
 
-The deliverable reads *"DRAFT PR, **marked ready when its own CI is green**. DO NOT MERGE."* This
-repo has no workflow CI, so a literal wait-for-green would leave the PR draft forever — and **GitHub
-cannot merge a draft**, which would block the very next stage the goal names (*"the MERGE IS THE
-MANAGER'S NEXT STAGE"*). Marked ready on this evidence:
+I first marked #65 ready, reasoning that a draft cannot be merged and the goal names the merge as the
+manager's next stage. **That reading was overruled elsewhere in this batch and I have complied.**
 
-- **No CI workflows exist** — `git ls-files | grep -c '^\.github'` → **0**. There is no gate that can
-  be pending or red.
-- **The PR's own checks are green** — `gh pr checks 65` → `license/cla  pass`. That is the only check
-  on the PR, and it passes.
-- **Local suite honest** — 26 passed (+7 new pin tests), 1 failure that reproduces on a pristine
-  clone of `origin/main` and is unrelated to these changes (§6).
+Lane `smy5-patch-routing-matrix` recorded (erratum on `model_performance-smy5`, 17:33:43Z) that *"the
+reviewing authority ruled that the goal's 'DRAFT PR, marked ready when its own CI is green' requires
+`isDraft TRUE` as the final deliverable state, not the draft → ready transition"*, and reverted #68
+with `gh pr ready --undo`. My own reviewer raised the same objection twice. So:
 
-State after: `isDraft: false`, `state: OPEN`, `mergedAt: null`, `mergeable: MERGEABLE`.
-**Ready for the manager to merge. Not merged by this lane.**
+```
+gh pr ready --undo 65   →  #65 isDraft=true state=OPEN merged=null
+head adad2b8a1d6c903ea4a3bbb9dd0cc24c686edd10 — IDENTICAL before and after
+```
 
-**I did not fix it.** `skills/adapt-skill/SKILL.md` is outside the paths this lane owns, and the
+**Nothing about the work changed** — no rebase, no force-push, same head sha, suite still 27 passed.
+
+> ⚠️ **A draft PR cannot be merged on GitHub. Whoever merges #65 must run `gh pr ready 65` first.**
+> The same applies to `wayfinder#11` and `routing-matrix#68`.
+
+**The batch is inconsistent on this flag, and it is not mine to settle.** `app-cli#320` — the PR
+belonging to the lane that *held* this item and resolved it as outcome A — is still `isDraft: false`,
+while `routing-matrix#68`, `wayfinder#11` and now `skills#65` are draft. Under the ruling applied
+here, #320 is non-conformant, and this item's resolution was produced by a lane in that state. Filed
+by the routing-matrix lane as **`model_performance-kn0e`**, still OPEN because the goal template
+never says which reading it means — so the next fan-out re-runs the same coin flip.
+
+**I did not fix it.****I did not fix it.** `skills/adapt-skill/SKILL.md` is outside the paths this lane owns, and the
 goal's scope-out is explicit. Flagged here and in the PR body for whoever owns it. (I could not
 file it via `work_file` — see §7, this session never held the item.)
 
