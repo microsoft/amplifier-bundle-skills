@@ -51,7 +51,7 @@ Git sources are cloned locally and searched the same way as local directories.
 ```yaml
 ---
 name: my-skill
-description: "Brief, specific description of what this skill does and when to invoke it."
+description: "<Trigger: the condition under which this applies> — <what it does>. USE WHEN <deciding factor>. DO NOT USE WHEN <case that belongs elsewhere> — use <name>."
 ---
 
 # My Skill
@@ -66,7 +66,7 @@ The `name` and `description` fields are the only required frontmatter fields. Ev
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `name` | string | — | **Required.** Unique identifier, kebab-case. Used as the `/shortcut` command name when `user-invocable: true`. |
-| `description` | string | — | **Required.** What the skill does and when to invoke it. Used in system prompt context. Write for the agent reading it, not a human menu. |
+| `description` | string | — | **Required.** What the skill does and when to invoke it. Rendered into the skills-visibility block on EVERY request of every session that can see the skill, invoked or not. **Cap: 400 chars, ERROR at 800.** Shape: trigger first, then USE WHEN, then DO NOT USE WHEN naming the alternative. Zero `<example>`/`<commentary>`. Canonical rules: `foundation:context/shared/description-authoring-principles.md`; enforced by `foundation:recipes/validate-bundle-repo.yaml` Phase 2.82. Write for the agent reading it, not a human menu. |
 | `context` | enum: `fork` | `null` (none) | When set to `fork`, the skill runs in a fresh context window that does not inherit the caller's conversation history. Ideal for context-sink patterns where you want a clean slate. |
 | `model_role` | string | `general` | Preferred model role for executing this skill. Matched against the active routing matrix. Common values: `general`, `reasoning`, `coding`, `critique`. Only applies when `context: fork`. |
 | `user-invocable` | boolean | `false` | When `true`, registers the skill as a `/name` shortcut that users can invoke directly. Also lists the skill in `/skills` output. |

@@ -1,14 +1,14 @@
 ---
 name: personafy
-disable-model-invocation: true
-description: >-
+description: >
   Build a new opinionated advisor-persona skill — a reviewer "lens" like
-  crusty-old-engineer, modeled on a real person or archetype. Mines the subject's
-  authentic voice, defines its one load-bearing question, drafts it to the family
-  template, and proves it steers a live session before publishing to a skills bundle. Use
-  when creating or authoring a persona/advisor skill, adding a sibling to the
-  crusty-old-engineer family, or turning a person's real direction style into a reusable
-  reviewer skill. Also triggers on "personafy" / "personify".
+  crusty-old-engineer — modeled on a real person or archetype and proven from real
+  evidence. Mines the subject's authentic voice and discipline, defines its one
+  distinct load-bearing question, drafts it to the family template, proves it steers
+  in a live session, reduces it, and publishes it to a skills bundle. Use when
+  creating or authoring a persona/advisor skill, adding a sibling to the
+  crusty-old-engineer family, or turning a person's real direction style into a
+  reusable reviewer skill. Also triggers on "personafy" / "personify".
 user-invocable: true
 shortcut: personify
 model_role: reasoning
@@ -136,15 +136,13 @@ Apply context-reduction: cut redundancy to the smallest set that still steers (d
 procedure, compress prose), but keep the verbatim quotes and the structural skeleton.
 Re-prove (Step 6) if the cut was heavy.
 
-**Check the frontmatter `description:` length, not just the body.** The enforced cap is
-**400 characters, ERROR at 800** — `foundation:recipes/validate-bundle-repo.yaml` Phase 2.82,
-per `foundation:context/shared/description-authoring-principles.md` V5. (The Agent Skills
-spec's 1024-char ceiling is a much looser upper bound and is NOT the operative limit; the
-`tool-skills` warning past 1024 is soft and fires long after the real budget is blown.)
-Every visible skill's full `description` is injected on every turn, so an over-long one is a
-permanently-recurring cost, not a one-time nuisance. Measure it (e.g.
+**Check the frontmatter `description:` length, not just the body.** The Agent Skills spec
+recommends a 1024-character ceiling on `description`, and Amplifier's `tool-skills` module logs
+a warning past it (soft — it does not block loading or truncate anything — but every visible
+skill's full `description` is injected into the model's context on every turn, so an over-long
+one is a small, permanently-recurring token cost, not a one-time nuisance). Measure it (e.g.
 `python3 -c "import yaml; print(len(yaml.safe_load(open('SKILL.md').read().split('---')[1])['description']))"`)
-and if it is past 400, compress — do not relocate the trimmed content into the body,
+and if it's near or past 1024, compress — do not relocate the trimmed content into the body,
 since the visibility hook only ever shows `description`, never the body. The single highest-value
 cut is almost always the negation-identity clause (e.g. "Not a long-term ownership-cost reviewer —
 a reviewer of whether THIS bet, sized as proposed, is a bet the team can actually win." compresses
@@ -153,11 +151,8 @@ nuance already lives in the body's Identity section). Never cut the "Use when:" 
 — that's the part carrying the routing weight this step must preserve.
 
 **Success criteria:** A leaner SKILL.md with the same steering power, verified, and a
-`description:` field **at or below 400 characters**. Do not calibrate against sibling
-norms — measured 2026-09-07, 17 of this bundle's 38 skills are over that cap and 7 are
-over the 800-char ERROR line, so the siblings are the drift, not the standard. If a
-routing fact genuinely will not fit, keep the fact, exceed the cap, and say in the PR
-which fact forced it: fidelity beats brevity (V7).
+`description:` field at or below ~700–800 characters (matching sibling norms like
+`crusty-old-engineer`/`cranky-old-sam`) — comfortably under the 1024 ceiling, not just barely under it.
 
 ### 8. Name it and choose its home
 

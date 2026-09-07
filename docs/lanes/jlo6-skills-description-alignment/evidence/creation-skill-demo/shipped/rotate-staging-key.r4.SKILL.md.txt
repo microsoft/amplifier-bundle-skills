@@ -1,0 +1,97 @@
+---
+name: rotate-staging-key
+description: >
+  Rotate the staging deployment API key safely: identify its configured key name,
+  generate and store a replacement in the staging vault path, restart worker pods
+  sequentially, and verify health. Use when rotating, replacing, or renewing the
+  staging API key without draining the worker queue.
+user-invocable: true
+allowed-tools:
+  - read_file
+  - bash
+model_role: reasoning
+---
+
+# Rotate Staging Key
+
+Rotate the API key used by the staging deployment while keeping the worker queue
+served. Success is a new key stored at `staging/api-key`, both worker pods
+restarted one at a time, and a successful response from `$STAGING/healthz`.
+
+## Inputs
+
+- `$ARGUMENTS`: (Optional) A reason for the rotation or an override for the staging URL. Default: use the existing `$STAGING` environment variable.
+
+## Steps
+
+### 1. Inspect the configured key reference
+
+Read `deploy/config.yaml` and identify the current staging API-key name or
+reference. Record the exact name for the vault update and preserve the existing
+configuration structure; do not change the deployment configuration as part of
+this rotation.
+
+If the key name cannot be identified unambiguously, stop and report the relevant
+configuration rather than guessing.
+
+**Artifacts**: The current configured API-key name.
+
+**Success criteria**: An unambiguous current API-key name has been recorded from `deploy/config.yaml`.
+
+### 2. Prepare the replacement key
+
+Generate a cryptographically strong replacement API key using an approved local
+secret generator, for example `openssl rand -base64 48`. Keep the generated
+value out of command output, logs, chat responses, shell history, and files.
+
+Confirm that the Vault CLI is authenticated and that `staging/api-key` is the
+intended staging secret path before writing. Use the configured key name when
+storing the new value, preserving any other required fields already present at
+that path.
+
+**Human checkpoint**: State the configured key name and target path
+`staging/api-key`, then ask for confirmation immediately before replacing the
+vault secret. Do not display the key value.
+
+**Artifacts**: A newly generated API key stored at `staging/api-key` under the configured key name.
+
+**Success criteria**: Vault confirms the replacement was written to `staging/api-key`, and the secret value has not been exposed.
+
+### 3. Restart workers sequentially
+
+Identify the two staging worker pods using the deployment's existing Kubernetes
+labels or namespace configuration. Restart exactly one worker pod, then wait
+until its replacement is Ready and the queue remains served before restarting
+the second. Never delete, restart, or roll both worker pods at once.
+
+After each restart, verify the replacement pod is Ready with `kubectl get pods`
+and inspect its recent status or logs if readiness fails. If the first worker
+does not become Ready, stop; leave the second worker untouched and report the
+failure.
+
+**Artifacts**: Both worker pods replaced and Ready, in sequence.
+
+**Success criteria**: The first replacement worker was Ready before the second restart began, and both workers are Ready after the second restart.
+
+### 4. Verify staging health
+
+Ensure `$STAGING` is set to the intended staging base URL, then request:
+
+```sh
+curl --fail --show-error --silent "$STAGING/healthz"
+```
+
+Treat a non-successful HTTP response, connection failure, or unhealthy response
+body as a failed rotation. Do not claim success until the health endpoint has
+responded successfully after both worker restarts.
+
+**Success criteria**: `$STAGING/healthz` returns a successful healthy response after the sequential worker restarts.
+
+### 5. Report the outcome
+
+Report the configured key name, vault path, sequential restart result, and health
+check result. Never include the generated or previous secret value. If any step
+failed, clearly identify the last completed safe step and whether the second
+worker was left untouched.
+
+**Success criteria**: The outcome is reported without exposing either API-key value.

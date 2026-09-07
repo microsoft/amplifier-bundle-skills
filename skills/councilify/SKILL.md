@@ -290,8 +290,21 @@ manifest prints first, every rostered lens LOADS (reused cross-bundle lenses
 included, or degrades to UNAVAILABLE with reason), verdicts return, at least one
 genuine tension is surfaced as dissent rather than averaged away.
 
+**Every lens description this council emits must pass the validators
+unmodified.** Run, from the target repo:
+
+    amplifier tool invoke recipes operation=execute \
+      recipe_path=foundation:recipes/validate-bundle-repo.yaml \
+      context='{"repo_path": "."}'
+
+and read the Skill Description Validation section: zero `skill_description_excessive`,
+zero `example_block_present`. A council of N lenses multiplies any description
+defect by N, and every one of those descriptions is paid on every request of
+every session that can see the skills.
+
 **Success criteria:** A transcript of a real convened run — roster + attributed
-verdicts + preserved dissent.
+verdicts + preserved dissent — and a clean Skill Description Validation section
+for every lens the council added.
 **Rule:** proof is a convened run. "The files exist" is NOT proof (the ROB gate).
 
 ### 9. Reduce and publish

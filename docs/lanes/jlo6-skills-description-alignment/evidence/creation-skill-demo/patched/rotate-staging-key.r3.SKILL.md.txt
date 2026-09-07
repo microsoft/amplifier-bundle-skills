@@ -1,0 +1,83 @@
+---
+name: rotate-staging-key
+description: >
+  Rotate the staging deployment API key while preserving queue availability:
+  identify the configured key name, replace the vault secret, restart worker pods
+  serially, and verify health. USE WHEN rotating staging's API credential without
+  draining its queue. DO NOT USE WHEN rotating production credentials — use the
+  production key-rotation procedure.
+user-invocable: true
+allowed-tools:
+  - bash
+model_role: reasoning
+---
+
+# Rotate Staging Key
+
+Rotate the API key used by the staging deployment without allowing both worker
+pods to be unavailable at the same time. Success is a new secret at
+`staging/api-key`, two individually restarted and ready worker pods, and a
+successful response from `$STAGING/healthz`.
+
+## Inputs
+
+- `$ARGUMENTS`: (Optional) A deployment context or namespace override. Default to
+  the staging deployment and its configured namespace.
+
+## Steps
+
+### 1. Identify the configured key and deployment context
+
+Read `deploy/config.yaml` and identify the current API-key name plus the staging
+worker-pod selector and namespace needed for restart operations. Do not print,
+copy, or otherwise expose the current secret value. If a required field is
+missing or ambiguous, stop before changing the vault or pods.
+
+**Artifacts**: The current key name, vault path `staging/api-key`, worker-pod
+selector, and namespace.
+
+**Success criteria**: The key name and the exact two worker pods to rotate are
+identified without exposing secret material.
+
+### 2. Generate and store the replacement key
+
+Generate a cryptographically secure replacement API key using the approved
+secret-generation mechanism. Write it directly to the vault at `staging/api-key`
+without printing it, putting it on a command line, or saving it in a temporary
+file. Confirm the vault write succeeded using secret metadata or version
+information only.
+
+**Human checkpoint**: Replacing the vault secret is an irreversible operational
+change. Treat invocation of this non-interactive skill as authorization to make
+that replacement.
+
+**Success criteria**: `staging/api-key` has a newly recorded vault version, and
+no secret value has been exposed in output, logs, shell history, or temporary
+files.
+
+### 3. Restart workers one at a time
+
+Restart the first worker pod. Wait until it is Ready and serving normally before
+touching the second pod. Then restart the second worker pod and wait until it is
+Ready. Never restart, delete, or roll both worker pods simultaneously. If either
+pod fails to become Ready, stop; leave the other pod running and report the
+failure.
+
+**Rules**:
+- Keep at least one worker pod available throughout the rotation so the queue
+  does not drain.
+- Do not proceed to the next pod based only on a restart command succeeding;
+  require its Ready condition.
+
+**Success criteria**: Each of the two worker pods has restarted and become Ready
+serially, with no interval in which both workers were unavailable.
+
+### 4. Verify staging health
+
+Run `curl` against `$STAGING/healthz` after both worker pods are Ready. Require a
+successful HTTP response and expected healthy status. If the check fails, report
+the response details that do not contain secrets and leave the deployment in its
+current state for investigation.
+
+**Success criteria**: `$STAGING/healthz` returns the expected healthy response
+after the serial worker restart.

@@ -1,0 +1,541 @@
+{
+  "phase": "skill_description_validation",
+  "excluded_dirs": [
+    ".git",
+    ".venv",
+    "node_modules",
+    "test-fixtures",
+    "tests"
+  ],
+  "skills_checked": 38,
+  "candidates_scanned": 38,
+  "errors": [
+    {
+      "type": "skill_description_excessive",
+      "file": "skills/bet-sizer/SKILL.md",
+      "chars": 954,
+      "severity": "ERROR",
+      "message": "Skill description in skills/bet-sizer/SKILL.md is 954 chars (>800 threshold, 2x the 400-char cap -- must shorten).",
+      "fix": "Shorten to <=400 chars. See foundation:context/shared/description-authoring-principles.md V5, or run recipes/refresh-descriptions.yaml for a proposed rewrite with a fidelity table."
+    },
+    {
+      "type": "skill_description_excessive",
+      "file": "skills/councilify/SKILL.md",
+      "chars": 814,
+      "severity": "ERROR",
+      "message": "Skill description in skills/councilify/SKILL.md is 814 chars (>800 threshold, 2x the 400-char cap -- must shorten).",
+      "fix": "Shorten to <=400 chars. See foundation:context/shared/description-authoring-principles.md V5, or run recipes/refresh-descriptions.yaml for a proposed rewrite with a fidelity table."
+    },
+    {
+      "type": "skill_description_excessive",
+      "file": "skills/msgraph-integration-patterns/SKILL.md",
+      "chars": 927,
+      "severity": "ERROR",
+      "message": "Skill description in skills/msgraph-integration-patterns/SKILL.md is 927 chars (>800 threshold, 2x the 400-char cap -- must shorten).",
+      "fix": "Shorten to <=400 chars. See foundation:context/shared/description-authoring-principles.md V5, or run recipes/refresh-descriptions.yaml for a proposed rewrite with a fidelity table."
+    },
+    {
+      "type": "skill_description_excessive",
+      "file": "skills/outcome-cartographer/SKILL.md",
+      "chars": 913,
+      "severity": "ERROR",
+      "message": "Skill description in skills/outcome-cartographer/SKILL.md is 913 chars (>800 threshold, 2x the 400-char cap -- must shorten).",
+      "fix": "Shorten to <=400 chars. See foundation:context/shared/description-authoring-principles.md V5, or run recipes/refresh-descriptions.yaml for a proposed rewrite with a fidelity table."
+    },
+    {
+      "type": "skill_description_excessive",
+      "file": "skills/positioning-critic/SKILL.md",
+      "chars": 1008,
+      "severity": "ERROR",
+      "message": "Skill description in skills/positioning-critic/SKILL.md is 1008 chars (>800 threshold, 2x the 400-char cap -- must shorten).",
+      "fix": "Shorten to <=400 chars. See foundation:context/shared/description-authoring-principles.md V5, or run recipes/refresh-descriptions.yaml for a proposed rewrite with a fidelity table."
+    },
+    {
+      "type": "skill_description_excessive",
+      "file": "skills/tester-breaker/SKILL.md",
+      "chars": 849,
+      "severity": "ERROR",
+      "message": "Skill description in skills/tester-breaker/SKILL.md is 849 chars (>800 threshold, 2x the 400-char cap -- must shorten).",
+      "fix": "Shorten to <=400 chars. See foundation:context/shared/description-authoring-principles.md V5, or run recipes/refresh-descriptions.yaml for a proposed rewrite with a fidelity table."
+    },
+    {
+      "type": "skill_description_excessive",
+      "file": "skills/user-advocate/SKILL.md",
+      "chars": 928,
+      "severity": "ERROR",
+      "message": "Skill description in skills/user-advocate/SKILL.md is 928 chars (>800 threshold, 2x the 400-char cap -- must shorten).",
+      "fix": "Shorten to <=400 chars. See foundation:context/shared/description-authoring-principles.md V5, or run recipes/refresh-descriptions.yaml for a proposed rewrite with a fidelity table."
+    }
+  ],
+  "warnings": [
+    {
+      "type": "skill_description_high",
+      "file": "skills/adapt-skill/SKILL.md",
+      "chars": 533,
+      "severity": "WARNING",
+      "message": "Skill description in skills/adapt-skill/SKILL.md is 533 chars (>400 cap -- consider trimming).",
+      "fix": "Trim toward <=400 chars. See foundation:context/shared/description-authoring-principles.md V5."
+    },
+    {
+      "type": "skill_description_high",
+      "file": "skills/amplifier-tool-leverage-patterns/SKILL.md",
+      "chars": 530,
+      "severity": "WARNING",
+      "message": "Skill description in skills/amplifier-tool-leverage-patterns/SKILL.md is 530 chars (>400 cap -- consider trimming).",
+      "fix": "Trim toward <=400 chars. See foundation:context/shared/description-authoring-principles.md V5."
+    },
+    {
+      "type": "skill_description_high",
+      "file": "skills/cranky-old-sam/SKILL.md",
+      "chars": 643,
+      "severity": "WARNING",
+      "message": "Skill description in skills/cranky-old-sam/SKILL.md is 643 chars (>400 cap -- consider trimming).",
+      "fix": "Trim toward <=400 chars. See foundation:context/shared/description-authoring-principles.md V5."
+    },
+    {
+      "type": "skill_description_high",
+      "file": "skills/crusty-old-engineer/SKILL.md",
+      "chars": 681,
+      "severity": "WARNING",
+      "message": "Skill description in skills/crusty-old-engineer/SKILL.md is 681 chars (>400 cap -- consider trimming).",
+      "fix": "Trim toward <=400 chars. See foundation:context/shared/description-authoring-principles.md V5."
+    },
+    {
+      "type": "skill_description_high",
+      "file": "skills/intent-keeper/SKILL.md",
+      "chars": 754,
+      "severity": "WARNING",
+      "message": "Skill description in skills/intent-keeper/SKILL.md is 754 chars (>400 cap -- consider trimming).",
+      "fix": "Trim toward <=400 chars. See foundation:context/shared/description-authoring-principles.md V5."
+    },
+    {
+      "type": "skill_description_high",
+      "file": "skills/monitor/SKILL.md",
+      "chars": 681,
+      "severity": "WARNING",
+      "message": "Skill description in skills/monitor/SKILL.md is 681 chars (>400 cap -- consider trimming).",
+      "fix": "Trim toward <=400 chars. See foundation:context/shared/description-authoring-principles.md V5."
+    },
+    {
+      "type": "skill_description_high",
+      "file": "skills/one-line-installer-patterns/SKILL.md",
+      "chars": 417,
+      "severity": "WARNING",
+      "message": "Skill description in skills/one-line-installer-patterns/SKILL.md is 417 chars (>400 cap -- consider trimming).",
+      "fix": "Trim toward <=400 chars. See foundation:context/shared/description-authoring-principles.md V5."
+    },
+    {
+      "type": "skill_description_high",
+      "file": "skills/personafy/SKILL.md",
+      "chars": 608,
+      "severity": "WARNING",
+      "message": "Skill description in skills/personafy/SKILL.md is 608 chars (>400 cap -- consider trimming).",
+      "fix": "Trim toward <=400 chars. See foundation:context/shared/description-authoring-principles.md V5."
+    },
+    {
+      "type": "skill_description_high",
+      "file": "skills/restless-old-brian/SKILL.md",
+      "chars": 778,
+      "severity": "WARNING",
+      "message": "Skill description in skills/restless-old-brian/SKILL.md is 778 chars (>400 cap -- consider trimming).",
+      "fix": "Trim toward <=400 chars. See foundation:context/shared/description-authoring-principles.md V5."
+    },
+    {
+      "type": "skill_description_high",
+      "file": "skills/skillify/SKILL.md",
+      "chars": 511,
+      "severity": "WARNING",
+      "message": "Skill description in skills/skillify/SKILL.md is 511 chars (>400 cap -- consider trimming).",
+      "fix": "Trim toward <=400 chars. See foundation:context/shared/description-authoring-principles.md V5."
+    }
+  ],
+  "skill_details": [
+    {
+      "file": "skills/adapt-skill/SKILL.md",
+      "description_status": "ok",
+      "issues": [
+        "skill_description_high"
+      ],
+      "description_chars": 533,
+      "description_tokens": 133,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/amplifier-tool-leverage-patterns/SKILL.md",
+      "description_status": "ok",
+      "issues": [
+        "skill_description_high"
+      ],
+      "description_chars": 530,
+      "description_tokens": 132,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/auth-tls-patterns/SKILL.md",
+      "description_status": "ok",
+      "issues": [],
+      "description_chars": 201,
+      "description_tokens": 50,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/bet-sizer/SKILL.md",
+      "description_status": "ok",
+      "issues": [
+        "skill_description_excessive"
+      ],
+      "description_chars": 954,
+      "description_tokens": 238,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/cli-packaging-patterns/SKILL.md",
+      "description_status": "ok",
+      "issues": [],
+      "description_chars": 192,
+      "description_tokens": 48,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/code-review/SKILL.md",
+      "description_status": "ok",
+      "issues": [],
+      "description_chars": 82,
+      "description_tokens": 20,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/config-state-patterns/SKILL.md",
+      "description_status": "ok",
+      "issues": [],
+      "description_chars": 188,
+      "description_tokens": 47,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/container-orchestration-patterns/SKILL.md",
+      "description_status": "ok",
+      "issues": [],
+      "description_chars": 218,
+      "description_tokens": 54,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/council/SKILL.md",
+      "description_status": "ok",
+      "issues": [],
+      "description_chars": 182,
+      "description_tokens": 45,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/council-here/SKILL.md",
+      "description_status": "ok",
+      "issues": [],
+      "description_chars": 312,
+      "description_tokens": 78,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/councilify/SKILL.md",
+      "description_status": "ok",
+      "issues": [
+        "skill_description_excessive"
+      ],
+      "description_chars": 814,
+      "description_tokens": 203,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/cranky-old-sam/SKILL.md",
+      "description_status": "ok",
+      "issues": [
+        "skill_description_high"
+      ],
+      "description_chars": 643,
+      "description_tokens": 160,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/crusty-old-engineer/SKILL.md",
+      "description_status": "ok",
+      "issues": [
+        "skill_description_high"
+      ],
+      "description_chars": 681,
+      "description_tokens": 170,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/file-ipc-patterns/SKILL.md",
+      "description_status": "ok",
+      "issues": [],
+      "description_chars": 201,
+      "description_tokens": 50,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/http-service-patterns/SKILL.md",
+      "description_status": "ok",
+      "issues": [],
+      "description_chars": 194,
+      "description_tokens": 48,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/image-vision/SKILL.md",
+      "description_status": "ok",
+      "issues": [],
+      "description_chars": 359,
+      "description_tokens": 89,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/instance-storage-patterns/SKILL.md",
+      "description_status": "ok",
+      "issues": [],
+      "description_chars": 197,
+      "description_tokens": 49,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/intent-keeper/SKILL.md",
+      "description_status": "ok",
+      "issues": [
+        "skill_description_high"
+      ],
+      "description_chars": 754,
+      "description_tokens": 188,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/mass-change/SKILL.md",
+      "description_status": "ok",
+      "issues": [],
+      "description_chars": 111,
+      "description_tokens": 27,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/monitor/SKILL.md",
+      "description_status": "ok",
+      "issues": [
+        "skill_description_high"
+      ],
+      "description_chars": 681,
+      "description_tokens": 170,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/msgraph-integration-patterns/SKILL.md",
+      "description_status": "ok",
+      "issues": [
+        "skill_description_excessive"
+      ],
+      "description_chars": 927,
+      "description_tokens": 231,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/one-line-installer-patterns/SKILL.md",
+      "description_status": "ok",
+      "issues": [
+        "skill_description_high"
+      ],
+      "description_chars": 417,
+      "description_tokens": 104,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/outcome-cartographer/SKILL.md",
+      "description_status": "ok",
+      "issues": [
+        "skill_description_excessive"
+      ],
+      "description_chars": 913,
+      "description_tokens": 228,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/outcomist/SKILL.md",
+      "description_status": "ok",
+      "issues": [],
+      "description_chars": 375,
+      "description_tokens": 93,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/personafy/SKILL.md",
+      "description_status": "ok",
+      "issues": [
+        "skill_description_high"
+      ],
+      "description_chars": 608,
+      "description_tokens": 152,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/plugin-discovery-patterns/SKILL.md",
+      "description_status": "ok",
+      "issues": [],
+      "description_chars": 192,
+      "description_tokens": 48,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/positioning-critic/SKILL.md",
+      "description_status": "ok",
+      "issues": [
+        "skill_description_excessive"
+      ],
+      "description_chars": 1008,
+      "description_tokens": 252,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/product-council/SKILL.md",
+      "description_status": "ok",
+      "issues": [],
+      "description_chars": 255,
+      "description_tokens": 63,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/product-council-here/SKILL.md",
+      "description_status": "ok",
+      "issues": [],
+      "description_chars": 341,
+      "description_tokens": 85,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/react-microfrontend-patterns/SKILL.md",
+      "description_status": "ok",
+      "issues": [],
+      "description_chars": 226,
+      "description_tokens": 56,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/restless-old-brian/SKILL.md",
+      "description_status": "ok",
+      "issues": [
+        "skill_description_high"
+      ],
+      "description_chars": 778,
+      "description_tokens": 194,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/self-managing-tool-patterns/SKILL.md",
+      "description_status": "ok",
+      "issues": [],
+      "description_chars": 178,
+      "description_tokens": 44,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/session-debug/SKILL.md",
+      "description_status": "ok",
+      "issues": [],
+      "description_chars": 152,
+      "description_tokens": 38,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/skillify/SKILL.md",
+      "description_status": "ok",
+      "issues": [
+        "skill_description_high"
+      ],
+      "description_chars": 511,
+      "description_tokens": 127,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/skills-assist/SKILL.md",
+      "description_status": "ok",
+      "issues": [],
+      "description_chars": 390,
+      "description_tokens": 97,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/tester-breaker/SKILL.md",
+      "description_status": "ok",
+      "issues": [
+        "skill_description_excessive"
+      ],
+      "description_chars": 849,
+      "description_tokens": 212,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/user-advocate/SKILL.md",
+      "description_status": "ok",
+      "issues": [
+        "skill_description_excessive"
+      ],
+      "description_chars": 928,
+      "description_tokens": 232,
+      "commentary_count": 0,
+      "example_count": 0
+    },
+    {
+      "file": "skills/verification-discipline/SKILL.md",
+      "description_status": "ok",
+      "issues": [],
+      "description_chars": 282,
+      "description_tokens": 70,
+      "commentary_count": 0,
+      "example_count": 0
+    }
+  ],
+  "thresholds": {
+    "warn_chars": 400,
+    "error_chars": 800
+  },
+  "passed": false,
+  "summary": {
+    "skills_checked": 38,
+    "candidates_scanned": 38,
+    "errors": 7,
+    "warnings": 10
+  }
+}

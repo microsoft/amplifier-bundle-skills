@@ -1,0 +1,27 @@
+arm      file                                chars  verdict   <example>  <commentary>
+shipped  rollback-warden.r1.SKILL.md.txt       482  WARNING       0           0     
+shipped  rollback-warden.r2.SKILL.md.txt       501  WARNING       0           0     
+shipped  rollback-warden.r3.SKILL.md.txt       385  clean         0           0     
+shipped  rotate-staging-key.r1.SKILL.md.txt    331  clean         0           0     
+shipped  rotate-staging-key.r2.SKILL.md.txt    313  clean         0           0     
+shipped  rotate-staging-key.r3.SKILL.md.txt    362  clean         0           0     
+shipped  rotate-staging-key.r4.SKILL.md.txt    290  clean         0           0     
+shipped  rotate-staging-key.r5.SKILL.md.txt    317  clean         0           0     
+shipped  rotate-staging-key.r6.SKILL.md.txt    286  clean         0           0     
+patched  rollback-warden.r1.SKILL.md.txt       309  clean         0           0     
+patched  rollback-warden.r2.SKILL.md.txt       278  clean         0           0     
+patched  rollback-warden.r3.SKILL.md.txt       260  clean         0           0     
+patched  rotate-staging-key.r1.SKILL.md.txt    391  clean         0           0     
+patched  rotate-staging-key.r2.SKILL.md.txt    360  clean         0           0     
+patched  rotate-staging-key.r3.SKILL.md.txt    348  clean         0           0     
+patched  rotate-staging-key.r4.SKILL.md.txt    393  clean         0           0     
+patched  rotate-staging-key.r5.SKILL.md.txt    354  clean         0           0     
+patched  rotate-staging-key.r6.SKILL.md.txt    313  clean         0           0     
+
+arm      creation skill        n   mean  chars                              over-cap
+shipped  skillify              6    316  [331, 313, 362, 290, 317, 286]     0/6
+shipped  personafy             3    456  [482, 501, 385]                    2/3
+patched  skillify              6    360  [391, 360, 348, 393, 354, 313]     0/6
+patched  personafy             3    282  [309, 278, 260]                    0/3
+
+PATCHED ARM: 0 finding(s) across 9 outputs

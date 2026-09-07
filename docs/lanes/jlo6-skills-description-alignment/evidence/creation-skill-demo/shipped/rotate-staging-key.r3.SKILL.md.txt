@@ -1,0 +1,101 @@
+---
+name: rotate-staging-key
+description: >
+  Rotate the staging deployment API key without interrupting queue processing:
+  read its configured key name, generate and store a replacement at
+  staging/api-key, restart the two worker pods sequentially, and verify
+  $STAGING/healthz. Use when rotating the staging API key, replacing a staging
+  credential, or performing a no-queue-drain staging worker key rotation.
+user-invocable: true
+allowed-tools:
+  - read_file
+  - bash
+model_role: reasoning
+---
+
+# Rotate Staging Key
+
+Safely rotate the staging deployment API key while maintaining worker capacity.
+The rotation is complete only when the configured key name has been identified,
+the replacement is stored at `staging/api-key`, both worker pods have been
+restarted one at a time and become Ready, and `$STAGING/healthz` succeeds.
+
+## Inputs
+
+- `$ARGUMENTS`: (Optional) Staging namespace, worker label selector, or a
+  deployment-specific vault write command. Default assumptions are namespace
+  `staging`, worker selector `app=worker`, and vault path `staging/api-key`.
+
+## Rules
+
+- Treat generated and existing key values as secrets: never print, log, commit,
+  or include them in chat output.
+- Do not restart, delete, or otherwise disrupt both worker pods concurrently.
+- Do not proceed with a worker restart unless two worker pods are identified.
+- Stop immediately on a failed vault write, unavailable replacement pod, or
+  failed health check; report the failed stage without exposing secret values.
+
+## Steps
+
+### 1. Inspect the configured key name
+
+Read `deploy/config.yaml` and identify the staging deployment's API-key
+configuration and its current key name. Confirm that it is the credential being
+rotated; do not infer a key value from configuration.
+
+**Artifacts**: The configured API-key name, used to validate the rotation target.
+
+**Success criteria**: A single current API-key name is identified from
+`deploy/config.yaml`.
+
+### 2. Generate and store a replacement
+
+Generate a cryptographically strong replacement key using an approved local
+secret-generation mechanism. Store it in the vault at `staging/api-key`, using
+the configured key name where the vault schema requires one. Use a vault input
+method that does not expose the value in command arguments, terminal output, or
+logs (for example, a secure stdin or protected temporary-file mechanism).
+
+Verify that the vault write completed successfully without reading or displaying
+the replacement value.
+
+**Human checkpoint**: Confirm that the intended staging vault and
+`staging/api-key` path are selected before writing the replacement.
+
+**Success criteria**: The replacement key is successfully stored at
+`staging/api-key`, with no secret value exposed.
+
+### 3. Restart worker pods sequentially
+
+List Ready worker pods in the staging namespace using the supplied selector
+(default: `app=worker`). Confirm there are exactly two pods before changing
+either one.
+
+For the first pod, restart it using the deployment's normal pod-replacement
+mechanism. Wait until its replacement is Running and Ready before proceeding.
+Then restart the second original worker pod and wait until its replacement is
+Running and Ready. Re-list workers after each replacement so pod names are not
+assumed to remain stable.
+
+**Artifacts**: Evidence that each worker replacement reached Ready.
+
+**Success criteria**: Both original worker pods have been replaced one at a time,
+and two Ready staging workers are available after the second replacement.
+
+### 4. Verify staging health
+
+Run `curl --fail --silent --show-error "$STAGING/healthz"`, with `$STAGING` set
+to the staging base URL. Treat a non-success HTTP response or connection failure
+as a failed verification.
+
+**Success criteria**: `$STAGING/healthz` returns successfully after both worker
+replacements are Ready.
+
+### 5. Report the rotation result
+
+Report that the configured key name was rotated, both workers were restarted
+sequentially, and the health check passed. Do not include either old or new key
+values in the report.
+
+**Success criteria**: The result clearly states successful completion or the
+stage at which the rotation stopped, without revealing secrets.

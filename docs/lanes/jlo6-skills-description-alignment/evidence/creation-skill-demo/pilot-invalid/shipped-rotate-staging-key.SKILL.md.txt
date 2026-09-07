@@ -1,0 +1,92 @@
+---
+name: rotate-staging-key
+description: "Rotate the staging deployment API key safely: read its configured name, generate and store a replacement in the vault, roll worker pods one at a time, and verify /healthz. Use when rotating, replacing, or renewing the staging API key."
+user-invocable: true
+allowed-tools:
+  - bash
+model_role: critical-ops
+context: fork
+disable-model-invocation: true
+---
+
+# Rotate Staging Key
+
+Safely rotate the staging deployment API key without allowing the worker queue to
+fully drain. The successful outcome is a newly generated secret stored at
+`staging/api-key`, both worker pods restarted sequentially, and a successful
+health check at `$STAGING/healthz`.
+
+## Inputs
+
+- `$ARGUMENTS`: (Optional) Additional operational context, such as the Kubernetes
+  namespace, worker-pod selector, vault CLI syntax, or a key-generation command.
+  If omitted, use the deployment's established staging environment and tooling.
+
+## Rules
+
+- Treat generated API keys as secrets: never print, log, place in shell history,
+  or include them in the final response.
+- Read the current key name from `deploy/config.yaml`; do not guess or hard-code it.
+- Store the replacement only at `staging/api-key` in the vault.
+- Restart exactly one worker pod at a time. Do not restart the second until the
+  first is Ready and serving work again.
+- Stop immediately and report the failure if secret storage, pod readiness, or
+  the health check fails. Do not proceed around a failed safety gate.
+
+## Steps
+
+### 1. Inspect the configured key name
+
+Read `deploy/config.yaml` and identify the current staging API-key name and the
+staging namespace or deployment details needed for the worker restart. Confirm
+that the configuration identifies one unambiguous key to rotate.
+
+**Artifacts**: The configured current key name and the worker-pod identification
+method.
+
+**Success criteria**: The current key name was obtained from `deploy/config.yaml`,
+and the exact worker pods to restart can be identified without guessing.
+
+### 2. Generate and store the replacement
+
+Generate a cryptographically secure replacement using the team's approved secret
+generation mechanism. Store it in the vault at exactly `staging/api-key`, using
+the configured key name only as context where the vault workflow requires it.
+Verify the vault write succeeded without reading the secret value back into output.
+
+**Human checkpoint**: The old credential may be invalidated or replaced by this
+operation. Before performing a vault command that overwrites or revokes a secret,
+show the target path and planned effect, then obtain confirmation.
+
+**Artifacts**: Confirmation that the replacement was written at `staging/api-key`.
+
+**Success criteria**: The vault confirms the replacement secret is stored at
+`staging/api-key`, and no secret value has been exposed.
+
+### 3. Roll worker pods sequentially
+
+Identify the two staging worker pods. Restart the first pod, then wait until it
+is Ready and has resumed normal operation before restarting the second. Continue
+to verify that at least one worker remains available throughout the rollout.
+
+**Success criteria**: Both worker pods have restarted, each became Ready before
+the next restart began, and the queue was never left without a worker.
+
+### 4. Verify staging health
+
+Run `curl` against `$STAGING/healthz` with the appropriate safe authentication
+mechanism, if required. Confirm a successful response indicating staging is
+healthy. Do not echo credentials in the command or response.
+
+**Success criteria**: `$STAGING/healthz` returns a successful healthy response
+following the sequential worker rollout.
+
+### 5. Report the rotation outcome
+
+Report the configured key name, confirmation that the replacement is stored at
+`staging/api-key`, the two pods restarted in order, and the health-check result.
+Do not include the old key, replacement key, authorization headers, or other
+secret material.
+
+**Success criteria**: The outcome communicates completion and verification while
+preserving all secret values.
