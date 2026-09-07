@@ -28,8 +28,8 @@ work_claim(project="model_performance", item_id="model_performance-smy5")
   Error claiming model_performance-smy5: issue already claimed by agent-spark-1-3875147
 ```
 
-Attempted **three times** across the life of this lane (at start, after the work was published, and
-again at close). Identical refusal each time.
+Attempted **four times** across the life of this lane — at start, after the work was published, at
+close, and once more on a challenge to the terminal state. **Identical refusal every time.**
 
 `work_list(item_id="model_performance-smy5")` at close:
 
@@ -38,7 +38,7 @@ again at close). Identical refusal each time.
 | `status` | `held` |
 | `holder` | `agent-spark-1-3875147` |
 | `resolution` | `null` |
-| `updated_at` | `17:01:40Z` → `17:11:47Z` over this lane's life |
+| `updated_at` | `17:01:40Z` → `17:11:47Z` → `17:13:49Z` over this lane's life |
 
 `work_status` reports `held_stale: 0` for `model_performance`. **The holder's `updated_at` advanced
 while this lane ran** — custody is being actively renewed. This is a **live sibling session**, not a
