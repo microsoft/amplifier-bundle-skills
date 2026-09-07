@@ -1,0 +1,102 @@
+---
+name: rotate-staging-key
+description: >
+  Rotate the staging deployment API key safely: read its configured key name,
+  generate and store a replacement in the staging vault path, roll worker pods
+  one at a time, and verify the staging health endpoint. Use when rotating the
+  staging API key, replacing a staging credential, or safely restarting staging workers.
+user-invocable: true
+allowed-tools:
+  - read_file
+  - bash
+model_role: reasoning
+---
+
+# Rotate Staging Key
+
+Safely replace the staging deployment API key without allowing the worker queue
+coverage to drop. A successful rotation leaves the new secret at
+`staging/api-key`, both worker pods restarted sequentially and ready, and
+`$STAGING/healthz` healthy.
+
+## Inputs
+
+- `$ARGUMENTS`: (Optional) A rotation reason or operational note. The skill uses
+  the staging defaults unless the request explicitly supplies approved overrides.
+
+## Rules
+
+- Operate on staging only. Do not infer or substitute production paths, contexts,
+  namespaces, or endpoints.
+- Read the current key name from `deploy/config.yaml`; do not guess it.
+- Generate the replacement with a cryptographically secure generator. Never print,
+  log, commit, or include the key value in the response.
+- Store the replacement only at `staging/api-key` in the approved vault.
+- Restart exactly one worker pod at a time. Do not begin the next restart until
+  the prior pod is ready and its replacement is serving.
+- Stop immediately on any failed vault write, pod readiness failure, or unhealthy
+  health check. Preserve the evidence needed for diagnosis without exposing secrets.
+
+## Steps
+
+### 1. Inspect the staging configuration
+
+Read `deploy/config.yaml` and identify the configured API key name and the two
+staging worker pods, including their Kubernetes context and namespace if the
+configuration supplies them. Confirm that the target is staging and that exactly
+two workers can be rotated one at a time.
+
+**Artifacts**: The configured key name, vault target, worker pod identities, and
+staging Kubernetes context/namespace.
+
+**Success criteria**: The current key name is obtained from `deploy/config.yaml`,
+and the two staging workers and their safe sequential restart target are known.
+
+### 2. Generate and store the replacement key
+
+Generate a new high-entropy API key using an approved cryptographically secure
+mechanism. Write it to the approved vault at `staging/api-key`, associated with
+the key name found in Step 1. Verify the vault confirms the write without
+retrieving or displaying the secret value.
+
+**Human checkpoint**: State the staging key name, vault path, and planned worker
+rotation order; ask for confirmation before writing the replacement secret and
+restarting pods.
+
+**Artifacts**: Confirmation that the vault contains a newly written replacement
+at `staging/api-key`.
+
+**Success criteria**: The vault acknowledges a successful replacement write at
+`staging/api-key`, and no secret value has been exposed.
+
+### 3. Restart the workers sequentially
+
+Restart the first staging worker pod using the context and namespace identified
+in Step 1. Wait until its replacement is Ready and the deployment has restored
+its expected available-worker coverage before proceeding. Then restart the
+second worker and apply the same readiness check. If either restart fails or
+coverage drops unexpectedly, stop and report which worker and readiness condition
+failed; do not restart the other worker.
+
+**Success criteria**: Each of the two workers has been restarted separately, and
+each replacement pod is Ready before the next restart begins.
+
+### 4. Verify staging health
+
+Run `curl` against `$STAGING/healthz` and require a successful response. Do not
+report success based only on command exit status: confirm the endpoint indicates
+that staging is healthy. If it does not, report the response status and safe,
+non-secret diagnostic details.
+
+**Success criteria**: `$STAGING/healthz` returns a successful response indicating
+that staging is healthy after both workers have restarted.
+
+### 5. Report the rotation result
+
+Summarize the configured key name, vault path, sequential worker restart results,
+and health-check result. Do not include the replacement key, request headers,
+vault tokens, or any other credential material.
+
+**Success criteria**: The final report establishes that the staging key was
+rotated, both workers were restarted one at a time and became Ready, and staging
+health was confirmed without exposing secrets.

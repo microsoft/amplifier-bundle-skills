@@ -1,0 +1,101 @@
+---
+name: rotate-staging-key
+description: >
+  Rotate the staging deployment API key safely: identify the configured key,
+  generate and store a replacement, restart worker pods sequentially, and verify
+  /healthz. Use when rotating the staging API key, replacing a staging secret,
+  or performing a zero-queue-drain staging key rotation.
+user-invocable: true
+allowed-tools:
+  - bash
+model_role: reasoning
+---
+
+# Rotate Staging Key
+
+Rotate the API key used by the staging deployment without allowing the worker
+queue to drain. The outcome is a replacement key stored at `staging/api-key`,
+two worker pods restarted one at a time and returned healthy, and a successful
+staging health check.
+
+## Inputs
+
+- `$ARGUMENTS`: (Optional) Details that override the standard environment,
+  deployment, namespace, vault, or worker-pod commands. If omitted, use the
+  staging deployment configuration and the environment's established command
+  conventions.
+
+## Steps
+
+### 1. Inspect the configured key reference
+
+Read `deploy/config.yaml` and identify the current staging API key name or
+reference. Confirm that it is the value used by the staging deployment; do not
+print key material or include it in command output.
+
+**Artifacts**: The current key reference, used to verify that the replacement
+is being applied to the intended staging configuration.
+
+**Success criteria**: The current staging API key reference has been identified
+without exposing secret contents.
+
+### 2. Prepare the replacement key
+
+Generate a cryptographically secure replacement API key using the approved
+secret-generation mechanism. Validate that the generated value is non-empty
+and retain it only as long as needed to write it to the vault; never echo it,
+write it to a repository file, or place it in logs.
+
+**Artifacts**: A new secret value ready to store at `staging/api-key`.
+
+**Success criteria**: A securely generated replacement key exists only in
+transient secret-safe handling.
+
+### 3. Confirm the rotation [human]
+
+State the current key reference, the vault destination `staging/api-key`, and
+the plan to restart the two worker pods sequentially. Ask for explicit approval
+before overwriting the vault secret, because this is an externally visible,
+security-sensitive change.
+
+**Human checkpoint**: Do not overwrite `staging/api-key` or restart pods until
+approval is received.
+
+**Success criteria**: Explicit approval to perform this staging key rotation is
+recorded.
+
+### 4. Store the replacement in the vault
+
+Write the generated key to `staging/api-key` using the approved vault CLI or
+API. Verify the write succeeded by checking secret metadata or version
+information only; do not read or display the secret value.
+
+**Rules**: Store the key only at `staging/api-key`. Do not alter production
+secrets or deployment configuration unless the supplied arguments explicitly
+require it.
+
+**Success criteria**: The vault reports a successful new or updated version for
+`staging/api-key`, with no key material exposed.
+
+### 5. Restart worker pods sequentially
+
+Identify the two staging worker pods. Restart the first pod, then wait until it
+is Running and Ready before touching the second. Restart the second pod only
+after the first is healthy, and again wait until it is Running and Ready.
+
+**Rules**: Never restart both worker pods concurrently. If either pod fails to
+become Ready, stop the rotation, report the pod status and relevant non-secret
+logs, and do not restart the remaining pod.
+
+**Success criteria**: Both worker pods have been restarted, one at a time, and
+each is Running and Ready after its restart.
+
+### 6. Verify staging health
+
+Run `curl "$STAGING/healthz"` using the configured staging base URL. Treat a
+successful HTTP response and the expected healthy response body as confirmation.
+If the health check fails, report the status code and non-secret diagnostic
+output, preserving the sequential worker state for investigation.
+
+**Success criteria**: `curl "$STAGING/healthz"` confirms that staging is
+healthy after the sequential worker restarts.

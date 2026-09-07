@@ -1,0 +1,77 @@
+---
+name: rotate-staging-key
+description: >
+  Rotate the staging deployment API key without draining its worker queue: read
+  the configured key name, generate and store a replacement in the staging vault
+  path, restart exactly two worker pods sequentially, and verify /healthz. Use
+  when asked to rotate, replace, or roll the staging API key while preserving
+  worker availability.
+user-invocable: true
+allowed-tools:
+  - bash
+model_role: critical-ops
+---
+
+# Rotate Staging Key
+
+Rotate the API key used by staging while preserving continuous worker capacity.
+The rotation succeeds only when the replacement is stored without exposing it,
+the two workers have each been replaced and become Ready one at a time, and the
+staging health endpoint returns a successful response.
+
+## Inputs
+
+- `$ARGUMENTS`: (Optional) Kubernetes namespace and worker label selector. Default to namespace `staging` and selector `app=worker`. The environment must provide `$STAGING`, and authenticated `vault` and `kubectl` CLIs must already be configured.
+
+## Rules
+
+- Never print, log, persist to a local file, or include the replacement key in a command transcript. Disable shell tracing before handling it.
+- Treat `deploy/config.yaml` as the source of truth for the configured key name; do not guess or substitute one.
+- Do not restart, delete, or otherwise disrupt both worker pods concurrently. Wait for a healthy replacement after each individual pod restart.
+- Stop immediately on any failed validation, vault write, pod readiness check, or health check. Report the failed operation without secret material.
+
+## Steps
+
+### 1. Validate the target and read the configured key name
+
+Interpret `$ARGUMENTS` as an optional namespace followed by an optional worker label selector; otherwise use `staging` and `app=worker`. Confirm `$STAGING` is non-empty and that `deploy/config.yaml` exists. Read the API-key field from that file using the repository's available YAML parser (for example, `yq`); validate that it is a non-empty scalar key name.
+
+Verify that `vault`, `kubectl`, `curl`, and a cryptographically secure key generator such as `openssl` are available and authenticated as needed. List Ready worker pods in the target namespace using the resolved selector. Continue only if there are exactly two distinct worker pods and both are Ready.
+
+**Artifacts**: The configured key name, target namespace, worker selector, and ordered list of the two current worker pods.
+
+**Success criteria**: A non-empty configured key name has been read from `deploy/config.yaml`, `$STAGING` and required CLIs are available, and exactly two Ready worker pods have been identified.
+
+### 2. Generate and store the replacement key
+
+Ensure shell tracing is disabled (`set +x`). Generate a high-entropy replacement in memory, for example with `openssl rand -base64 48`; do not echo it or place it on a command line where it may be logged.
+
+Write the replacement to Vault at `staging/api-key`, using the configured key name as the Vault field name. Use a stdin-capable Vault command or another mechanism that avoids exposing the key in command history or output. After the write, verify only that the expected field exists at `staging/api-key`; never retrieve or display its value.
+
+**Artifacts**: A verified Vault field at `staging/api-key` matching the configured key name.
+
+**Success criteria**: Vault confirms the configured key-name field exists at `staging/api-key`, with no replacement-key material emitted.
+
+### 3. Restart workers sequentially
+
+For each of the two worker pods in the list from Step 1, in order:
+
+1. Delete or otherwise restart only that one pod.
+2. Wait for its replacement to appear and become Ready using the same worker selector. Ensure the other worker remains Ready throughout this wait.
+3. Confirm there are again exactly two Ready worker pods before proceeding to the next pod.
+
+Do not issue a deployment-wide rollout restart, scale operation, or parallel deletion, because those can restart both workers at once.
+
+**Success criteria**: Each original worker has been replaced or restarted individually, and the target namespace ends with exactly two Ready worker pods.
+
+### 4. Verify staging health
+
+Request `$STAGING/healthz` with `curl --fail --silent --show-error`. Require a successful HTTP response; if the endpoint returns a structured health payload, also require its reported status to be healthy.
+
+**Success criteria**: `$STAGING/healthz` responds successfully after both sequential worker restarts.
+
+### 5. Report completion
+
+Report the configured key name, Vault path, namespace, worker selector, the fact that both workers were restarted sequentially, and the successful health verification. Do not report the replacement key or any Vault value.
+
+**Success criteria**: The completion report contains operational evidence of the rotation without disclosing secret material.
