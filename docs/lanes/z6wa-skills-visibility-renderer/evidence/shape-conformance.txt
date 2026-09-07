@@ -1,0 +1,48 @@
+==========================================================================
+AC2 second half: "the compressed template yields the v1 shape for the v1 session"
+SHAPE, per GOAL.md:70 -- "THE TARGET SHAPE IS ONE LINE PER SKILL."
+==========================================================================
+
+--- v1 captured text (the target)  (50 skills, 5350 chars) ---
+    S1 wrapper open/close .......... PASS
+    S2 regular header verbatim ..... PASS
+    S3 user-invoked header verbatim  PASS
+    S4 section order ............... PASS
+    S5 no text continuation lines .. PASS   (50 skill lines, 0 non-blank continuation lines)
+    S6 ONE LINE PER SKILL, exactly . PASS   (57 physical lines for 50 skills; surplus +0)
+    => SHAPE CONFORMS: YES
+
+--- STOCK @HEAD, v1's own skill set  (46 skills, 17576 chars) ---
+    S1 wrapper open/close .......... PASS
+    S2 regular header verbatim ..... PASS
+    S3 user-invoked header verbatim  PASS
+    S4 section order ............... PASS
+    S5 no text continuation lines .. PASS   (46 skill lines, 0 non-blank continuation lines)
+    S6 ONE LINE PER SKILL, exactly . FAIL   (55 physical lines for 46 skills; surplus +2)
+          2 physical line(s) beyond one-per-skill + template -- descriptions spilling past their own line
+    => SHAPE CONFORMS: NO
+
+--- THIS CHANGE, v1's own skill set  (46 skills, 7691 chars) ---
+    S1 wrapper open/close .......... PASS
+    S2 regular header verbatim ..... PASS
+    S3 user-invoked header verbatim  PASS
+    S4 section order ............... PASS
+    S5 no text continuation lines .. PASS   (46 skill lines, 0 non-blank continuation lines)
+    S6 ONE LINE PER SKILL, exactly . PASS   (53 physical lines for 46 skills; surplus +0)
+    => SHAPE CONFORMS: YES
+
+==========================================================================
+v1 target shape conforms .......... YES
+STOCK yields the v1 shape ......... NO
+THIS CHANGE yields the v1 shape ... YES
+
+VERDICT: AC2 second half DONE -- and it is THIS CHANGE that delivers it.
+         Stock did NOT yield the v1 shape; the lean renderer does.
+
+NOTE ON SIZE, which is a DIFFERENT question from shape:
+  v1 captured text ............ 5350 chars for 50 skills
+  stock, same skill set ....... 17576 chars for 46 skills
+  this change, same skill set . 7691 chars for 46 skills
+  The residual size gap is hand-rewritten DESCRIPTION text (per-session
+  data), not template. No renderer can produce it; that is source-side
+  description tightening. Shape is delivered; size is bounded by data.
