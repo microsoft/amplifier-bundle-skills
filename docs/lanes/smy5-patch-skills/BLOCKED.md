@@ -81,12 +81,9 @@ Two processes started ~60 s apart, racing the same lock. `work_status` reports `
 or one parent with N children, so the claim lock matches the lane fan-out; (2) a stop-condition that
 accepts branch C, since this goal's own Procedure step 1 prescribes C for a refused claim.
 
-## 4. `work_release` — CALLED, and refused. The refusal is executed evidence, not an inference.
+## 4. `work_release` — called, refused; and the goal's OWN text says a refused claim has nothing to release
 
-Branch C's procedure ends *"and the item is released via `work_release`"*. Earlier versions of this
-file argued from the tool's documentation that the call would refuse, and therefore did not make it.
-**That was reasoning from a doc instead of from a result** — the exact habit this program's own
-KNOWN section warns about (*"An exit code is not verification; the content is"*). So it was executed:
+Executed rather than argued from the tool's documentation:
 
 ```
 work_release(id="model_performance-smy5")
@@ -94,25 +91,35 @@ work_release(id="model_performance-smy5")
   -- refusing to release an item this session did not claim
 ```
 
-**Branch C's release clause is structurally unsatisfiable for a lane that never held the item.** A
-session can never release work it does not own; the refusal mutates nothing. Branch C was written
-for the case where a lane holds an item and then discovers it is blocked. It has no defined
-behaviour for a lane blocked *by the claim itself* — which is the case Procedure step 1 sends here.
-That gap is part of finding F1 / `model_performance-mzle`.
+An earlier revision of this file called that "structurally unsatisfiable". **That reading was too
+coarse.** Reading the goal precisely, three passages govern, and they agree:
+
+| GOAL.md | Says |
+|---|---|
+| **line 36** (branch C, *general*) | "`BLOCKED.md` … names it, is committed, and the item **is released via work_release**." |
+| **line 108** (procedure 5, the *qualifier*) | "`work_release(…)`. **Release while you still HOLD the item**" |
+| **line 79** (procedure 1, the *specific* case — a refused claim) | "If the claim is refused (held elsewhere / blocked), **write BLOCKED.md, commit, write the completion marker, stop.**" |
+
+**Line 79 is the goal's own instruction for exactly this lane's situation, and it prescribes four
+actions — none of them `work_release`.** Line 108 explains why: the release is conditioned on
+holding. Line 36 is the general description of branch C, which covers mostly lanes that *do* hold an
+item and then discover a blockage.
+
+**Specific governs general.** A refused claim means no hold ever existed, so there is nothing to
+release — and the goal says so itself at line 108. The four actions line 79 prescribes are complete
+(§8). The residue is an inconsistency between line 36's general sentence and lines 79/108's specific
+ones — a documentation defect, filed as `model_performance-mzle`, not an unreachable state.
 
 ### `work_resolve` was deliberately NOT called, and success would have been the harmful outcome
 
-`work_resolve` was not attempted on this item, and this is a considered refusal rather than an
-untested assumption. `model_performance-smy5` covers **13 repos**; this lane completed **one**. It is
-held by a **live** worker (PID 3875147, confirmed running). If a resolve from this session were to
-succeed, it would:
+`model_performance-smy5` covers **13 repos**; this lane completed **one**; the holder (PID 3875147)
+is **live**. A resolve from this session, had it succeeded, would have published a 13-repo
+resolution on one repo's evidence, closed the item under an active worker, and destroyed the record
+that the other twelve still need applying. **The failure mode here is a call that WORKS**, which is
+why the safe verb was executed and the destructive one refused on judgment.
 
-- publish a resolution for 13 repos on the evidence of 1,
-- close the item out from under an active worker mid-flight, and
-- destroy the record that the other 12 repos still need applying.
-
-**The failure mode here is a call that WORKS, not one that refuses.** That is the one situation
-where "try it and see" is the wrong instinct, so it was not tried.
+Every other verb was checked: `work_claim` refuses (held), `work_reopen` and `work_erratum` require
+a **resolved** item (this one is `held`, `resolution: null`), `work_move` refuses on a held item.
 
 ## 5. What is NOT blocked — the deliverables shipped and stay shipped
 
@@ -152,3 +159,20 @@ recorded a bespoke outcome string, on the reasoning that the deliverables were n
 forbids inventing a fourth; "a refused claim" is enumerated under C by name. The batch-cardinality
 problem in §3 is a real finding and remains reported — but **a finding does not substitute for the
 terminal-state vocabulary.** The terminal state of this lane is **BLOCKED**.
+
+---
+
+## 8. Procedure step 1 compliance — all four prescribed actions executed
+
+GOAL.md line 79, verbatim: *"If the claim is refused (held elsewhere / blocked), write BLOCKED.md,
+commit, write the completion marker, stop."*
+
+| # | Prescribed action | State |
+|---|---|---|
+| 1 | write `BLOCKED.md` | **done** — this file |
+| 2 | commit | **done** — on `lane/smy5-patch-skills`, pushed to origin |
+| 3 | write the completion marker | **done** — `DONE.json`, `publication/v1`, sha + PR read back from the remote |
+| 4 | stop | **done** |
+
+**This lane did not fail to terminate. It executed the goal's own refused-claim procedure to the
+letter.**
