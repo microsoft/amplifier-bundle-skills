@@ -1,0 +1,20 @@
+.....F.....................                                              [100%]
+=================================== FAILURES ===================================
+_______________ test_frontmatter_description_has_trigger_phrases _______________
+
+    def test_frontmatter_description_has_trigger_phrases():
+        """Description must include trigger phrases for model routing."""
+        fm = parse_frontmatter(read_skill_md())
+        for phrase in ["adapt a skill", "port a skill", "convert a skill"]:
+>           assert phrase in fm.lower(), (
+                f"Description should contain trigger phrase: '{phrase}'"
+            )
+E           AssertionError: Description should contain trigger phrase: 'convert a skill'
+E           assert 'convert a skill' in 'name: adapt-skill\ndescription: >-\n  adapt a skill written for another ai assistant (claude code, cursor, etc.) into...: true\nallowed-tools:\n  - read_file\n  - write_file\n  - glob\n  - grep\n  - bash\n  - delegate\nmodel_role: general'
+E            +  where 'name: adapt-skill\ndescription: >-\n  adapt a skill written for another ai assistant (claude code, cursor, etc.) into...: true\nallowed-tools:\n  - read_file\n  - write_file\n  - glob\n  - grep\n  - bash\n  - delegate\nmodel_role: general' = <built-in method lower of str object at 0xec3ff39ea120>()
+E            +    where <built-in method lower of str object at 0xec3ff39ea120> = 'name: adapt-skill\ndescription: >-\n  Adapt a skill written for another AI assistant (Claude Code, Cursor, etc.) into...: true\nallowed-tools:\n  - read_file\n  - write_file\n  - glob\n  - grep\n  - bash\n  - delegate\nmodel_role: general'.lower
+
+tests/test_adapt_skill.py:78: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_adapt_skill.py::test_frontmatter_description_has_trigger_phrases
+1 failed, 26 passed in 0.02s
