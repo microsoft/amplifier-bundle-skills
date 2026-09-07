@@ -72,8 +72,15 @@ def test_frontmatter_allowed_tools_includes_delegate():
 
 
 def test_frontmatter_description_has_trigger_phrases():
-    """Description must include trigger phrases for model routing."""
-    fm = parse_frontmatter(read_skill_md())
+    """Description must include trigger phrases for model routing.
+
+    Matched against WHITESPACE-NORMALISED frontmatter. `description` is a YAML folded
+    scalar (`>-`), so a phrase can be split across a line fold -- "convert a\\n  skill" --
+    and a raw substring match then fails even though the folded VALUE, which is what the
+    model actually routes on, contains the phrase intact. Normalising is the fix; the
+    description itself is correct.
+    """
+    fm = re.sub(r"\s+", " ", parse_frontmatter(read_skill_md()))
     for phrase in ["adapt a skill", "port a skill", "convert a skill"]:
         assert phrase in fm.lower(), (
             f"Description should contain trigger phrase: '{phrase}'"

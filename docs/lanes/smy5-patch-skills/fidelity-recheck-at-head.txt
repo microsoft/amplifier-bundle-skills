@@ -1,0 +1,16 @@
+
+=== context/skills-instructions.md ===
+stock chars: 4478   lean chars: 1993   saved: 2485
+atoms in stock: 29   atoms in lean: 29
+  [adjudicated, not a loss] [normative] automatically
+      reason: stock 'injected ... automatically before each request' -> lean 'auto-injected before each request'. Same rule, different word; lean also STRENGTHENS 'You don't need to call' into 'do not call'.
+  DROPPED: none (beyond the adjudicated entries above)
+
+=== load_skill tool description ===
+stock chars: 1647   lean chars: 968   saved: 679
+atoms in stock: 7   atoms in lean: 6
+  [adjudicated, not a loss] /path
+      reason: from the illustrative placeholder skill_directory="/path/to/skill". A placeholder VALUE, not a rule. The rule -- pass the returned skill_directory to read_file -- survives in lean with its concrete example read_file(skill_directory + "/examples/code.py").
+  DROPPED: none (beyond the adjudicated entries above)
+
+FIDELITY: PASS -- nothing dropped

@@ -1,0 +1,108 @@
+FFFFFFF                                                                  [100%]
+=================================== FAILURES ===================================
+_________________________ test_context_file_stays_lean _________________________
+
+    def test_context_file_stays_lean():
+        chars = len(read_context())
+>       assert chars <= CONTEXT_CHARS_CEILING, (
+            f"context/skills-instructions.md grew to {chars} chars (ceiling "
+            f"{CONTEXT_CHARS_CEILING}, pinned at {CONTEXT_CHARS_AT_PIN}, stock was "
+            f"{CONTEXT_CHARS_STOCK}). This file is in the always-on head -- paid for on every "
+            "request of every session. If the growth is intentional, re-measure and move the pin."
+        )
+E       AssertionError: context/skills-instructions.md grew to 4478 chars (ceiling 2300, pinned at 1993, stock was 4478). This file is in the always-on head -- paid for on every request of every session. If the growth is intentional, re-measure and move the pin.
+E       assert 4478 <= 2300
+
+tests/test_lean_head_pins.py:114: AssertionError
+______________________ test_context_file_keeps_every_rule ______________________
+
+    def test_context_file_keeps_every_rule():
+        text = read_context()
+        missing = [atom for atom in CONTEXT_REQUIRED if atom not in text]
+>       assert not missing, (
+            "Rules/commands/pointers dropped from context/skills-instructions.md: "
+            f"{missing}. Fidelity is the constraint the compression was allowed under."
+        )
+E       AssertionError: Rules/commands/pointers dropped from context/skills-instructions.md: ['L1', 'L2', 'L3', 'auto-injected']. Fidelity is the constraint the compression was allowed under.
+E       assert not ['L1', 'L2', 'L3', 'auto-injected']
+
+tests/test_lean_head_pins.py:125: AssertionError
+__________________ test_context_file_stock_prose_not_restored __________________
+
+    def test_context_file_stock_prose_not_restored():
+        text = read_context()
+        restored = [phrase for phrase in CONTEXT_FORBIDDEN if phrase in text]
+>       assert not restored, (
+            f"Stock long-form prose restored in context/skills-instructions.md: {restored}. "
+            "The lean rewrite carries the same rules in fewer characters."
+        )
+E       AssertionError: Stock long-form prose restored in context/skills-instructions.md: ['You have access to the skills system for loading domain knowledge packages.', '## What Are Skills?', '## Skills Visibility', '## Available Tool: load_skill', '## Enhanced Skills (Fork Execution)', '### Built-in Power Skills', '## Skills Expert', '## Skills vs Agents', '| Skill | Slash Command | What It Does |', 'Three power skills ship with the curated collection']. The lean rewrite carries the same rules in fewer characters.
+E       assert not ['You have access to the skills system for loading domain knowledge packages.', '## What Are Skills?', '## Skills Visibility', '## Available Tool: load_skill', '## Enhanced Skills (Fork Execution)', '### Built-in Power Skills', ...]
+
+tests/test_lean_head_pins.py:134: AssertionError
+____________________ test_load_skill_description_stays_lean ____________________
+
+    def test_load_skill_description_stays_lean():
+        chars = len(read_load_skill_description())
+>       assert chars <= LOAD_SKILL_CHARS_CEILING, (
+            f"load_skill description grew to {chars} chars (ceiling {LOAD_SKILL_CHARS_CEILING}, "
+            f"pinned at {LOAD_SKILL_CHARS_AT_PIN}, stock was {LOAD_SKILL_CHARS_STOCK}). Tool "
+            "descriptions ship in the schema on every request. Re-measure before moving the pin."
+        )
+E       AssertionError: load_skill description grew to 1647 chars (ceiling 1150, pinned at 968, stock was 1647). Tool descriptions ship in the schema on every request. Re-measure before moving the pin.
+E       assert 1647 <= 1150
+
+tests/test_lean_head_pins.py:170: AssertionError
+_________________ test_load_skill_description_keeps_every_rule _________________
+
+    def test_load_skill_description_keeps_every_rule():
+        text = read_load_skill_description()
+        missing = [atom for atom in LOAD_SKILL_REQUIRED if atom not in text]
+>       assert not missing, f"Rules/commands dropped from the load_skill description: {missing}"
+E       AssertionError: Rules/commands dropped from the load_skill description: ['first-match-wins']
+E       assert not ['first-match-wins']
+
+tests/test_lean_head_pins.py:180: AssertionError
+_____________ test_load_skill_description_stock_prose_not_restored _____________
+
+    def test_load_skill_description_stock_prose_not_restored():
+        text = read_load_skill_description()
+        restored = [phrase for phrase in LOAD_SKILL_FORBIDDEN if phrase in text]
+>       assert not restored, (
+            f"Stock long-form prose restored in the load_skill description: {restored}"
+        )
+E       AssertionError: Stock long-form prose restored in the load_skill description: ['**List all skills:**', '**Search for skills:**', '**Get skill metadata:**', '**Load full skill content:**', 'Usage Guidelines:', 'Skill Discovery:']
+E       assert not ['**List all skills:**', '**Search for skills:**', '**Get skill metadata:**', '**Load full skill content:**', 'Usage Guidelines:', 'Skill Discovery:']
+
+tests/test_lean_head_pins.py:186: AssertionError
+______ test_load_skill_description_has_no_leading_or_trailing_blank_line _______
+
+    def test_load_skill_description_has_no_leading_or_trailing_blank_line():
+        """The stock block opened with a bare newline -- pure head cost, nothing else."""
+        text = read_load_skill_description()
+>       assert text == text.strip(), (
+            "load_skill description regained leading/trailing whitespace; the stock form opened "
+            "with a blank line that cost characters on every request."
+        )
+E       AssertionError: load_skill description regained leading/trailing whitespace; the stock form opened with a blank line that cost characters on every request.
+E       assert '\nLoad domai...er/skills/)\n' == 'Load domain ...fier/skills/)'
+E         
+E         + 
+E           Load domain knowledge from an available skill. Skills provide specialized knowledge, workflows, 
+E           best practices, and standards. Use when you need domain expertise, coding guidelines, or 
+E           architectural patterns.
+E           
+E           Operations:...
+E         
+E         ...Full output truncated (33 lines hidden), use '-vv' to show
+
+tests/test_lean_head_pins.py:194: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_lean_head_pins.py::test_context_file_stays_lean - Assertion...
+FAILED tests/test_lean_head_pins.py::test_context_file_keeps_every_rule - Ass...
+FAILED tests/test_lean_head_pins.py::test_context_file_stock_prose_not_restored
+FAILED tests/test_lean_head_pins.py::test_load_skill_description_stays_lean
+FAILED tests/test_lean_head_pins.py::test_load_skill_description_keeps_every_rule
+FAILED tests/test_lean_head_pins.py::test_load_skill_description_stock_prose_not_restored
+FAILED tests/test_lean_head_pins.py::test_load_skill_description_has_no_leading_or_trailing_blank_line
+7 failed in 0.03s
