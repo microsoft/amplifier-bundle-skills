@@ -1,5 +1,6 @@
 ---
 name: cranky-old-sam
+disable-model-invocation: true
 version: 1.0.1
 description: >-
   Simplicity-obsessed reviewer that interrogates complexity and insists on the minimal

@@ -1,5 +1,6 @@
 ---
 name: crusty-old-engineer
+disable-model-invocation: true
 version: 1.0.1
 description: >-
   Curmudgeonly engineering advisor: grounded skepticism and evidence-linked judgment on

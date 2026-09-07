@@ -1,5 +1,6 @@
 ---
 name: personafy
+disable-model-invocation: true
 description: >-
   Build a new opinionated advisor-persona skill — a reviewer "lens" like
   crusty-old-engineer, modeled on a real person or archetype. Mines the subject's

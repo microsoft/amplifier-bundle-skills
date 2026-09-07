@@ -1,5 +1,6 @@
 ---
 name: bet-sizer
+disable-model-invocation: true
 version: 1.0.0
 description: >-
   Delivery-risk reviewer that sizes a plan's investment against the team's real confidence

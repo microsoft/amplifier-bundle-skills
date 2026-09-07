@@ -99,12 +99,30 @@ def test_no_context_fork():
     )
 
 
-def test_no_disable_model_invocation():
-    """Skill must be model-invocable (no disable-model-invocation)."""
+def test_disable_model_invocation_is_set():
+    """Skill must be user-invoked only (disable-model-invocation: true).
+
+    This guard was INVERTED, not deleted. It previously asserted the opposite --
+    that adapt-skill stays model-invocable so it can "trigger on natural
+    phrases". The owner reversed that on 2026-09-07, verbatim: "all of those
+    authoring ones are ones we run by hand, so they can be hidden".
+
+    The evidence behind that call, measured at $0 for model_performance-4br4:
+    across every bundle mounted on the owner's real app list, ZERO documented
+    workflows instruct a model to `load_skill(skill_name="adapt-skill")` --
+    against 8 for skills-assist and 12 for digital-twin-universe on the same
+    instrument. adapt-skill is reached by a person typing /adapt-skill, so its
+    catalog line was paying always-on tokens for a routing trigger nothing
+    routes on.
+
+    Hiding costs nothing at load time: `disable-model-invocation` only moves a
+    skill between the two sections of the visibility block; `load_skill` still
+    resolves it by name.
+    """
     fm = parse_frontmatter(read_skill_md())
-    assert "disable-model-invocation" not in fm, (
-        "adapt-skill must not have disable-model-invocation — "
-        "it should trigger on natural phrases"
+    assert re.search(r"^disable-model-invocation:\s*true\s*$", fm, re.MULTILINE), (
+        "adapt-skill must carry 'disable-model-invocation: true' — it is a "
+        "hand-run authoring tool, invoked via /adapt-skill (owner, 2026-09-07)"
     )
 
 

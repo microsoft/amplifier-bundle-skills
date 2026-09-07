@@ -1,0 +1,24 @@
+TEST + LINT VERDICTS ON THE BRANCH  (every job the repo's own CI runs)
+======================================================================
+taken: 2026-09-07T15:50:34-07:00  branch: lane/4br4-skills-catalog-reduction
+
+--- ruff 0.15.7 (CI: lint) ---
+All checks passed!
+
+--- bundle structure (CI: bundle-structure) ---
+bundle.md frontmatter : ok
+bundle.md includes    : 1 local, 1 remote (not resolved)
+behaviors/*.yaml      : 2 file(s)
+skills/*/SKILL.md     : 26 file(s)
+parsed cleanly        : 29 file(s)
+
+OK -- bundle structure checks passed
+
+--- root tests (CI: test-root) ---
+...................................                                      [100%]
+35 passed in 0.02s
+
+--- module tests, modules/tool-skills (CI: test-modules) ---
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+315 passed, 1 warning in 1.10s

@@ -1,5 +1,6 @@
 ---
 name: councilify
+disable-model-invocation: true
 description: >-
   Build a NEW complete "council" for a domain — a panel of orthogonal review lenses that
   fan out cold, debate to consensus, and return a synthesized verdict with recorded
