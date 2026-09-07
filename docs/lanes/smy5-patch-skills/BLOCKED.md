@@ -81,19 +81,38 @@ Two processes started ~60 s apart, racing the same lock. `work_status` reports `
 or one parent with N children, so the claim lock matches the lane fan-out; (2) a stop-condition that
 accepts branch C, since this goal's own Procedure step 1 prescribes C for a refused claim.
 
-## 4. `work_release` — not applicable, and why that is stated rather than skipped
+## 4. `work_release` — CALLED, and refused. The refusal is executed evidence, not an inference.
 
-Branch C's procedure ends *"and the item is released via `work_release`"*, with the goal adding
-*"Release while you still HOLD the item."*
+Branch C's procedure ends *"and the item is released via `work_release`"*. Earlier versions of this
+file argued from the tool's documentation that the call would refuse, and therefore did not make it.
+**That was reasoning from a doc instead of from a result** — the exact habit this program's own
+KNOWN section warns about (*"An exit code is not verification; the content is"*). So it was executed:
 
-**This session never held the item, so there is nothing to release.** `work_release` refuses on an
-item the caller does not hold, by design — a session can never release work it does not own.
-Calling it would produce a refusal, not a release. It was therefore **not called**, and that is
-recorded here rather than left as a silently-missing step.
+```
+work_release(id="model_performance-smy5")
+→ not currently holding 'model_performance-smy5' in this session
+  -- refusing to release an item this session did not claim
+```
 
-`work_block` was **not** called either: the goal is explicit that a blocked item cannot be claimed
-and therefore cannot be released, and in any case this session lacks standing to change the status
-of an item another session holds.
+**Branch C's release clause is structurally unsatisfiable for a lane that never held the item.** A
+session can never release work it does not own; the refusal mutates nothing. Branch C was written
+for the case where a lane holds an item and then discovers it is blocked. It has no defined
+behaviour for a lane blocked *by the claim itself* — which is the case Procedure step 1 sends here.
+That gap is part of finding F1 / `model_performance-mzle`.
+
+### `work_resolve` was deliberately NOT called, and success would have been the harmful outcome
+
+`work_resolve` was not attempted on this item, and this is a considered refusal rather than an
+untested assumption. `model_performance-smy5` covers **13 repos**; this lane completed **one**. It is
+held by a **live** worker (PID 3875147, confirmed running). If a resolve from this session were to
+succeed, it would:
+
+- publish a resolution for 13 repos on the evidence of 1,
+- close the item out from under an active worker mid-flight, and
+- destroy the record that the other 12 repos still need applying.
+
+**The failure mode here is a call that WORKS, not one that refuses.** That is the one situation
+where "try it and see" is the wrong instinct, so it was not tried.
 
 ## 5. What is NOT blocked — the deliverables shipped and stay shipped
 
