@@ -216,17 +216,50 @@ Full local suite, `python3 -m pytest tests/`:
 | | Passed | Failed |
 |---|---:|---:|
 | `origin/main` (pristine clone, `28c5c00`) | 19 | 1 |
-| This branch | **26** | 1 |
+| This branch | **27** | **0** |
 
-**+7 passed = exactly the new pin tests. No new failures. Nothing regressed.**
+**Fully green. +8 = the 7 new pin tests, plus one pre-existing failure fixed (below).**
 
-The 1 failure is **pre-existing and unrelated to this lane** —
-`tests/test_adapt_skill.py::test_frontmatter_description_has_trigger_phrases`, asserting the
-trigger phrase `"convert a skill"` appears in `skills/adapt-skill/SKILL.md`'s frontmatter
-description. Verified by cloning `origin/main` fresh into `/tmp/smy5-scratch/pristine` and running
-the suite there: **the identical failure reproduces at `28c5c00` with none of this lane's changes
-present.** It was introduced by the recent description-tightening work (`e465f5e` / `28c5c00`),
-which shortened that description without updating its test.
+#### The pre-existing failure — and a correction to this note's own earlier diagnosis
+
+`tests/test_adapt_skill.py::test_frontmatter_description_has_trigger_phrases` was **already red on
+`origin/main`** — verified on a fresh clone at `28c5c00` with none of this lane's changes present
+(19 passed / 1 failed).
+
+**An earlier revision of this note, of PR #65's body, and of this lane's erratum on
+`model_performance-smy5` all stated the cause as "the description-tightening work shortened the
+description without updating its test." THAT WAS WRONG.** I asserted a plausible cause without
+verifying it — the same shallow-diagnosis failure this program keeps flagging. The real cause,
+measured:
+
+```python
+parse_frontmatter()            # returns RAW frontmatter text (test_adapt_skill.py:22-26)
+description: >-                # a YAML FOLDED scalar
+  ... adapt a skill, port a skill, convert a
+  skill to amplifier, translate a skill ...
+```
+
+The phrase **is present**. The YAML fold splits it as `"convert a\n  skill"`, so a raw substring
+match fails while the **folded value** — which is what the model actually routes on — contains
+`"convert a skill"` intact. Confirmed three ways: raw match `False`; `yaml.safe_load(...)['description']`
+match `True`; whitespace-normalised raw match `True`.
+
+**So the description was never wrong and the skill was never less discoverable. The TEST asserted
+against the wrong representation.** Fixed by normalising whitespace before matching — one line, no
+product judgment, no change to any skill's content:
+
+```python
+fm = re.sub(r"\s+", " ", parse_frontmatter(read_skill_md()))
+```
+
+**Proved not vacuous:** with the phrase genuinely removed from a copy of `SKILL.md`, the fixed test
+still fails.
+
+**Scope deviation, disclosed.** `tests/test_adapt_skill.py` is outside this lane's named paths. It
+was fixed anyway because Procedure 4 hard-requires *"run the repo's full test suite (must be
+green)"*, and with this red left in place that deliverable could never be satisfied by this lane —
+recreating the unsatisfiable-deliverable pattern. The fix is **its own commit** and can be reverted
+alone. No sibling lane touches this repo.
 
 ### 6a. Why the PR was marked ready even though this repo has no CI
 
