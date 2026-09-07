@@ -1,6 +1,8 @@
 # Lane j1e6-ci-skills — DONE-NOTE
 
 **Item:** `model_performance-2un7` — CI for `microsoft/amplifier-bundle-skills` (had none).
+**Audit repair:** `model_performance-5587` — make the visibility guards visible by name in a
+green run (see "Audit repair" below).
 **Outcome branch: A (RESOLVED).** Every deliverable is DONE. No deliverable was cap-bound.
 **Terminal word: RESOLVED.**
 
@@ -28,7 +30,7 @@ Four jobs, all free — no API keys, no LLM, ~2 min wall clock:
 |---|---|---|
 | `Lint (ruff)` | `uvx ruff@0.15.7 check .` | whole repo |
 | `Tests — root` | `python -m pytest tests -q -ra --tb=short` on 3.11 / 3.12 / 3.13 | 27 tests |
-| `Tests — modules/tool-skills` | `uv sync --frozen --extra remote-sources` then `python -m pytest -q -ra --tb=short` | 315 tests |
+| `Tests — modules/tool-skills` | `uv sync --frozen --extra remote-sources` then `python -m pytest -v -ra --tb=short` | 315 tests |
 | `Bundle structure` | `.github/scripts/check_bundle_structure.py` | 41 YAML surfaces |
 
 Plus `ruff.toml` at the repo root — without it *nothing* here pins a lint configuration (no
@@ -93,6 +95,56 @@ quoted red is of the exact file being merged.
 
 **GREEN run:** https://github.com/microsoft/amplifier-bundle-skills/actions/runs/34156726801 —
 all six jobs green on `fbeb717a4b2586912b184bf6f3a3529cb972f7be`.
+
+## Audit repair (`model_performance-5587`) — the guards are now named in the green log
+
+**The gap.** The workflow above genuinely ran the guard tests, but the module job invoked
+`pytest -q`, so a green log reported only an aggregate — `314 passed, 1 skipped`. An aggregate
+cannot prove any *particular* test ran: delete or rename `test_visibility_budget.py` /
+`test_visibility_line_cap.py` and the number simply gets smaller while the run stays green.
+That is the exact vacuous-green failure mode the rest of this CI was built to close, left open
+in the one place this lane exists for.
+
+**The change.** One character in one step, `ci: run the module suite with -v ...`
+(`245b27ba9c6c39cac0c5b624a24fb85c349a7611`): the module job's
+`python -m pytest -q -ra --tb=short` became `python -m pytest -v -ra --tb=short`. `-v` prints
+one `path::test_name PASSED` line per test. **No test was changed, added, skipped or weakened;
+`-ra`, `--tb=short`, the fixtures guard, the `--frozen --extra remote-sources` sync and every
+other job are untouched.** The suite still runs in full — this changes only what the log reports.
+
+**Readback from the remote green run** (not from the local run):
+https://github.com/microsoft/amplifier-bundle-skills/actions/runs/34163453241 — all six jobs
+`success` on `245b27ba9c6c39cac0c5b624a24fb85c349a7611`. Fetched with
+`gh api repos/microsoft/amplifier-bundle-skills/actions/jobs/101869779846/logs`
+(job `Tests — modules/tool-skills`); timestamps stripped, otherwise verbatim:
+
+```
+tests/test_visibility_budget.py::test_default_config_is_budget_mode PASSED [ 88%]
+tests/test_visibility_line_cap.py::test_description_within_the_cap_is_verbatim PASSED [ 93%]
+```
+
+Those are the first line each guard file contributes. The same green log carries **15**
+`tests/test_visibility_budget.py::` lines and **13** `tests/test_visibility_line_cap.py::`
+lines — every test in both files, each individually named `PASSED`, `FAILED`/`ERROR` count 0.
+
+**Full-suite result in that same green job, unchanged from before:**
+
+```
+======================== 314 passed, 1 skipped in 1.61s ========================
+SKIPPED [1] tests/test_real_session.py:28: the `amplifier` CLI is not on PATH -- ...
+```
+
+**Confirmed installed, not merely configured.** PR #68 was squash-merged to `main` as `dbd5201`
+while this readback was in flight, so the same evidence exists on `main` itself: push run
+https://github.com/microsoft/amplifier-bundle-skills/actions/runs/34163943164, all six jobs
+green on `dbd5201bd90aa2e88dd0814b40948388ef0c29a4`, job `Tests — modules/tool-skills`
+(`101871165945`) carrying the identical **15** + **13** named guard lines and the identical
+`314 passed, 1 skipped in 1.61s`.
+
+Run locally first with the byte-identical command
+(`uv run --frozen --extra remote-sources python -m pytest -v -ra --tb=short` in
+`modules/tool-skills`): exit 0, `315 passed` — 315 rather than 314 because the `amplifier` CLI
+*is* on PATH on this machine, which is finding 2 above behaving exactly as designed.
 
 ## Clean main was red — twice. Neither papered over.
 
@@ -160,7 +212,9 @@ deliverable's cost is structurally zero, so there is no cap-bound gap and no OUT
 finding to report. No API keys were used, no infrastructure was created, so nothing was
 registered in the infra ledger and nothing needed tearing down.
 
-CI minutes actually consumed: 3 runs x 6 jobs (~2 min wall clock each run).
+CI minutes actually consumed: 4 runs x 6 jobs (~2 min wall clock each run) — the fourth being
+the audit-repair readback run 34163453241. The `-q` -> `-v` change adds ~300 log lines per run
+and no measurable time (1.61s vs 1.52s for the same suite).
 
 ## What remains open (for whoever picks this up)
 
