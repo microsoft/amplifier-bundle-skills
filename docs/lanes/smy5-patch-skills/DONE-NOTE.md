@@ -86,11 +86,11 @@ neither number can be misread later.
 
 | File | Stock chars | Lean chars | Saved | Stock bytes | Lean bytes |
 |---|---:|---:|---:|---:|---:|
-| `context/skills-instructions.md` | 4,478 | 1,993 | **2,485** (−55.5%) | 4,494 | 2,009 |
+| `context/skills-instructions.md` | 4,478 | **2,022** | **2,456** (−54.8%) | 4,494 | 2,041 |
 | `load_skill` description (`modules/tool-skills/…/__init__.py`) | 1,647 | 968 | **679** (−41.2%) | 1,647 | 968 |
-| **Total** | **6,125** | **2,961** | **3,164** | | |
+| **Total** | **6,125** | **2,990** | **3,135** | | |
 
-Both figures reproduce zc6t's `fidelity-report.json` entries exactly
+The context file is **1,993 + 29** — the 29 are an `ly85` restoration (§4a). Pre-restoration both figures reproduced zc6t's `fidelity-report.json` entries exactly
 (`stock_chars` 4478/1647, `lean_chars` 1993/968, `saved_chars` 2485/679) — i.e. **this repo has not
 drifted since it was measured**, and the saving is the measured saving, not a re-estimate.
 
@@ -138,6 +138,47 @@ Non-normative material the compression did drop, named rather than hidden: the t
 in the progressive-disclosure list (`~100 tokens`, `~1-5k tokens`, `0 tokens`) and the phrase
 *"via list/search"*. These are descriptive sizing, not rules; the operations they gesture at are in
 the `load_skill` tool description, which ships in the same request.
+
+### 4a. `ly85` SECOND PASS — sentence coverage, because pass 1 shares zc6t's blind spot
+
+Lane `smy5-patch-wayfinder` proved, in this same batch, that a token/atom checker misses a dropped
+**plain-prose constraint**: zc6t scored `wayfinder-voice.md` `missing_rules: []` while the lean draft
+had silently dropped *"A good moment conveys or offers one true, useful thing at almost no attention
+cost."* Restored at +84 chars, filed as **`model_performance-ly85`**, flagged **URGENT for every lane
+still applying these artifacts**.
+
+**My pass-1 checker has the same class of blind spot** — it extracts atoms (code spans, URLs, slash
+commands, identifiers) plus a short keyword list. A constraint phrased in plain prose is invisible to
+it. So the recommended second pass was implemented and run:
+`docs/lanes/smy5-patch-skills/sentence_coverage_check.py` — for each **stock sentence**, the fraction
+of its content words surviving anywhere in lean; below 0.60 is flagged. Deterministic, no model, $0.
+
+**16 sentences flagged. 15 adjudicated non-losses. 1 RESTORED.**
+
+**The restoration.** Stock: *"The skills expert (`/skills-assist`) is an **authoritative** consultant
+…"*. The lean draft pointed at skills-assist but never said it was **authoritative** — degrading a
+statement of *precedence* into a mere signpost. Nothing else in lean carried it. Restored at
+**+29 chars** (1,993 → 2,022) and pinned:
+
+```
+… and skills-vs-agents — the authoritative source is `load_skill(skill_name="skills-assist")` …
+```
+
+Coverage on that sentence moved 0.47 → 0.53; the words still missing are elaboration nouns
+(*consultant, covering, patterns, format, framework*), not the constraint.
+
+**Why restore a borderline call rather than argue it away.** The asymmetry decides it: a wrong
+restore costs **29 characters**; a wrong drop ships a silently weakened instruction into the
+always-on head of *every session*. `ly85` exists because that second failure already happened once in
+this batch.
+
+The other 15 flags are headings, framing sentences, and elaboration whose rule survives verbatim in
+lean (e.g. *"When in doubt, ask `/skills-assist`"* → *"unsure → `/skills-assist`"*). The token-count
+estimates (`~100 tokens`, `~1-5k tokens`, `0 tokens until accessed`) remain declared
+drops-by-design — descriptive sizing, not rules.
+
+**Both passes now clean, not one.** zc6t's `missing_rules` for index 5 is corroborated — but per
+`ly85` it must be read as *"no TOKEN missing"*, never *"nothing missing"*.
 
 ---
 

@@ -28,7 +28,7 @@ TOOL_MODULE = REPO / "modules" / "tool-skills" / "amplifier_module_tool_skills" 
 
 # Measured at application time. Ceilings sit ~15% above the pinned value so a small
 # honest edit passes while a drift back toward stock (4,478 / 1,647) fails.
-CONTEXT_CHARS_AT_PIN = 1993
+CONTEXT_CHARS_AT_PIN = 2022  # 1993 + 29 (ly85 'authoritative' restoration)
 CONTEXT_CHARS_CEILING = 2300
 CONTEXT_CHARS_STOCK = 4478
 
@@ -89,6 +89,8 @@ CONTEXT_REQUIRED = [
     "#subdirectory=",
     "skills-assist",
     "authoring-guide.md",
+    # ly85 restoration: skills-assist is the AUTHORITY, not merely a pointer
+    "authoritative",
     # skill-vs-agent decision
     "delegate",
     "parallel delegation",
