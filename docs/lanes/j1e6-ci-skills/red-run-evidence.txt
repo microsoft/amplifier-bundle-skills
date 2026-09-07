@@ -1,0 +1,23 @@
+RED PROOF — run 34156222957 (scratch/j1e6-ci-red-proof @ a75782262d056cae722b0fe11ff076d4b2f28d6b)
+https://github.com/microsoft/amplifier-bundle-skills/actions/runs/34156222957
+
+--- job conclusions ---
+success	Lint (ruff)
+success	Bundle structure
+failure	Tests — modules/tool-skills
+failure	Tests — root (Python 3.12)
+failure	Tests — root (Python 3.13)
+failure	Tests — root (Python 3.11)
+
+--- Tests — root (all three Pythons): real suite executing ---
+Tests — root (Python 3.12)	Run root tests	2026-09-07T19:36:44.1959385Z FAILED tests/test_ci_red_proof_DELETEME.py::test_ci_can_go_red_root_suite - AssertionError: deliberate failure: proving the root suite really executes in CI
+Tests — root (Python 3.12)	Run root tests	2026-09-07T19:36:44.1961198Z 1 failed, 27 passed in 0.07s
+Tests — root (Python 3.13)	Run root tests	2026-09-07T19:36:44.5664785Z FAILED tests/test_ci_red_proof_DELETEME.py::test_ci_can_go_red_root_suite - AssertionError: deliberate failure: proving the root suite really executes in CI
+Tests — root (Python 3.13)	Run root tests	2026-09-07T19:36:44.5665468Z 1 failed, 27 passed in 0.05s
+Tests — root (Python 3.11)	Run root tests	2026-09-07T19:36:41.7041078Z FAILED tests/test_ci_red_proof_DELETEME.py::test_ci_can_go_red_root_suite - AssertionError: deliberate failure: proving the root suite really executes in CI
+Tests — root (Python 3.11)	Run root tests	2026-09-07T19:36:41.7041951Z 1 failed, 27 passed in 0.06s
+
+--- Tests — modules/tool-skills ---
+2026-09-07T19:42:51.7367495Z SKIPPED [1] tests/test_real_session.py:28: the `amplifier` CLI is not on PATH -- this is an integration smoke against the installed application, which is not a dependency of this module
+2026-09-07T19:42:51.7369084Z FAILED tests/test_ci_red_proof_DELETEME.py::test_ci_can_go_red_module_suite - AssertionError: deliberate failure: proving the tool-skills suite really executes in CI
+2026-09-07T19:42:51.7370146Z 1 failed, 314 passed, 1 skipped in 1.38s
