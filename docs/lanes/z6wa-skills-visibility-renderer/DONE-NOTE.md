@@ -47,6 +47,27 @@ Result (`evidence/deliverables-check.txt`):
 AC5 is not among the seven. It is an acceptance criterion of the *item* asking for an API
 measurement the *goal* forbids — see §9.
 
+## 0b. READ THIS NUMBER CORRECTLY — 5,350 is the TARGET, not the live size
+
+This has already been misread once in review, and misreading it under-counts the
+opportunity by ~4x, so it is stated here before anything else.
+
+`v1_instructions.json` span 11 carries **only a `new` field — there is no `old` field at
+all**. Its 5,350 chars are the **LEAN REPLACEMENT TEXT**: what the block was supposed to
+become. GOAL.md:56 says so in as many words — *"their **lean blocks** would be 861 + 5,350 =
+6,211 chars"*.
+
+| | chars |
+|---|---:|
+| the block as the LIVE system renders it (stock @ HEAD, 93-skill catalog) | **22,246** |
+| v1's aspiration for it | 5,350 (for its own 50-skill session) |
+| what this branch renders | **11,701** |
+
+So "the span is 5,350 chars today" is wrong by ~4x, and it would make an 11,701-char render
+look like a regression when it is a **−47.4 % cut from 22,246**. Whoever carries these
+figures into the head census: the live number is **22,246**, the shipped number is
+**11,701**, and 5,350 was never a size the renderer alone could reach (§2).
+
 ## 0a. LANDING STAGE — this lane's bar, stated as the goal requires
 
 The goal's LANDING STAGE clause requires any deliverable that would read as *"the live
