@@ -1,3 +1,23 @@
+> # ⚠ SUPERSEDED — THE OUTCOME IS NOW **BRANCH A (RESOLVED)**
+>
+> This file was an accurate record while it stood, and it is kept for the audit trail rather than
+> deleted. **A fact changed.** At **2026-09-07T17:17:57Z** the holder resolved
+> `model_performance-smy5` (`status: resolved`, `closed_at` set, user-readable resolution present),
+> and its process (PID 3875147) has since exited. Branch A reads *"the item **is resolved** … AND the
+> deliverables exist"* — a **state**, not an actor. Both conjuncts now hold:
+>
+> - **Item resolved** — by the holder, whose scope covered all 13 repos.
+> - **Deliverables exist** — PR #65, ready, not merged.
+>
+> This lane's slice is on the item's record via `work_erratum` (append-only, no claim required — the
+> one verb available to a non-holder, and only once the item became *resolved*). All four concurrent
+> lanes are now named: app-cli in the resolution, wayfinder + routing-matrix + skills in errata.
+>
+> The re-decision below is justified **because a number changed**, which is exactly the condition the
+> goal sets for re-deciding a terminal state. See `DONE-NOTE.md` §7.
+
+---
+
 # BLOCKED — lane `smy5-patch-skills` (`amplifier-bundle-skills`)
 
 **OUTCOME BRANCH C.** The outcome is unreachable **for a reason other than the cap**: the claim on

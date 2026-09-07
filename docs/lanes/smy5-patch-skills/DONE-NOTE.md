@@ -24,11 +24,18 @@ applied measured patches and ran a local pytest suite. The `$0` authority arithm
 | 6 | Draft PR, **marked ready** when its own CI is green, not merged | **DONE** — #65 opened draft, now `isDraft: false`, `state: OPEN`, `mergedAt: null`, `mergeable: MERGEABLE`. See §6a. |
 | 7 | DONE-NOTE at the lane artifact root | **DONE** — this file |
 
-**Terminal outcome: OUTCOME BRANCH C — BLOCKED.** See `BLOCKED.md` beside this file. The
-deliverables above landed and stay landed, but branch A requires the item to be **resolved** *and*
-the deliverables to exist; the claim on `model_performance-smy5` was refused by a live holder, so
-the first conjunct is unreachable by this session. "A refused claim" is enumerated under branch C by
-name. §7/F1 carries the detail.
+**Terminal outcome: OUTCOME BRANCH A — RESOLVED.** Both conjuncts hold. The item
+`model_performance-smy5` was **resolved at 2026-09-07T17:17:57Z** by its holder (whose scope covered
+all 13 repos; its process has since exited), and this lane's deliverables exist as PR #65 — ready,
+not merged. Branch A says the item *"is resolved"*, a **state**, not an actor.
+
+This lane's slice is recorded on the item via `work_erratum` at 17:29:11Z — append-only, no claim
+required, and the one terminal verb available to a non-holder. It only became available once the item
+became *resolved*; `work_erratum` refuses on an open item. All four concurrent lanes are now named on
+the record: app-cli in the resolution, wayfinder + routing-matrix + skills in errata.
+
+`BLOCKED.md` is retained, banner-superseded, as the audit trail of the interval when the claim was
+refused and the item was still open. §7/F1 carries the detail.
 
 ---
 
