@@ -1,0 +1,28 @@
+==============================================================================
+LANE z6wa — GOAL DELIVERABLES COMPLETENESS GATE
+Checked against shipped artefacts, not against this lane's own claims.
+==============================================================================
+  [PASS] D1 exact file + function NAMED
+         function present in source=True, file named in note=True, function named in note=True
+  [PASS] D2 compressed TEMPLATE, never a hardcoded string, split stated
+         v1 lines leaked into source=0, assembles per-skill lines=True, template/data split stated in note=True
+  [PASS] D3 BEFORE/AFTER captured + a DIFFERENT skill set, bytes quoted
+         captures present=True, full shrank=True, different-catalog shrank=True, byte figures quoted in note=True
+  [PASS] D4 FIDELITY TABLE, nothing dropped
+         fidelity-full.txt=PASS, fidelity-small.txt=PASS
+  [PASS] D5 test pinning the composed output (suite green)
+         pin test present=True, suite: 313 passed, 1 warning in 0.84s
+  [PASS] D6 CI stated plainly (repo has none)
+         .github present=False, note says no CI=True, names the one org check=True, disclaims a green run=True
+  [PASS] D7 DRAFT PR, not merged
+         #66 draft=True state=OPEN https://github.com/microsoft/amplifier-bundle-skills/pull/66
+  [PASS] AC5 NOT-POSSIBLE recorded per the goal's rules
+         leads with what was executed=True, names the authority that would close it=True, quotes the goal's prohibition=True, follow-on filed=True
+
+GOAL DELIVERABLES: 7/7 PASS
+AC5 disposition recorded per the goal's rules: YES
+
+VERDICT: COMPLETE
+  All seven DELIVERABLES shipped. AC5 is NOT-POSSIBLE because the goal
+  authorises no API measurement — recorded, priced, and carried forward
+  as model_performance-i5n9. Terminal outcome: branch B, state resolved.

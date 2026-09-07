@@ -17,6 +17,38 @@ local rendering of the shipped code against on-disk skill catalogs.
 
 ---
 
+## 0. COMPLETENESS GATE — run it, don't take my word for it
+
+`deliverables_check.py` verifies each of the goal's **seven DELIVERABLES** against the
+**shipped artefacts** — source, evidence files, the live test suite, and the PR read back
+from GitHub — not against anything this note claims. It also verifies the two things the
+goal requires *about* a NOT-POSSIBLE item, so AC5's disposition is checked rather than
+trusted.
+
+```
+python3 docs/lanes/z6wa-skills-visibility-renderer/deliverables_check.py --with-pr
+```
+
+Result (`evidence/deliverables-check.txt`):
+
+| # | deliverable | check |
+|---|---|---|
+| D1 | exact file + function NAMED | **PASS** — `_format_skills_list` present in source and named in this note |
+| D2 | compressed TEMPLATE, never a hardcoded string, split stated | **PASS** — **0** v1 lines leaked into source; block assembled per-skill; split stated |
+| D3 | BEFORE/AFTER + a DIFFERENT skill set, bytes quoted | **PASS** — four captures present, both catalogs shrank, figures quoted |
+| D4 | FIDELITY TABLE, nothing dropped | **PASS** — both fidelity runs `VERDICT: PASS` |
+| D5 | test pinning the composed output | **PASS** — pin test present, suite **313 passed** |
+| D6 | CI stated plainly | **PASS** — no `.github`, the one org check named, green run disclaimed |
+| D7 | DRAFT PR, not merged | **PASS** — #66 `draft=True state=OPEN` |
+| AC5 | NOT-POSSIBLE recorded per the goal's rules | **PASS** — leads with what was executed, names the authority that would close it, quotes the goal's prohibition, follow-on filed |
+
+**GOAL DELIVERABLES: 7/7 PASS. VERDICT: COMPLETE.**
+
+AC5 is not among the seven. It is an acceptance criterion of the *item* asking for an API
+measurement the *goal* forbids — see §9.
+
+---
+
 ## 1. THE RENDERER, NAMED (deliverable 1 — DONE)
 
 The previous lane (`zc6t`) could not act because spans 10 and 11 of
