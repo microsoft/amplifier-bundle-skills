@@ -1,0 +1,19 @@
+# Ruff configuration for amplifier-bundle-skills.
+#
+# This file exists so `ruff check .` means the SAME thing locally and in CI.
+# Without it, ruff walks up the filesystem looking for a config and can pick up
+# an unrelated parent-directory pyproject.toml -- which is how a local run and a
+# CI run silently disagree about which rules are even enabled. There is no root
+# pyproject.toml here (this repo is a BUNDLE, not a Python package), and
+# modules/tool-skills/pyproject.toml carries no [tool.ruff] block, so without
+# this file NOTHING in the repo has a pinned lint configuration.
+#
+# Settings match the sibling bundle repos microsoft/amplifier-bundle-routing-matrix
+# and microsoft/amplifier-bundle-context-intelligence, so the bundles lint alike.
+#
+# Rule selection is ruff's default (E4, E7, E9, F). CI pins the ruff VERSION
+# (see .github/workflows/ci.yml) because "default rules" is a moving target: a
+# linter that is not version-pinned turns an unrelated upstream release into a
+# red PR nobody changed anything to cause.
+target-version = "py311"
+line-length = 100

@@ -1,0 +1,164 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Minimal read-only token — no secrets needed or exposed.
+# Safe for Dependabot PRs and external fork contributors.
+#
+# NOTE: nothing in this workflow calls an LLM. Skills are prose, and the
+# temptation is to "validate" them with a model — that needs API keys and costs
+# money per run, so it is deliberately NOT wired here. Everything below is free,
+# offline apart from dependency resolution, and finishes in about two minutes.
+#
+# There are NO path filters, NO `continue-on-error` and NO `|| true` anywhere in
+# this file, on purpose. Each of those is a way for a run to be green vacuously.
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Lint — ruff, at a PINNED version.
+  #
+  # The version pin is load-bearing, not fussiness. "ruff's default rules" is a
+  # moving target, so an unpinned linter turns an unrelated upstream release
+  # into a red PR nobody changed anything to cause. 0.15.7 is the version this
+  # repo's own committed lockfile resolves (modules/tool-skills/uv.lock), so CI
+  # lints with exactly the ruff a contributor gets from `uv sync` there.
+  #
+  # Rule selection lives in ruff.toml at the repo root, so this is byte-for-byte
+  # the command a contributor runs locally.
+  #
+  # `ruff format --check` is NOT wired here, on purpose. This repo has never
+  # been ruff-formatted: at 0.15.7 defaults, `ruff format` would rewrite 19 of
+  # 56 files. That is a whitespace-normalisation change, and it does not belong
+  # in the PR that introduces CI — it would collide with every in-flight branch.
+  # Naming it here so the next contributor sees a decision rather than an
+  # oversight; wiring it is a follow-up and the diff is purely mechanical:
+  # `uvx ruff@0.15.7 format .`
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: astral-sh/setup-uv@ae62891fec2bb8e7d6c99fc78c9fec3a63790f8d # v10.0.0
+        with:
+          enable-cache: true
+
+      - name: Lint
+        run: uvx ruff@0.15.7 check .
+
+  # ---------------------------------------------------------------------------
+  # Repo-root test suite (tests/) across supported Python versions.
+  #
+  # There is no root pyproject.toml or lockfile — this repo is a BUNDLE, not a
+  # Python package, and only modules/* are installable. So the root suite runs
+  # in an ephemeral uv environment with its one actual dependency, pytest. The
+  # root tests read files (bundle.md, skills/*/SKILL.md, the tool-skills source)
+  # with pathlib and re; they import nothing from this repo, so nothing needs
+  # installing.
+  # ---------------------------------------------------------------------------
+  test-root:
+    name: Tests — root (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - uses: astral-sh/setup-uv@ae62891fec2bb8e7d6c99fc78c9fec3a63790f8d # v10.0.0
+        with:
+          enable-cache: true
+
+      - name: Run root tests
+        run: >
+          uv run --no-project --python ${{ matrix.python-version }}
+          --with pytest
+          python -m pytest tests -q --tb=short
+
+  # ---------------------------------------------------------------------------
+  # Per-module test suites. Each modules/* package owns its own pyproject.toml
+  # and uv.lock, so each gets its own matrix leg — add a directory name here
+  # when a second module lands.
+  #
+  # TWO non-obvious things, both of which silently weaken this job if dropped:
+  #
+  # 1. `--extra remote-sources` is REQUIRED, not optional. amplifier-foundation
+  #    is a runtime dependency resolved by amplifier's module system rather than
+  #    by the module's core dependencies, so it sits in an optional extra. A
+  #    plain `uv sync --frozen` + pytest here ABORTS COLLECTION:
+  #    `ModuleNotFoundError: No module named 'amplifier_foundation'` — measured
+  #    on this tree. With the extra: 315 passed.
+  #
+  # 2. `python -m pytest`, NOT `pytest`. The `pytest` console script does not
+  #    reliably see packages supplied by uv overlays, and this repo's sibling
+  #    bundle measured 14 spurious ModuleNotFoundError failures that way.
+  #    `python -m pytest` sees the environment that was actually built.
+  # ---------------------------------------------------------------------------
+  test-modules:
+    name: Tests — modules/${{ matrix.module }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - tool-skills
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: astral-sh/setup-uv@ae62891fec2bb8e7d6c99fc78c9fec3a63790f8d # v10.0.0
+        with:
+          enable-cache: true
+
+      - name: Install module dependencies
+        working-directory: modules/${{ matrix.module }}
+        # --frozen: use the module's committed lockfile exactly as-is; fail if
+        # it would need updating. This ensures Dependabot bumps are tested
+        # as-proposed rather than silently re-resolved.
+        run: uv sync --frozen --extra remote-sources
+
+      - name: Assert test fixtures are present (they gate 9 tests)
+        working-directory: modules/${{ matrix.module }}
+        # Nine tests call `pytest.skip("Fixtures directory not found")` when
+        # tests/fixtures/skills is absent. A skip is GREEN, so a future move of
+        # that directory would quietly delete nine tests' worth of coverage
+        # without ever turning a run red. This step converts that into a
+        # failure the moment it happens.
+        run: test -d tests/fixtures/skills
+
+      - name: Run module tests
+        working-directory: modules/${{ matrix.module }}
+        run: uv run --frozen --extra remote-sources python -m pytest -q --tb=short
+
+  # ---------------------------------------------------------------------------
+  # Bundle structure — a cheap YAML parse of bundle.md's frontmatter, every
+  # behaviors/*.yaml, and every skills/*/SKILL.md. No network, no keys, ~1s.
+  #
+  # SKILL.md frontmatter is the payload of a SKILLS bundle: a skill whose
+  # frontmatter does not parse is invisible at runtime, and nothing else in this
+  # repo notices. The script treats an EMPTY glob as a failure — a check that
+  # reports "0 problems in 0 files" and exits 0 looks exactly like a working one.
+  # ---------------------------------------------------------------------------
+  bundle-structure:
+    name: Bundle structure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: astral-sh/setup-uv@ae62891fec2bb8e7d6c99fc78c9fec3a63790f8d # v10.0.0
+        with:
+          enable-cache: true
+
+      - name: Check bundle structure
+        run: uv run --no-project --with pyyaml python .github/scripts/check_bundle_structure.py
