@@ -225,10 +225,14 @@ Net +10 = 12 new − 2 removed (`test_first_sentence_truncated_to_140_chars`,
 
 ## 8. CI — SAY IT PLAINLY
 
-**`amplifier-bundle-skills` has NO CI checks at all.** There is no `.github/workflows`
-directory in this repo, and `gh pr checks` returns an **empty** list — **not** a green one.
-Nothing in this PR or this note implies a green CI run. Item `model_performance-2un7`
-exists to add CI here. The suite above was run locally, on this host, with `uv run pytest`.
+**This repo has NO CI workflows of its own** — there is no `.github/` directory at all.
+The goal text predicted `gh pr checks` would return an empty list; **read back, it does
+not**: it returns exactly one entry, the org-wide `license/cla` bot, which reports **pass**.
+That is a Contributor-License-Agreement check, **not a test or build gate** — nothing in
+this repo compiles, lints, or runs a test on a PR. So there is no green CI run to point at
+for this change, and nothing here should be read as implying one.
+`model_performance-2un7` exists to add real CI. The suite above was run locally with
+`uv run pytest` from `modules/tool-skills`.
 
 ---
 
@@ -272,7 +276,7 @@ spending anything, and nothing was spent.
 | 3 | Before/after render from a scratch session with bytes quoted, plus a different skill set | **DONE** (§4) |
 | 4 | Fidelity table; anything dropped restored with byte delta | **DONE — PASS** (§5) |
 | 5 | Test pinning composed output to the lean shape | **DONE** (§6) |
-| 6 | CI green if this repo has CI | **DONE — stated plainly: this repo has NO CI** (§8) |
+| 6 | CI green if this repo has CI | **DONE — stated plainly: no CI workflows; the one PR check is the org CLA bot, pass** (§8) |
 | 7 | Draft PR; the manager merges | **DONE** (see DONE.json `publication`) |
 | — | Wire-head census + guardrail re-derivation | **NOT-POSSIBLE at $0** (§9) |
 
