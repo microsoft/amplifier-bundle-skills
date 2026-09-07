@@ -154,7 +154,7 @@ def main() -> int:
 
     v1_block = json.loads(V1.read_text())[11]["new"].rstrip("\n")
     v1_names = [
-        m.group(1) for m in (SKILL_LINE.match(l) for l in v1_block.split("\n")) if m
+        m.group(1) for m in (SKILL_LINE.match(line) for line in v1_block.split("\n")) if m
     ]
 
     print("=" * 74)
