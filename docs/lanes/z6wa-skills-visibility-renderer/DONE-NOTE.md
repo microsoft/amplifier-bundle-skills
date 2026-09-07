@@ -2,8 +2,14 @@
 
 **Item:** `model_performance-z6wa` (skills half only; the routing-matrix half is queued separately and was NOT touched).
 **Repo:** `microsoft/amplifier-bundle-skills`, branch `lane/z6wa-skills-visibility-renderer`.
-**Outcome:** branch **A — RESOLVED**. Every deliverable is DONE except one, which is
-NOT-POSSIBLE-at-$0 and is recorded as such below with what WAS executed.
+**Outcome:** branch **B — RESOLVED AT THE CAP**, satisfied by construction: acceptance
+criterion 5 resolves **NOT-POSSIBLE because of the cap**. Branch B uses branch A's verb, so
+the terminal **state** is `resolved` — the same state, correctly named. (An earlier version
+of this note and of `DONE.json` said branch A. That was a mislabelling inside one terminal
+state, corrected by erratum on the item; no measurement moved and nothing was re-run. The
+goal's own warning against terminal-state churn is respected: `resolved` never changed.)
+
+Per-criterion ledger in §10a. The goal's seven DELIVERABLES are all **DONE** (§10b).
 **Spend:** **$0.00** of a **$0.00** authority (`0 runs × 0 arms × $0 / 1.00 = $0.00`, slack $0.00).
 No API calls, no DTU, no infrastructure created, nothing to tear down. All measurement is
 local rendering of the shipped code against on-disk skill catalogs.
@@ -236,7 +242,7 @@ for this change, and nothing here should be read as implying one.
 
 ---
 
-## 9. NOT-POSSIBLE at $0 (outcome branch B, for this ONE deliverable)
+## 9. AC5 — NOT-POSSIBLE at $0 (the branch-B trigger)
 
 **Deliverable:** *"the ADDITIONAL wire-head reduction on top of zc6t is measured and quoted
 before/after, and zc6t's guardrail threshold is re-derived rather than left stale."*
@@ -267,7 +273,33 @@ spending anything, and nothing was spent.
 
 ---
 
-## 10. DELIVERABLE LEDGER
+## 10a. ACCEPTANCE-CRITERION LEDGER (the item's own five "Given" clauses)
+
+Stated in the goal's vocabulary — **DONE** or **NOT-POSSIBLE-with-reason** — so the terminal
+outcome is checkable rather than inferred.
+
+| AC | criterion | state |
+|---|---|---|
+| 1 | exact file + function named; compression applied at the point of composition, never a captured artifact, never a hardcoded string | **DONE** (§1, §3) |
+| 2 | PR states template vs per-session data **AND** the template yields the v1 shape for the v1 session | **SPLIT** — split statement **DONE** (§2); "yields the v1 shape" **NOT-POSSIBLE**, reason **STRUCTURAL, not the cap** (§2, below) |
+| 3 | stock-vs-lean fidelity diff; expected none dropped; anything dropped restored with byte delta | **DONE — PASS** both catalogs (§5) |
+| 4 | a test pinning composed output to the lean shape for a fixed input set | **DONE** (§6) |
+| 5 | ADDITIONAL wire-head reduction measured before/after; zc6t's guardrail threshold re-derived | **NOT-POSSIBLE AT THE CAP — this is the branch-B trigger** (§9) |
+
+**AC2's NOT-POSSIBLE is structural, and that distinction matters.** It is *not* a cap
+failure and it does *not* push the outcome to branch C, because the outcome itself was
+reached. EXECUTED: the v1 session's own skill set (46 of its 50 present here) rendered
+through both renderers — stock 17,576 → lean 7,691 chars (−56.2 %) against v1's 5,350 for
+50, ≈1.56× scaled. The residual is hand-rewritten **description** text, which no renderer
+can produce. Measured and proven, not asserted.
+
+**AC5's NOT-POSSIBLE is the cap, and it leads with what ran**, per the goal's rule: two full
+renderer censuses, a 46-skill v1-subset census, a 25-point budget × cap sweep, fidelity
+diffs on both catalogs, and a 312-test suite run — all $0, all local. The composed-size half
+is delivered in full (−10,545 chars, −47.4 %). Only the wire half is unfunded: ≥ $13.16 for
+one arm-pair against $0.00 remaining.
+
+## 10b. DELIVERABLE LEDGER (the goal's own seven)
 
 | # | deliverable | state |
 |---|---|---|
