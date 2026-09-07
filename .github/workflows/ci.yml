@@ -82,10 +82,13 @@ jobs:
           enable-cache: true
 
       - name: Run root tests
+        # `-ra` prints a short summary of every non-passing outcome, INCLUDING
+        # skips and their reasons. A skip is green, so without this a test that
+        # quietly stopped running looks exactly like a test that passed.
         run: >
           uv run --no-project --python ${{ matrix.python-version }}
           --with pytest
-          python -m pytest tests -q --tb=short
+          python -m pytest tests -q -ra --tb=short
 
   # ---------------------------------------------------------------------------
   # Per-module test suites. Each modules/* package owns its own pyproject.toml
@@ -139,7 +142,13 @@ jobs:
 
       - name: Run module tests
         working-directory: modules/${{ matrix.module }}
-        run: uv run --frozen --extra remote-sources python -m pytest -q --tb=short
+        # `-ra` is load-bearing here: tests/test_real_session.py is an
+        # integration smoke against the installed `amplifier` CLI, which is a
+        # separate application and is legitimately absent on a runner. It skips
+        # itself with a reason, and `-ra` puts that reason in the job log so the
+        # skip is visible rather than passing for coverage. Expect exactly one
+        # skip on a stock runner: 314 passed, 1 skipped.
+        run: uv run --frozen --extra remote-sources python -m pytest -q -ra --tb=short
 
   # ---------------------------------------------------------------------------
   # Bundle structure — a cheap YAML parse of bundle.md's frontmatter, every
