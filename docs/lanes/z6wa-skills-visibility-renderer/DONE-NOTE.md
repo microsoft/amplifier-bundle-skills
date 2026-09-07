@@ -243,36 +243,53 @@ for this change, and nothing here should be read as implying one.
 
 ---
 
-## 9. AC5 — NOT-POSSIBLE at $0 (the branch-B trigger)
+## 9. AC5 — NOT AUTHORISED by this goal, and now carried by `model_performance-i5n9`
 
 **Deliverable:** *"the ADDITIONAL wire-head reduction on top of zc6t is measured and quoted
 before/after, and zc6t's guardrail threshold is re-derived rather than left stale."*
 
-**WHAT WAS EXECUTED:** two full renderer censuses (93-skill and 38-skill catalogs), a
-46-skill v1-subset census, a 25-point budget × cap sweep, a stock-vs-lean fidelity diff on
-both catalogs, and a 312-test suite run — all $0, all local. The **composed-size** half of
-this deliverable is delivered in full in §4: **−10,545 chars (−47.4 %) on the block, on top
-of whatever `zc6t` landed on the ten file-backed spans, which this change does not touch.**
+**WHAT WAS EXECUTED:** two full renderer censuses (93- and 38-skill catalogs), a 46-skill
+v1-subset census, a 25-point budget × cap sweep, a stock-vs-lean fidelity diff on both
+catalogs, a shape-conformance check against the v1 target, and a 313-test suite run — all
+$0, all local. The **composed-size** half of this deliverable is delivered in full in §4:
+**−10,545 chars (−47.4 %) on the block**, on top of whatever `zc6t` landed on the ten
+file-backed spans, which this change does not touch.
 
-**WHAT COULD NOT BE BOUGHT:** the *wire* half. A wire-head census and a re-derived
-guardrail threshold require launching sessions against a provider and reading
-`cache_read` at compaction boundaries. Procedure step 3 of this lane's goal authorises
-**$0.00** and states plainly that **no API measurement is authorised**. The smallest
-indivisible purchase that would advance it is one arm-pair of launches — priced in
-`00-what-we-know.md` §2k at **$6.58 (opus) / $6.98 (terra) per launch**, so **≥ $13.16**
-against **$0.00 remaining**. The residue is $0.00 and it cannot buy a single launch.
+**WHY THE WIRE HALF WAS NOT BOUGHT — and it is stronger than "unaffordable".** The goal's
+spend section enumerates the permitted scope — *"Code/text edits, a test run, a render
+measurement"* — and then states outright: **"No API measurement is authorised"**. A
+wire-head census **is** an API measurement. Performing it would have **violated the goal**.
+Omitting it was compliance, not shortfall. The cap is $0.00 and the smallest indivisible
+purchase is one arm-pair at **≥ $13.16** ($6.58 opus + $6.98 terra, `00-what-we-know.md`
+§2k); the residue is $0.00 and buys none of it.
 
-**The arithmetic in this goal closes.** The cap is stated as arithmetic
-(`0 × 0 × $0 / 1.00 = $0.00`) and the code deliverables are all $0 code/text work, so the
-authority is correctly sized for everything it was meant to fund. The wire-measurement
-deliverable was never fundable at this authority — knowable on first read, recorded before
-spending anything, and nothing was spent.
+**THE MISMATCH, NAMED.** AC5 does not appear in the goal's **DELIVERABLES** list at all —
+that list is the seven items in §10b, every one $0 code/text/render work and every one DONE.
+The gap is between the **item's acceptance criteria** and the **goal's authority**, not
+inside either. Recorded rather than absorbed, per the goal: *"An authority that was mis-sized
+is a defect in the goal, not a failure of the lane."*
 
-**Recommendation for the manager:** fold the wire-head census into the item that re-derives
-`zc6t`'s guardrail after **both** hook blocks have landed (this one and the routing-matrix
-861-char half). Measuring the wire head twice — once per half — buys the same answer twice.
+**FILED, not left dangling:** **`model_performance-i5n9`** — *"Wire-head census + zc6t
+guardrail re-derivation, ONCE, after BOTH hook blocks land"*, linked `follow-up-of` this
+item. It carries what z6wa already delivered (so it is not re-bought), the ≥ $13.16
+arithmetic, the reuse-don't-reinvent guardrail note, and g7h3's opposite-sign provider
+caution.
 
----
+**Why once, not twice:** the two hook blocks land from two separate lanes. Measuring the
+wire head per-half buys the same answer twice at full price.
+
+## 9a. "PARTIAL" is not an available state here — by this goal's own text
+
+Branch B is not a downgraded branch A. Verbatim from the goal:
+
+> **A cap that binds is a RESULT, not a blocker**, and it is the NORMAL end state for a
+> capped measurement lane.
+
+> Do not invent a vocabulary word for it (`PARTIAL`, `DONE-WITH-GAP-STATED`,
+> `UNDERPOWERED-AT-CAP` as a *deliverable* state) — say which deliverables are DONE, which
+> are NOT-POSSIBLE and why, and give the item's own terminal word.
+
+That is exactly what §10a does. The item's terminal word is `resolved`.
 
 ## 10a. ACCEPTANCE-CRITERION LEDGER (the item's own five "Given" clauses)
 
@@ -285,7 +302,7 @@ outcome is checkable rather than inferred.
 | 2 | PR states template vs per-session data **AND** the template yields the v1 shape for the v1 session | **DONE** — both halves (§2, §10a below) |
 | 3 | stock-vs-lean fidelity diff; expected none dropped; anything dropped restored with byte delta | **DONE — PASS** both catalogs (§5) |
 | 4 | a test pinning composed output to the lean shape for a fixed input set | **DONE** (§6) |
-| 5 | ADDITIONAL wire-head reduction measured before/after; zc6t's guardrail threshold re-derived | **NOT-POSSIBLE AT THE CAP — this is the branch-B trigger** (§9) |
+| 5 | ADDITIONAL wire-head reduction measured before/after; zc6t's guardrail threshold re-derived | **NOT-POSSIBLE — the goal authorises no API measurement; cap $0.00, ≥ $13.16 needed. The branch-B trigger. Carried by `model_performance-i5n9`** (§9) |
 
 ### AC2 — "yields the v1 shape for the v1 session": DONE, verified structurally
 
@@ -319,7 +336,7 @@ Neither AC2 nor the goal's DELIVERABLES ask the renderer to hit 5,350 chars; rea
 residual as an unmet objective inverts the template-vs-data distinction the item asked to
 have stated. Closing it is source-side description tightening (`kv98`).
 
-**AC5's NOT-POSSIBLE is the cap, and it leads with what ran**, per the goal's rule: two full
+**AC5's NOT-POSSIBLE leads with what ran**, per the goal's rule: two full
 renderer censuses, a 46-skill v1-subset census, a 25-point budget × cap sweep, fidelity
 diffs on both catalogs, and a 312-test suite run — all $0, all local. The composed-size half
 is delivered in full (−10,545 chars, −47.4 %). Only the wire half is unfunded: ≥ $13.16 for
