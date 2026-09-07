@@ -6,8 +6,9 @@ skillify / councilify / skills-assist).**
 Terminal outcome: **A — RESOLVED, at the LANDING STAGE.** Every deliverable is
 DONE. Nothing was recorded NOT-POSSIBLE; nothing was blocked. The final state of
 this work requires a merge, which this lane may not perform, so it ships as a
-**draft PR**; the merge is the manager's next stage. Spend against the $0
-authority: **$0** (§8).
+**draft PR** — <https://github.com/microsoft/amplifier-bundle-skills/pull/70>;
+the merge is the manager's next stage. Spend against the $0 authority:
+**$0** (§8).
 
 ---
 
