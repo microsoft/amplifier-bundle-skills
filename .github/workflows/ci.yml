@@ -148,7 +148,16 @@ jobs:
         # itself with a reason, and `-ra` puts that reason in the job log so the
         # skip is visible rather than passing for coverage. Expect exactly one
         # skip on a stock runner: 314 passed, 1 skipped.
-        run: uv run --frozen --extra remote-sources python -m pytest -q -ra --tb=short
+        #
+        # `-v` instead of `-q` is load-bearing for the same reason. Under `-q`
+        # a green log reports only an aggregate ("314 passed, 1 skipped"), which
+        # cannot show that any PARTICULAR guard ran — a deleted or renamed test
+        # just makes the aggregate smaller, and the run stays green. `-v` prints
+        # one `path::test_name PASSED` line per test, so the visibility guards
+        # (tests/test_visibility_budget.py and tests/test_visibility_line_cap.py)
+        # are named in the log of every green run. The suite itself is unchanged
+        # and still runs in full: this only changes what the log reports.
+        run: uv run --frozen --extra remote-sources python -m pytest -v -ra --tb=short
 
   # ---------------------------------------------------------------------------
   # Bundle structure — a cheap YAML parse of bundle.md's frontmatter, every
