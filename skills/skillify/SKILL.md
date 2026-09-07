@@ -130,10 +130,15 @@ Use this template as a starting point. Consult skills-assist for the full set of
     ---
     name: {{skill-name}}
     description: >
-      {{What this skill does. Front-load the key use case. Include trigger
-      phrases and "Use when..." guidance — this is what the model sees in the
-      skills visibility list to decide whether to auto-invoke.
-      Keep under 250 characters for the first sentence; can be longer overall.}}
+      {{TRIGGER FIRST: the condition under which this applies, then what it
+      does. Then "USE WHEN <deciding factor>." Then "DO NOT USE WHEN <the
+      case that belongs elsewhere> — use <name>." This is what the model sees
+      in the skills visibility list, on EVERY request of every session that
+      can see the skill, invoked or not.
+      HARD CAP 400 characters (ERROR at 800) — enforced by
+      foundation:recipes/validate-bundle-repo.yaml Phase 2.82.
+      ZERO <example> blocks and zero <commentary> tags: a trigger belongs in
+      the USE WHEN clause as a decision rule, not as a worked dialogue.}}
     user-invocable: true
     allowed-tools:
       {{list of Amplifier tool names observed during the session, e.g.:}}
@@ -190,9 +195,10 @@ Use this template as a starting point. Consult skills-assist for the full set of
 
 #### Frontmatter rules (key examples — consult skills-assist for complete reference):
 
-- `description` must carry all routing weight — trigger phrases, "Use when..."
-  guidance, and example user messages belong here since this is what the
-  visibility hook shows to the model
+- `description` must carry all routing weight — the trigger, the "USE WHEN..."
+  deciding factor, and the "DO NOT USE WHEN... — use `<name>`" boundary belong
+  here, since this is what the visibility hook shows to the model. State a
+  trigger as a decision rule, never as a worked `<example>` dialogue
 - `allowed-tools` should be the minimum set needed
 - `context: fork` only for self-contained skills that don't need user steering
 - If forked, usually pair with `disable-model-invocation: true`
@@ -200,7 +206,18 @@ Use this template as a starting point. Consult skills-assist for the full set of
 - `user-invocable: true` registers the skill as a `/name` slash command
 - Names must be kebab-case, max 64 characters
 
-**Success criteria**: The complete SKILL.md content has been drafted.
+Before you hand the skill back, measure the description you just wrote:
+
+    python3 -c "import yaml,sys; d=yaml.safe_load(open('SKILL.md').read().split('---')[1])['description']; print(len(d), 'chars'); sys.exit(len(d) > 400)"
+
+If it exceeds 400, cut advocacy first (prose that sells the skill rather than
+routing to it), then compress the capability sentence. Never cut a trigger or
+a DO-NOT-USE boundary to make the number — a description that got shorter by
+dropping a routing fact is a mis-routing waiting to happen, and it surfaces
+later as "it didn't use the right thing" with nothing pointing back here.
+
+**Success criteria**: The complete SKILL.md content has been drafted, and its
+`description` measures at or below 400 characters.
 
 ### 5. Test the Skill
 
