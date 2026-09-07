@@ -13,6 +13,7 @@ import pytest
 
 from amplifier_module_tool_skills.discovery import SkillMetadata
 from amplifier_module_tool_skills.discovery import discover_skills
+from amplifier_module_tool_skills.hooks import DEFAULT_VISIBILITY_TOKEN_BUDGET
 from amplifier_module_tool_skills.hooks import SkillsVisibilityHook
 
 
@@ -53,10 +54,10 @@ def _regular_names(content: str) -> list[str]:
 
 
 def test_default_config_is_budget_mode():
-    """No config -> budget mode with the 5000-token default."""
+    """No config -> budget mode with the module default."""
     hook = SkillsVisibilityHook({}, {})
     assert hook._budget_mode is True
-    assert hook.token_budget == 5000
+    assert hook.token_budget == DEFAULT_VISIBILITY_TOKEN_BUDGET
 
 
 def test_only_max_skills_visible_is_legacy_mode():
@@ -76,7 +77,7 @@ def test_invalid_budget_falls_back_to_default():
     """A non-numeric budget degrades to the default rather than crashing."""
     hook = SkillsVisibilityHook({}, {"visibility_token_budget": "not-a-number"})
     assert hook._budget_mode is True
-    assert hook.token_budget == 5000
+    assert hook.token_budget == DEFAULT_VISIBILITY_TOKEN_BUDGET
 
 
 # --------------------------------------------------------------------------
@@ -137,7 +138,7 @@ async def test_full_coverage_even_when_floor_exceeds_budget():
 async def test_budget_respected():
     """The regular-section token estimate stays within budget and detail is
     capped (some skills remain name-only) while coverage is complete."""
-    budget = 800
+    budget = 400
     long_desc = "This is a fairly long single sentence description without any early terminator so its first sentence spans well past the summary truncation window " + ("x" * 120)
     skills = {
         f"skill-{i:03d}": _skill(f"skill-{i:03d}", long_desc)
@@ -232,35 +233,39 @@ async def test_equal_priority_breaks_ties_alphabetically():
 
 
 @pytest.mark.asyncio
-async def test_summary_fallback_is_first_sentence():
-    """When a skill lands at the summary tier and has no explicit summary, the
-    one-liner is the description's first sentence."""
+async def test_summary_fallback_condenses_and_keeps_the_trigger():
+    """The summary tier condenses to HALF the line cap and keeps the routing
+    trigger, which the old first-sentence fallback dropped.
+
+    A description's first sentence says what a skill IS; its trigger ("Use
+    when ...") is usually last, so summarising to the first sentence stripped
+    the one part a routing catalog exists to carry.
+    """
     skills = {
         "summary-skill": _skill(
             "summary-skill",
-            "First sentence here. Second sentence must not appear in the summary at all.",
+            "Does a thing with several moving parts that take a while to say. "
+            "A middle sentence carrying detail nobody ever routes on at all. "
+            "Use when the caller needs that thing done.",
         )
     }
     # Budget tuned so this single skill reaches the summary tier but not full.
-    hook = SkillsVisibilityHook(skills, {"visibility_token_budget": 25})
+    hook = SkillsVisibilityHook(
+        skills, {"visibility_token_budget": 40, "visibility_line_char_cap": 200}
+    )
     result = await hook.on_provider_request("provider:request", {})
     content = result.context_injection
     assert content is not None
-    assert "- **summary-skill**: First sentence here." in content
-    assert "Second sentence" not in content
-
-
-def test_first_sentence_truncated_to_140_chars():
-    """The first-sentence fallback is truncated to 140 characters."""
-    long_sentence = "word " * 60  # 300 chars, no sentence terminator
-    summary = SkillsVisibilityHook._first_sentence(long_sentence)
-    assert len(summary) <= 140
-    assert summary.endswith("...")
-
-
-def test_first_sentence_stops_at_terminator():
-    """The fallback stops at the first sentence terminator."""
-    assert SkillsVisibilityHook._first_sentence("Hello world. Ignore this.") == "Hello world."
+    line = next(
+        line for line in content.split("\n") if line.startswith("- **summary-skill**")
+    )
+    # Summary tier engaged: shorter than the full description ...
+    full = "- **summary-skill**: " + skills["summary-skill"].description
+    assert len(line) < len(full)
+    # ... the opening survives ...
+    assert "Does a thing" in line
+    # ... and so does the trigger.
+    assert "Use when the caller needs that thing done." in line
 
 
 @pytest.mark.asyncio

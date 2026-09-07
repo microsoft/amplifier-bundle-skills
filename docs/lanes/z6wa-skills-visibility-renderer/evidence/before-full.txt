@@ -1,0 +1,150 @@
+<system-reminder source="hooks-skills-visibility">
+Available skills (use load_skill tool):
+
+- **context-intelligence-graph-query**: Use when querying the context-intelligence property graph for session history, tool call traces, LLM iteration analysis, execution scale metrics, agent delegation trees, skill loading, and recipe orchestration. Covers all graph layers, cross-layer SOURCED_FROM joins, SST navigation, blob handling, and verified Cypher patterns.
+
+- **digital-twin-universe**: Launch and manage isolated, realistic environments (Digital Twin Universe) to test code beyond "tests pass on my machine" and simulate end-user experiences. Debug networking/provisioning as needed. Triggers on digital twin, DTU, isolated environment, simulation environment, amplifier-digital-twin, incus container, profile launch, test in realistic environment, deploy simulation. ALWAYS use this skill whenever a "Digital Twin" is mentioned!
+- **tester-breaker**: Adversarial breaker that reviews code by trying to make it fail, not by confirming it works. Hunts the unhappy paths — malformed input, the empty string, the reversed range, the race condition — as a gleeful adversary who assumes everything is broken until a concrete attempt to break it comes up empty. Use at any checkpoint — brainstorm, design, plan, implement, debug, review — when the happy path is celebrated while the edges sit unexamined, "looks fine" stands in for "I tried to break it and couldn't," or nobody has named the input that makes this fall over: "how does this fail, and where are the edges?"
+- **workflow-pattern-analysis**: Use when asked how a workflow is failing, what separates a successful run from a failing one, which steps are the most common failure points, or what patterns recur across sessions — analyses failure/success patterns and signals across many runs using context-intelligence session data.
+
+- **adapt-skill**: Adapt a skill written for another AI assistant (Claude Code, Cursor, etc.) into a proper Amplifier SKILL.md. Use when the user wants to adapt a skill, port a skill, convert a skill to amplifier, translate a skill, or has a SKILL.md from another platform they want to bring into Amplifier.
+- **amplifier-tool-leverage-patterns**: Use when deciding how to expose an Amplifier workflow or automation tool — .dot attractor pipeline, Python lib, tool module, or CLI. Covers the four leverage levels, the DRY rule that keeps logic in ONE home, which levels a real consumer actually needs (and when a level is just ceremony), and the attractor-only case where the .dot pipeline is the sole logic home.
+- **android-self-hosted-publishing**: Use when building, reviewing, or debugging a self-hosted Android update rail — shipping
+builds to testers without a store — or when a device bug report needs its first question
+answered: is the fix actually on the device? Covers signed APK plus signed manifest
+sidecar, versionCode monotonicity enforcement, HTTPS-first with a TLS-only HTTP
+fallback, and installed-build verification.
+
+- **architecture-overview-diagram**: Use when asked to create an architecture diagram, a README diagram or a top-level overview — or for the single diagram that gives a non-technical reader the "I get it" understanding of a repo. Code-first investigation, iterative design and antagonistic review produce a .dot source plus .svg and .png at PASS quality, surface doc/code discrepancies, and optionally add detail diagrams.
+- **attractor-scout**: Mine YOUR OWN local context-intelligence session history to find the attractor-shaped opportunities hiding in your real recurring work — the units you do again and again, that cost real effort, and that would survive being handed to a loop. Surfaces them ranked, with honest-NOs as first-class output, and writes a self-contained HTML opportunity map. Own data only; nothing leaves the machine. Triggers: "/attractor-scout", "what should I automate?", "find my attractor opportunities", "scout my sessions", "what do I keep doing by hand?", "mine my own work for pipelines".
+
+- **attractorify**: Analyze the current session and decide whether an attractor pipeline is warranted — then design one conversationally if it is. Triggers: "/attractorify", "should this be an attractor?", "design a pipeline for", "attractorify this", "do I need an attractor pipeline?", "turn this into a pipeline".
+
+- **auth-tls-patterns**: Use when a service needs auth that stays frictionless locally but secures remote access, or automatic TLS. Covers token-based auth with auto-generation, localhost bypass, and certificate setup.
+- **bet-sizer**: Delivery-risk reviewer that sizes a plan's investment against the team's real confidence it will land. Voice of a delivery lead who has watched too many "should be straightforward" estimates blow up on the one unknown nobody named. Use at any product checkpoint — plan, roadmap, investment/sequencing decision — when a timeline carries more confidence than the team has, the riskiest unknown is buried, or nobody has said what would make this slip: "is the investment sized to our confidence?"
+- **blob-reading**: Use when a graph result contains a ci-blob:// URI — resolve it by extracting only the fields you need, never the full payload.
+- **bug-report**: Investigate a defect to root cause with reproducible evidence, then write a dev-ready issue .md file. Stops at the file by default; files a GitHub issue only if the repo has Issues enabled, and asks permission before ever opening a PR. Use when the user says "file a bug", "write this up for the devs", "report this issue", "bug-report", "investigate and report", or has just finished debugging something in someone else's repo and wants it handed off.
+
+- **bundle-to-dot**: Convention for the v3 bundle documentation system: a single bundle.dot + bundle.png per repo, generated by bundle_repo_dot(). Use when generating, validating, or interpreting bundle documentation files. Covers 7-cluster DOT structure, token cost model, color conventions, external reference distinction, freshness tracking via source_hash, generation recipes, and the lifecycle model.
+- **claiming-work-safely**: The claim/custody procedure for any session that claims work directly from a work-tracker project queue: why the obvious read-then-write approach double-claims silently, the loop through work_claim/work_declare/work_resolve, the custody freshness model (renew/TTL/escalation), the two declared states, what to do after a reap, empty-queue handling, filing discovered work, and the never-touch-bd rule. Use when claiming, holding, declaring state on, resolving, or losing custody of a work-tracker item -- or when in doubt about any of those mechanics.
+- **cli-packaging-patterns**: Use when building a new CLI tool that needs one-line install, subcommand dispatch, or layered config. Covers uv/npm install, a default-action dispatcher, and 3-tier config resolution (flags, config file, defaults).
+- **coherence-guardian**: Consistency reviewer that reads a design as a single argument. Hunts the
+discordant note — the one typeface, the one spacing rhythm, the one corner
+radius, the one motion curve that belongs to a different design. Sounds like
+an art director doing a final walk-through, running a hand along the whole
+piece and stopping exactly where the surface changes texture. Not a
+uniformity enforcer — a reviewer of whether every choice supports the same
+thesis.
+A lens for any design checkpoint — concept, mockup, component, or finished
+screen.
+Use when: the parts are individually fine but the whole feels assembled from
+fragments, the design language seems to drift as you move through the work,
+or nobody has checked that the choices actually agree with each other — any
+time the worry is "does this hang together, or is it a pile of good ideas
+that never met each other?"
+
+- **config-state-patterns**: Use when a tool needs config and state that survive crashes and live in the right place. Covers safe defaults merging, atomic state writes, and conventional locations for config vs state vs secrets.
+- **container-orchestration-patterns**: Use when running tasks in Docker containers with safety limits and resource enforcement. Covers watchdog monitoring, orphan container recovery, sidecar provisioning, and scripting reproducible dev stack environments.
+- **context-intelligence-derived-metrics**: Use when a graph query returns structurally-identical rows hiding different intent — many delegations all "none/conversation", look-alike sessions, identical tool calls. Derives an INTERPRETIVE metric by joining a second graph layer onto the blanket shape (flagship: transport × sub-session skill payload = "flavour"). Complements graph-query (READ the graph) by making blanket reads MEAN something.
+
+- **context-intelligence-eval-design**: Use when designing evaluation scenarios for a context-intelligence tool signal. Derives success criteria from domain-concepts.md and produces evaluation-scenarios.md entries plus DTU profile templates.
+- **context-intelligence-evaluation-methodology**: Use when deciding how to measure a context-intelligence tool signal. Covers metric design across quality/efficiency/efficacy axes, artifact-metric avoidance via precursor measurement, A/B and statistical-N discipline, and test-data fidelity.
+- **context-intelligence-gds**: Use when about to write naive Cypher for a graph-topology question — pathfinding, reachability, centrality/influence, community/clustering, structural similarity, or similar event paths/trajectories (with/without time) — reach for Neo4j GDS or APOC instead of hand-rolling traversals one hop at a time. WHEN/WHY layer; graph-query's "Push Work to the Database" section is the HOW.
+
+- **context-intelligence-hill-climbing**: Use when an investigation needs more than one step — track it in todo as a hill climb so progress and dead leads leave an audit trail. Governs HOW you track the climb, not how you query or extract — that stays in graph-query / session-navigation.
+- **context-intelligence-session-navigation**: Use when extracting session data directly from JSONL files — the fallback when the graph server is unavailable or outside graph-analyst.
+- **context-intelligence-session-reconstruction**: Use when local Amplifier session files are missing, broken, or incomplete — rebuilds events.jsonl, transcript.jsonl, and metadata.json from the context-intelligence graph server.
+- **context-intelligence-tool-design**: Use when selecting a detection strategy and implementation primitive for a context-intelligence signal. Classifies signals as deterministic, probabilistic, llm-evaluated, or hybrid, and applies the cheapest-sufficient-capability principle.
+- **context-tester**: Real-conditions reviewer that refuses to judge a design only in its ideal
+frame. Hunts the failure that appears the moment the design leaves the
+designer's monitor — the small phone, the bright sun, the slow connection,
+the moving car, the system font scaled up. Sounds like someone who has
+watched a beautiful mockup fall apart in a user's actual hand. Not a
+responsiveness checklist — a reviewer of whether the design was ever tested
+anywhere but the ideal viewport.
+A lens for any design checkpoint — concept, mockup, component, or finished
+screen.
+Use when: the design has only ever been seen at desktop width in perfect
+light, responsive and environmental behavior has never actually been
+checked, or nobody has left the ideal viewport to see what happens — any
+time the worry is "does this hold up outside the studio, or only inside it?"
+
+- **councilify**: Build a NEW complete "council" for a domain — a panel of orthogonal review lenses that fan out cold, debate to consensus, and return a synthesized verdict with recorded dissent, exactly like /council and /design-council. Identifies the distinct lenses a domain needs (one load-bearing question each, mined from real archetypes — not invented), reuses existing lenses, and builds only the genuinely-missing ones (persona SKILLs via personafy, or agents when the role is an active builder). Use when creating a council, standing up a review panel for a domain (product, security, performance, data), or when someone says "councilify", "make a council", "build a <domain> council".
+- **craft-inspector**: Detail reviewer that treats every value as a decision someone must defend.
+Hunts the arbitrary — the 17px gap, the 23px margin, the almost-but-not-
+quite brand blue, the undesigned hover state, the empty state nobody drew.
+Sounds like a master craftsperson running a hand along the joinery, finding
+the one rushed seam. Not a pixel-nitpicker for its own sake — a reviewer of
+whether every detail was actually decided, or merely left where it landed.
+A lens for any design checkpoint — concept, mockup, component, or finished
+screen.
+Use when: values look ad-hoc, states look unfinished, spacing looks
+eyeballed, or nobody can say why a number is that number — any time the
+worry is "does this hold up under a magnifying glass?"
+
+- **cranky-old-sam**: Simplicity-obsessed reviewer that interrogates complexity and insists on the minimal viable design. Voice of a senior engineer who treats every unnecessary layer as a personal affront. Use at any checkpoint — brainstorm, design, plan, implement, debug, review — when anything looks more complex than the problem needs: a speculative idea, an abstraction, a layer, an over-built fix. The worry: "do we actually need this, or can it be deleted?"
+- **creating-amplifier-modules**: Use when creating a new Amplifier module (tool, hook, orchestrator, context, or provider).
+- **crusty-old-engineer**: Curmudgeonly engineering advisor: grounded skepticism and evidence-linked judgment on architecture, legacy refactors, and tooling choices.
+- **dot-as-analysis**: Use when analyzing a system to surface hidden issues — draw what you believe exists, then reconcile against what actually exists
+- **dot-graph-intelligence**: Use when you need programmatic graph structure analysis — reachability, cycles, critical paths, and diffs without spending LLM tokens on...
+- **dot-patterns**: Use when you need copy-paste DOT templates for common diagram types — start from a working pattern rather than blank canvas
+- **dot-quality**: Use when enforcing quality standards on DOT diagrams — checking completeness, structure, and visual clarity before sharing or committing
+- **dot-syntax**: Use when writing or reading DOT/Graphviz code and needing quick syntax reference — node declarations, edge syntax, attributes, subgraphs,...
+- **emotion-reader**: Feeling reviewer that asks whether a design makes anyone feel anything.
+- **file-ipc-patterns**: Use when processes must communicate through the filesystem with no message broker.
+- **freeze-bar**: Check whether a draft vision or contract is ready to be locked, and write the lock correctly once it is.
+- **frontend-design**: Create distinctive, production-grade frontend interfaces with high design quality.
+- **gitea**: Use when managing ephemeral Gitea Docker environments, mirroring GitHub repos for isolated work, or promoting changes back to GitHub as PRs.
+- **http-service-patterns**: Use when building an HTTP service with FastAPI.
+- **human-advocate**: Inclusion reviewer that asks who a design leaves out.
+- **image-vision**: Analyze images using LLM vision APIs (Anthropic Claude, OpenAI GPT-4, Google Gemini, Azure OpenAI).
+- **instance-storage-patterns**: Use when a system manages multiple concurrent instances or sessions that each need isolated storage.
+- **integration-testing-discipline**: 4 principles for E2E testing discipline — observe first, fix in batches, expect long durations, check container state directly.
+- **intent-keeper**: Goal-clarity reviewer that refuses to judge a solution until the intent behind it is pinned.
+- **ios-headless-build-and-sign**: Build and code-sign an iOS app for the simulator or a physical device from a headless Mac driven over plain SSH, with no GUI session and...
+- **lane-brief**: Write a lane brief a worker session can run alone, and judge honestly whether a lane is done.
+- **ledger-disposition**: Give a contract-check row the right verdict, and report it in the five plain words a person reads — Kept · Not yet · Broken · Pinned open...
+- **mode-design-discipline**: Authoring discipline for Amplifier modes.
+- **monitor**: Run a bounded, self-checking polling loop (sleep -> check -> decide, repeat) WITHOUT ENDING THE TURN.
+- **msgraph-integration-patterns**: Hard-won patterns for probing, building, and debugging Microsoft Graph integrations, especially from a browser SPA with no backend.
+- **one-line-installer-patterns**: Use when designing a curl-piped install script for a project that cannot use uv tool install or npm publish.
+- **originality-critic**: Novelty reviewer that refuses to be impressed by competence.
+- **outcome-cartographer**: Outcome-validity reviewer that refuses to count shipped work as progress until it maps to a measurable change in behavior.
+- **outcomist**: Outcome-clarity reviewer that asks whether you have defined what you're trying to achieve and validated that the problem is real.
+- **parallax-investigation**: Use when you need true understanding of a complex system — not a quick answer.
+- **per-repo-conventions**: Use when starting work in any repository, and again at each work-phase transition (design, coding, debugging, verification, opening a PR).
+- **personafy**: Build a new opinionated advisor-persona skill — a reviewer "lens" like crusty-old-engineer, modeled on a real person or archetype.
+- **plugin-discovery-patterns**: Use when making a system extensible at runtime.
+- **positioning-critic**: Competitive-differentiation reviewer that refuses to accept "the user wants this" as sufficient.
+- **proposing-a-change**: How to propose a change to a locked vision or contract — a sibling proposal file named <contract>.vN-candidate.md, never a direct edit.
+- **purpose-keeper**: Intent reviewer that asks why each design choice exists and what it communicates.
+- **react-microfrontend-patterns**: Use when building a React frontend that dynamically loads independent bundles sharing a single React instance.
+- **recipe-to-dot**: Convention for generating DOT flowchart diagrams from Amplifier recipe YAML files
+- **restless-old-brian**: Momentum-driven engineering reviewer holding one uncompromising gate: is it REAL, proven end-to-end as a user would?
+- **role-definitions**: Detailed model routing role definitions, decision flowchart, model tier grid, and fallback chain best practices.
+- **sdd-walkthrough**: Use when about to orchestrate a subagent-driven-development execute-plan session — provides 5 realistic task scenarios with Amplifier del...
+- **seam-test**: Decide whether a surface is a seam — something outside this project depends on it, so it warrants a contract — or an internal mechanism,...
+- **self-managing-tool-patterns**: Use when a CLI tool needs to manage itself.
+- **skillify**: Capture a repeatable process from the current session into a reusable Amplifier SKILL.md skill file.
+- **skills-assist**: Authoritative consultant for all skills-related questions.
+- **superpowers-reference**: Complete reference tables for Superpowers modes, agents, recipes, and anti-patterns
+- **user-advocate**: User-need reviewer that speaks for the person who isn't in the room — the one who will actually live with what gets built.
+- **verification-discipline**: Use when verifying that completed work actually works.
+- **wayfinder-pack**: Author or refine a wayfinder content packet (a bulletin, practice, or concept offer) that surfaces through the wayfinder channel.
+- **wayfinder-scout**: Rank the current wayfinder offer catalog against the reader's OWN usage evidence before rendering it — so wayfinder never leads with some...
+- **work-tracker-operations**: Operating and diagnosing amplifier-work-tracker: what `doctor` proves and how to read a violated assumption (fix scope is adapter.py only...
+
+User-invoked skills (available via /command):
+
+- **code-review**: Review changed code for reuse, quality, and efficiency, then fix any issues found.
+- **council**: Convene the persona panel — six orthogonal review lenses — on a target. Cold independent fan-out, debate-to-consensus, synthesized verdict with recorded dissent and a roster manifest.
+- **council-here**: Convene the persona panel on the CURRENT conversation — the plan, design, or decision built in this session. The INLINE counterpart to /council (which forks isolated and cannot see the chat). Use when you want the council to critique what we're working on right now.
+- **design-council**: Convene the Design Intelligence Council (seven orthogonal design lenses) on a design target — cold independent fan-out, debate-to-consensus, synthesized verdict with recorded dissent and a roster manifest.
+- **design-council-here**: Convene the Design Intelligence Council on the CURRENT design under discussion — the mockup, component, or interface we've been building in this session. The INLINE counterpart to /design-council (which forks and runs isolated, so it cannot see the chat).
+- **mass-change**: Research and plan a large-scale change, then execute it in parallel across isolated agents that each open a PR.
+- **memory**: Your memory store: overview, list, review, forget, edit, help.
+- **product-council**: Convene the Product Development Council — six orthogonal product-delivery lenses anchored by a mandatory problem-validation gate. Cold independent fan-out, debate-to-consensus, synthesized verdict with recorded dissent and a roster manifest.
+- **product-council-here**: Convene the Product Development Council on the CURRENT conversation — the plan, roadmap, or scope decision built in this session. The INLINE counterpart to /product-council (which forks isolated and cannot see the chat). Use when you want the council to critique what we're working on right now.
+- **remember**: Save what you typed as a memory, in your own words. `/remember <text>`.
+- **session-debug**: Diagnose issues in the current Amplifier session — misconfigured tools, failing operations, unexpected behavior. Use when something isn't working right.
+</system-reminder>

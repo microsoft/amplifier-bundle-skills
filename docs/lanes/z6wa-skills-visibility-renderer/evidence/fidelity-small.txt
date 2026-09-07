@@ -1,0 +1,47 @@
+catalog: small   skills discovered: 38
+stock block:  14540 chars,  45 lines
+lean  block:   6276 chars,  45 lines
+delta      :  -8264 chars (-56.8%)
+
+== 1. TEMPLATE-LEVEL rules / commands / pointers ==
+  wrapper open tag                 stock=True  lean=True  kept
+  wrapper close tag                stock=True  lean=True  kept
+  regular section header           stock=True  lean=True  kept
+  load_skill command pointer       stock=True  lean=True  kept
+  user-invoked section header      stock=True  lean=True  kept
+  /command pointer                 stock=True  lean=True  kept
+  -> template items dropped: 0
+
+== 2. COVERAGE (every advertised skill name) ==
+  stock names: 38   lean names: 38   missing from lean: 0
+
+== 3. NAME-ONLY lines (a skill advertised with NO routing signal at all) ==
+  stock: 0   lean: 0
+
+== 4. ROUTING TRIGGER retention ==
+  descriptions carrying a trigger phrase: 33
+  stock renders keep it: 33/33 (100%)
+  lean  renders keep it: 33/33 (100%)
+  REGRESSED (stock kept, lean lost): 0 []
+  recovered (lean kept, stock lost): 0
+
+== 5. PER-SKILL description byte delta (top 15 reductions) ==
+  rendered VERBATIM (byte-identical to stock): 3/38
+  condensed: 35   total description bytes saved: 8264
+    monitor                                   773 ->  101  (-672)
+    msgraph-integration-patterns              756 ->  168  (-588)
+    councilify                                678 ->  175  (-503)
+    tester-breaker                            613 ->  173  (-440)
+    positioning-critic                        547 ->  172  (-375)
+    personafy                                 541 ->  173  (-368)
+    user-advocate                             527 ->  172  (-355)
+    restless-old-brian                        506 ->  171  (-335)
+    bet-sizer                                 493 ->  166  (-327)
+    crusty-old-engineer                       485 ->  169  (-316)
+    outcome-cartographer                      484 ->  175  (-309)
+    one-line-installer-patterns               389 ->  108  (-281)
+    cranky-old-sam                            443 ->  175  (-268)
+    intent-keeper                             419 ->  172  (-247)
+    amplifier-tool-leverage-patterns          365 ->  132  (-233)
+
+VERDICT: PASS -- no rule/command/pointer/trigger lost

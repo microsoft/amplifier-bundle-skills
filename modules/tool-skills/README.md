@@ -165,9 +165,31 @@ tools:
         - ~/my-custom-skills         # Your skills
       visibility:
         enabled: true                # Show skills automatically (default: true)
-        max_skills_visible: 50       # Limit for large collections (default: 50)
+        max_skills_visible: 50       # Legacy count cap (budget mode wins when both set)
+        visibility_line_char_cap: 180  # Per-skill description ceiling (default: 180, 0 = off)
         placement: prefix            # Where the index lands (default: prefix)
 ```
+
+#### `visibility.visibility_line_char_cap`
+
+The catalog is a routing **list**, not a teaching surface: one line per skill,
+enough to decide whether to load it, with the skill body carrying the rest.
+This cap bounds the description text a single line may spend, in every section
+and in legacy count mode, so one verbose skill cannot dominate a block that is
+injected into **every** session's head.
+
+- A description already within the cap is rendered **verbatim** — zero loss.
+- Whitespace (including embedded newlines) always collapses, so a
+  multi-paragraph description still occupies exactly one line.
+- When a description must be condensed, its **routing trigger** ("Use when …",
+  "Triggers on …") is reserved *before* the opening sentence may spend the cap.
+  Descriptions in the wild put the trigger last, so head-truncation would drop
+  the one sentence the catalog exists to carry. Elided runs are marked `…`.
+
+Set to `0` to disable condensing (whitespace is still collapsed).
+
+**If a skill's line is being condensed, that is the signal to tighten the
+skill's own `description`** — the renderer lists, it does not edit.
 
 #### `visibility.placement`
 

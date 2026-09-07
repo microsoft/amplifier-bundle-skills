@@ -19,17 +19,51 @@ VALID_PLACEMENTS = ("request", "prefix")
 
 # Default token budget for the regular-skills index (used when neither
 # visibility_token_budget nor max_skills_visible is configured).
-DEFAULT_VISIBILITY_TOKEN_BUDGET = 5000
+DEFAULT_VISIBILITY_TOKEN_BUDGET = 2500
+
+# Default per-skill ceiling, in characters, on the DESCRIPTION text a catalog
+# line may spend. The catalog's job is to LIST, not to teach: a reader needs
+# enough to decide whether to load a skill, and the skill body carries the
+# rest. Applied to every rendered line in both sections, so one verbose skill
+# cannot dominate a block that is injected into every session's head.
+#
+# A description already within the cap is rendered VERBATIM (zero loss). Only
+# over-long ones are condensed, and the condenser keeps the trigger sentence
+# (see ``_condense``) precisely because losing a trigger is a mis-routing that
+# surfaces later as "it didn't load the right skill".
+DEFAULT_LINE_CHAR_CAP = 180
 
 # Header for the regular (model-invocable) skills section. Kept as a single
 # constant so the budget renderer and the legacy count renderer emit identical
 # text.
 REGULAR_SKILLS_HEADER = "Available skills (use load_skill tool):"
 
+# Header for the user-invoked (slash-command) skills section.
+USER_INVOKED_SKILLS_HEADER = "User-invoked skills (available via /command):"
+
 # Detail tiers a regular skill can be rendered at, cheapest first.
 _TIER_INDEX = 0  # name only (full-coverage floor)
 _TIER_SUMMARY = 1  # name + one-line summary
 _TIER_FULL = 2  # name + full description
+
+# Chars an elision marker (" \u2026 ") costs when splicing two sentences.
+_ELISION_COST = 3
+# Below this, an opening sentence carries no useful signal and is dropped
+# entirely in favour of the trigger.
+_MIN_HEAD_CHARS = 32
+
+# Sentence-boundary split used by the condenser.
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+
+# Phrases that mark a description's ROUTING TRIGGER -- the sentence that tells
+# the model when to reach for the skill. Descriptions in the wild put this
+# last, so a naive head-truncation drops exactly the load-bearing sentence.
+_TRIGGER_RE = re.compile(
+    r"\b(use\s+when|use\s+this|use\s+proactively|use\s+for|use\s+at|use\s+it|"
+    r"used\s+for|used\s+when|trigger(?:s|ed)?\s+on|always\s+use|"
+    r"must\s+be\s+used|do\s+not\s+use|invoke\s+when|reach\s+for)\b",
+    re.IGNORECASE,
+)
 
 
 class SkillsVisibilityHook:
@@ -134,6 +168,19 @@ class SkillsVisibilityHook:
                 f"Invalid visibility.placement={self.placement!r}. "
                 f"Valid values: {', '.join(VALID_PLACEMENTS)}."
             )
+        # Per-skill description ceiling, in characters. Applies to EVERY
+        # rendered line in both sections (including legacy count mode and the
+        # user-invoked section, which the token budget never covered), so no
+        # single verbose skill can dominate an always-on block. 0 disables it.
+        cap_raw = config.get("visibility_line_char_cap")
+        self.line_char_cap = (
+            DEFAULT_LINE_CHAR_CAP
+            if cap_raw is None
+            else self._coerce_budget(
+                cap_raw, DEFAULT_LINE_CHAR_CAP, name="visibility_line_char_cap"
+            )
+        )
+
         self._is_forked_session = is_forked_session
         self.coordinator = coordinator
         self._tool = tool
@@ -384,7 +431,8 @@ class SkillsVisibilityHook:
                 lines.append(REGULAR_SKILLS_HEADER)
                 lines.append("")
                 for name, metadata in skills_items:
-                    lines.append(f"- **{name}**: {metadata.description}")
+                    condensed = self._condense(metadata.description, self.line_char_cap)
+                    lines.append(f"- **{name}**: {condensed}")
                 # Show truncation if applicable
                 if len(regular_skills) > self.max_visible:
                     remaining = len(regular_skills) - self.max_visible
@@ -393,14 +441,17 @@ class SkillsVisibilityHook:
                         f"_({remaining} more - use load_skill(list=true) to see all)_"
                     )
 
-        # Build user-invoked skills section (no cap)
+        # Build user-invoked skills section. The token budget has never covered
+        # this section (it bounds only the regular index), so the per-line
+        # character cap is the ONLY thing bounding its growth.
         if user_invoked_skills:
             if lines:
                 lines.append("")
-            lines.append("User-invoked skills (available via /command):")
+            lines.append(USER_INVOKED_SKILLS_HEADER)
             lines.append("")
             for name, metadata in sorted(user_invoked_skills.items()):
-                lines.append(f"- **{name}**: {metadata.description}")
+                condensed = self._condense(metadata.description, self.line_char_cap)
+                lines.append(f"- **{name}**: {condensed}")
 
         if not lines:
             return ""
@@ -415,7 +466,9 @@ class SkillsVisibilityHook:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _coerce_budget(value: Any, default: int) -> int:
+    def _coerce_budget(
+        value: Any, default: int, name: str = "visibility_token_budget"
+    ) -> int:
         """Coerce a configured budget into a non-negative int.
 
         Falls back to ``default`` (with a warning) for non-numeric or negative
@@ -426,14 +479,16 @@ class SkillsVisibilityHook:
             budget = int(value)
         except (TypeError, ValueError):
             logger.warning(
-                "Invalid visibility_token_budget=%r; falling back to %d.",
+                "Invalid %s=%r; falling back to %d.",
+                name,
                 value,
                 default,
             )
             return default
         if budget < 0:
             logger.warning(
-                "Negative visibility_token_budget=%r; falling back to %d.",
+                "Negative %s=%r; falling back to %d.",
+                name,
                 value,
                 default,
             )
@@ -494,33 +549,147 @@ class SkillsVisibilityHook:
         """One-line summary for the summary tier.
 
         Uses an explicit ``visibility.summary`` string when present, otherwise
-        falls back to the first sentence of the description (truncated).
+        condenses the description to HALF the per-line cap.
+
+        The fallback deliberately condenses rather than taking the first
+        sentence: a description's first sentence says what a skill IS, and its
+        routing TRIGGER ("Use when ...") is usually last, so a first-sentence
+        summary silently strips the one part a catalog exists to carry.
         """
+        description = " ".join((getattr(meta, "description", "") or "").split())
         raw = self._skill_visibility(meta).get("summary")
         if isinstance(raw, str) and raw.strip():
-            return raw.strip()
-        return self._first_sentence(getattr(meta, "description", "") or "")
+            return self._with_trigger(" ".join(raw.split()), description)
+        return self._condense(description, self._summary_char_cap())
+
+    @classmethod
+    def _with_trigger(cls, summary: str, description: str) -> str:
+        """Ensure an author-curated one-liner still carries a routing trigger.
+
+        A curated ``visibility.summary`` is honoured as written, but a summary
+        that omits the description's "Use when ..." sentence would advertise a
+        skill the model cannot decide to load. When that happens the trigger
+        sentence is appended; the line cap then bounds the result as usual.
+        """
+        if not description or _TRIGGER_RE.search(summary):
+            return summary
+        trigger = next(
+            (s for s in cls._sentences(description) if _TRIGGER_RE.search(s)), None
+        )
+        return f"{summary} {trigger}" if trigger else summary
+
+    def _summary_char_cap(self) -> int:
+        """Character cap for the summary tier -- half the full-line cap."""
+        if self.line_char_cap <= 0:
+            return DEFAULT_LINE_CHAR_CAP // 2
+        return max(self.line_char_cap // 2, _MIN_HEAD_CHARS)
 
     @staticmethod
-    def _first_sentence(description: str, limit: int = 140) -> str:
-        """First sentence of ``description``, whitespace-collapsed and truncated
-        to ``limit`` characters (ellipsis added when truncation occurs)."""
-        text = " ".join(description.split())
-        if not text:
-            return ""
-        match = re.search(r"[.!?](?:\s|$)", text)
-        sentence = text[: match.start() + 1] if match else text
-        if len(sentence) > limit:
-            sentence = sentence[: limit - 3].rstrip() + "..."
-        return sentence
+    def _sentences(text: str) -> list[str]:
+        """Split whitespace-collapsed ``text`` on sentence terminators."""
+        return [part for part in _SENTENCE_SPLIT_RE.split(text) if part]
+
+    @staticmethod
+    def _clip(text: str, cap: int) -> str:
+        """Hard-truncate to ``cap`` chars on a word boundary, marking the cut."""
+        if len(text) <= cap:
+            return text
+        cut = text[: max(cap - 1, 0)].rstrip()
+        space = cut.rfind(" ")
+        if space > cap // 2:
+            cut = cut[:space].rstrip()
+        return cut + "\u2026"
+
+    @classmethod
+    def _condense(cls, description: str, cap: int) -> str:
+        """Fit a description onto ONE catalog line of at most ``cap`` chars.
+
+        Three guarantees, in priority order:
+
+        1. **One physical line, always.** Whitespace (including the embedded
+           newlines multi-paragraph descriptions carry) collapses to single
+           spaces, so the catalog is a list a reader can scan.
+        2. **Zero loss when it already fits.** A description within ``cap`` is
+           returned VERBATIM -- byte-identical to the uncapped render. Skills
+           whose own descriptions are already lean pay nothing.
+        3. **The trigger survives.** Descriptions in the wild put the "Use
+           when ..." routing trigger LAST, so head-truncation drops exactly
+           the load-bearing sentence and produces a mis-routing that surfaces
+           later as "it didn't load the right skill". The trigger sentence is
+           therefore reserved BEFORE the opening sentence is allowed to spend
+           the cap; remaining sentences fill what is left, in document order,
+           with elided runs marked by an ellipsis.
+
+        ``cap <= 0`` disables condensing (whitespace is still collapsed).
+        """
+        text = " ".join((description or "").split())
+        if cap <= 0 or len(text) <= cap:
+            return text
+
+        sentences = cls._sentences(text)
+        if len(sentences) <= 1:
+            return cls._clip(text, cap)
+
+        # Index of the first trigger-bearing sentence. Index 0 needs no special
+        # handling -- keeping the opening sentence already keeps the trigger.
+        trigger = next(
+            (i for i, s in enumerate(sentences) if _TRIGGER_RE.search(s)), None
+        )
+        keep = {0} if not trigger else {0, trigger}
+        if len(cls._join_sentences(sentences, keep)) > cap:
+            if trigger:
+                return cls._reserve_trigger(sentences[0], sentences[trigger], cap)
+            return cls._clip(text, cap)
+
+        # Room to spare: fill remaining sentences in document order.
+        for i in range(1, len(sentences)):
+            if i in keep:
+                continue
+            candidate = keep | {i}
+            if len(cls._join_sentences(sentences, candidate)) > cap:
+                break
+            keep = candidate
+        return cls._join_sentences(sentences, keep)
+
+    @classmethod
+    def _reserve_trigger(cls, head: str, trigger: str, cap: int) -> str:
+        """Opening + trigger sentence when both cannot be kept whole.
+
+        The trigger is what a routing catalog exists to carry, so it is
+        reserved FIRST and the opening sentence is clipped around it. Trigger
+        phrases sit at the START of their sentence, so clipping the trigger's
+        own tail still leaves the phrase intact.
+        """
+        trigger_room = max(cap // 2, cap - len(head) - _ELISION_COST)
+        trigger_text = cls._clip(trigger, min(len(trigger), trigger_room))
+        head_room = cap - len(trigger_text) - _ELISION_COST
+        if head_room < _MIN_HEAD_CHARS:
+            return cls._clip(trigger_text, cap)
+        head_text = cls._clip(head, head_room)
+        joiner = " " if head_text.endswith("\u2026") else " \u2026 "
+        out = f"{head_text}{joiner}{trigger_text}"
+        return out if len(out) <= cap else cls._clip(out, cap)
+
+    @staticmethod
+    def _join_sentences(sentences: list[str], keep: set[int]) -> str:
+        """Join the kept sentences in document order, marking elided runs."""
+        parts: list[str] = []
+        previous: int | None = None
+        for i in sorted(keep):
+            if previous is not None and i != previous + 1:
+                parts.append("\u2026")
+            parts.append(sentences[i])
+            previous = i
+        return " ".join(parts)
 
     def _skill_line(self, name: str, meta: Any, tier: int) -> str:
         """Render one regular-skill line at the given detail tier."""
         if tier <= _TIER_INDEX:
             return f"- **{name}**"
+        cap = self.line_char_cap
         if tier == _TIER_SUMMARY:
-            return f"- **{name}**: {self._skill_summary(meta)}"
-        return f"- **{name}**: {meta.description}"
+            return f"- **{name}**: {self._condense(self._skill_summary(meta), cap)}"
+        return f"- **{name}**: {self._condense(meta.description, cap)}"
 
     def _regular_section_lines(
         self, ranked: list[tuple[str, Any]], tiers: dict[str, int]

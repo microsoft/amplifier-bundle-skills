@@ -1,0 +1,21 @@
+Evidence: modules/tool-skills test suite, before and after model_performance-z6wa.
+Run: `uv run pytest tests -q` from modules/tool-skills.
+
+NOTE ON CI: amplifier-bundle-skills has NO CI checks configured at all -- there is
+no .github/workflows directory in this repo and `gh pr checks` returns an empty
+list, NOT a green one. Item model_performance-2un7 exists to add CI here. The
+suite below was run locally; nothing about this PR implies a green CI run.
+
+### 1. HEAD (stash-compare, including untracked new tests)
+E   ModuleNotFoundError: No module named 'amplifier_foundation'
+=========================== short test summary info ============================
+ERROR tests/test_fork_skill_model_role_resolver.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.15s
+-- same run, pre-existing amplifier_foundation collection error ignored:
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+302 passed, 1 warning in 0.85s
+
+### 2. WITH THIS CHANGE
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+312 passed, 1 warning in 0.75s

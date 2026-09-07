@@ -1,0 +1,47 @@
+catalog: full   skills discovered: 93
+stock block:  22246 chars, 150 lines
+lean  block:  11701 chars, 100 lines
+delta      : -10545 chars (-47.4%)
+
+== 1. TEMPLATE-LEVEL rules / commands / pointers ==
+  wrapper open tag                 stock=True  lean=True  kept
+  wrapper close tag                stock=True  lean=True  kept
+  regular section header           stock=True  lean=True  kept
+  load_skill command pointer       stock=True  lean=True  kept
+  user-invoked section header      stock=True  lean=True  kept
+  /command pointer                 stock=True  lean=True  kept
+  -> template items dropped: 0
+
+== 2. COVERAGE (every advertised skill name) ==
+  stock names: 93   lean names: 93   missing from lean: 0
+
+== 3. NAME-ONLY lines (a skill advertised with NO routing signal at all) ==
+  stock: 0   lean: 0
+
+== 4. ROUTING TRIGGER retention ==
+  descriptions carrying a trigger phrase: 74
+  stock renders keep it: 48/74 (65%)
+  lean  renders keep it: 74/74 (100%)
+  REGRESSED (stock kept, lean lost): 0 []
+  recovered (lean kept, stock lost): 26
+
+== 5. PER-SKILL description byte delta (top 15 reductions) ==
+  rendered VERBATIM (byte-identical to stock): 15/93
+  condensed: 78   total description bytes saved: 8022
+    councilify                                678 ->  174  (-504)
+    claiming-work-safely                      551 ->   83  (-468)
+    tester-breaker                            613 ->  173  (-440)
+    attractor-scout                           574 ->  176  (-398)
+    bug-report                                452 ->   78  (-374)
+    cranky-old-sam                            443 ->   84  (-359)
+    bet-sizer                                 493 ->  166  (-327)
+    context-intelligence-derived-metrics      399 ->   85  (-314)
+    bundle-to-dot                             384 ->   80  (-304)
+    context-intelligence-gds                  380 ->   82  (-298)
+    digital-twin-universe                     443 ->  173  (-270)
+    amplifier-tool-leverage-patterns          365 ->  132  (-233)
+    architecture-overview-diagram             385 ->  168  (-217)
+    context-intelligence-evaluation-methodology  241 ->   68  (-173)
+    attractorify                              296 ->  126  (-170)
+
+VERDICT: PASS -- no rule/command/pointer/trigger lost

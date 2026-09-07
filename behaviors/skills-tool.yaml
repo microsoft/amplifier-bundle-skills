@@ -15,7 +15,7 @@ tools:
       visibility:
         enabled: true
         inject_role: "user"
-        visibility_token_budget: 5000
+        visibility_token_budget: 2500
         ephemeral: true
         priority: 20
 
