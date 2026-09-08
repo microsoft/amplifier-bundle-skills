@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 VALID_PLACEMENTS = ("request", "prefix")
 
-# Default token budget for the regular-skills index (used when neither
+# Default token budget for the complete skills index (used when neither
 # visibility_token_budget nor max_skills_visible is configured).
 DEFAULT_VISIBILITY_TOKEN_BUDGET = 2500
 
@@ -38,10 +38,15 @@ DEFAULT_LINE_CHAR_CAP = 180
 # text.
 REGULAR_SKILLS_HEADER = "Available skills (use load_skill tool):"
 
-# Header for the user-invoked (slash-command) skills section.
-USER_INVOKED_SKILLS_HEADER = "User-invoked skills (available via /command):"
+# Budget-mode manual skills need not be slash commands: only
+# ``user-invocable: true`` registers one. This fixed header is part of the
+# DMI-invariant skeleton and truthfully describes both access paths.
+MANUAL_SKILLS_HEADER = "Manual skills (load by name; /name when user-invocable):"
 
-# Detail tiers a regular skill can be rendered at, cheapest first.
+# Legacy count-cap mode retains the pre-budget heading byte-for-byte.
+LEGACY_USER_INVOKED_SKILLS_HEADER = "User-invoked skills (available via /command):"
+
+# Detail tiers a model-invocable skill can be rendered at, cheapest first.
 _TIER_INDEX = 0  # name only (full-coverage floor)
 _TIER_SUMMARY = 1  # name + one-line summary
 _TIER_FULL = 2  # name + full description
@@ -113,13 +118,13 @@ class SkillsVisibilityHook:
         self.priority = config.get("priority", 20)
 
         # Token-budget rendering (the new default). ``visibility_token_budget``
-        # bounds how much DETAIL the regular-skills index spends while
-        # GUARANTEEING that every regular skill still appears at least as a
-        # name-only line (full coverage — no skill is ever silently dropped, the
-        # defect the alphabetical ``max_skills_visible`` cap caused). The token
-        # estimate is deterministic and dependency-free: ``len(text) // 4``. No
-        # tokenizer, no network, no LLM calls. See ``_assemble_budgeted_regular``
-        # for the tier algorithm.
+        # bounds the complete wrapped skills index while GUARANTEEING that every
+        # visible skill still appears at least as a name-only line. The plan is
+        # independent of disable_model_invocation, so moving a skill to the
+        # user-invoked section cannot spend released detail on another skill.
+        # The token estimate is deterministic and dependency-free:
+        # ``len(text) // 4``. No tokenizer, no network, no LLM calls. See
+        # ``_assemble_budgeted_catalog`` for the tier algorithm.
         #
         # Mode selection (back-compat):
         #   * ``visibility_token_budget`` set -> budget mode (wins even when
@@ -168,10 +173,10 @@ class SkillsVisibilityHook:
                 f"Invalid visibility.placement={self.placement!r}. "
                 f"Valid values: {', '.join(VALID_PLACEMENTS)}."
             )
-        # Per-skill description ceiling, in characters. Applies to EVERY
-        # rendered line in both sections (including legacy count mode and the
-        # user-invoked section, which the token budget never covered), so no
-        # single verbose skill can dominate an always-on block. 0 disables it.
+        # Per-skill description ceiling, in characters. Applies to every
+        # detailed line in both sections in legacy count mode and to
+        # model-invocable lines in budget mode. Budget-mode user-invoked lines
+        # are deliberately name-only. 0 disables condensing.
         cap_raw = config.get("visibility_line_char_cap")
         self.line_char_cap = (
             DEFAULT_LINE_CHAR_CAP
@@ -373,11 +378,11 @@ class SkillsVisibilityHook:
     def _format_skills_list(self, skills: dict[str, Any] | None = None) -> str:
         """Format skills list as markdown with XML boundaries.
 
-        Partitions skills into two sections:
-        - Regular skills (disable_model_invocation=False): shown under 'Available skills'
-          with max_visible cap
-        - User-invoked skills (disable_model_invocation=True): shown under 'User-invoked
-          skills' with no cap
+        In legacy count-cap mode, partitions skills into two conditional sections
+        exactly as prior releases did. In budget mode, every visible skill is
+        ranked and planned once, then rendered through an invariant two-section
+        skeleton. Model-invocable skills retain their planned detail; manual
+        skills retain their name below the truthful manual-skills header.
 
         Args:
             skills: Optional catalog dict to render. Defaults to the
@@ -393,10 +398,9 @@ class SkillsVisibilityHook:
         if not skills:
             return ""
 
-        # Partition skills into regular and user-invoked.
         # When running inside a forked skill sub-session, omit fork-context skills
-        # from both partitions so the child LLM cannot see (and attempt to invoke)
-        # them — the primary trigger for infinite fork recursion.
+        # so the child LLM cannot see (and attempt to invoke) them — the primary
+        # trigger for infinite fork recursion.
         def _keep(meta: Any) -> bool:
             """Return True if this skill should be visible in the current context."""
             is_forked = self._is_forked_session
@@ -406,48 +410,52 @@ class SkillsVisibilityHook:
                 is_forked = bool(self.coordinator.get_capability("skills.fork_context"))
             return not (is_forked and meta.context == "fork")
 
-        regular_skills = {
+        visible_skills = {
             name: meta
             for name, meta in skills.items()
-            if not meta.disable_model_invocation and _keep(meta)
+            if _keep(meta)
+        }
+        if not visible_skills:
+            return ""
+
+        if self._budget_mode:
+            return self._assemble_budgeted_catalog(visible_skills)
+
+        regular_skills = {
+            name: meta
+            for name, meta in visible_skills.items()
+            if not meta.disable_model_invocation
         }
         user_invoked_skills = {
             name: meta
-            for name, meta in skills.items()
-            if meta.disable_model_invocation and _keep(meta)
+            for name, meta in visible_skills.items()
+            if meta.disable_model_invocation
         }
+        lines: list[str] = []
 
-        lines = []
-
-        # Build regular skills section.
+        # Legacy count-cap path: deliberately byte-for-byte compatible.
         if regular_skills:
-            if self._budget_mode:
-                # Budget mode: full coverage, detail bounded by the token budget.
-                lines.extend(self._assemble_budgeted_regular(regular_skills))
-            else:
-                # Legacy count-cap mode (unchanged): alphabetical, first N shown,
-                # remainder summarized as a "(N more ...)" line.
-                skills_items = sorted(regular_skills.items())[: self.max_visible]
-                lines.append(REGULAR_SKILLS_HEADER)
+            # Legacy count-cap mode (unchanged): alphabetical, first N shown,
+            # remainder summarized as a "(N more ...)" line.
+            skills_items = sorted(regular_skills.items())[: self.max_visible]
+            lines.append(REGULAR_SKILLS_HEADER)
+            lines.append("")
+            for name, metadata in skills_items:
+                condensed = self._condense(metadata.description, self.line_char_cap)
+                lines.append(f"- **{name}**: {condensed}")
+            # Show truncation if applicable
+            if len(regular_skills) > self.max_visible:
+                remaining = len(regular_skills) - self.max_visible
                 lines.append("")
-                for name, metadata in skills_items:
-                    condensed = self._condense(metadata.description, self.line_char_cap)
-                    lines.append(f"- **{name}**: {condensed}")
-                # Show truncation if applicable
-                if len(regular_skills) > self.max_visible:
-                    remaining = len(regular_skills) - self.max_visible
-                    lines.append("")
-                    lines.append(
-                        f"_({remaining} more - use load_skill(list=true) to see all)_"
-                    )
+                lines.append(
+                    f"_({remaining} more - use load_skill(list=true) to see all)_"
+                )
 
-        # Build user-invoked skills section. The token budget has never covered
-        # this section (it bounds only the regular index), so the per-line
-        # character cap is the ONLY thing bounding its growth.
+        # Legacy user-invoked section (unchanged).
         if user_invoked_skills:
             if lines:
                 lines.append("")
-            lines.append(USER_INVOKED_SKILLS_HEADER)
+            lines.append(LEGACY_USER_INVOKED_SKILLS_HEADER)
             lines.append("")
             for name, metadata in sorted(user_invoked_skills.items()):
                 condensed = self._condense(metadata.description, self.line_char_cap)
@@ -683,7 +691,7 @@ class SkillsVisibilityHook:
         return " ".join(parts)
 
     def _skill_line(self, name: str, meta: Any, tier: int) -> str:
-        """Render one regular-skill line at the given detail tier."""
+        """Render one skill line at the given detail tier."""
         if tier <= _TIER_INDEX:
             return f"- **{name}**"
         cap = self.line_char_cap
@@ -691,46 +699,93 @@ class SkillsVisibilityHook:
             return f"- **{name}**: {self._condense(self._skill_summary(meta), cap)}"
         return f"- **{name}**: {self._condense(meta.description, cap)}"
 
-    def _regular_section_lines(
-        self, ranked: list[tuple[str, Any]], tiers: dict[str, int]
-    ) -> list[str]:
-        """Assemble the regular-skills section (header + one line per skill)."""
+    def _budget_catalog_block(
+        self,
+        ranked: list[tuple[str, Any]],
+        tiers: dict[str, int],
+        *,
+        use_planned_detail_for_manual: bool,
+        overflow_notice: str | None = None,
+    ) -> str:
+        """Render the complete budget-mode block using its invariant skeleton.
+
+        Both section headers and their separators are always present for a
+        nonempty catalog. During planning, manual skills use their planned tier;
+        actual output uses their mandatory name-only tier instead.
+        """
+        regular = [
+            (name, meta) for name, meta in ranked if not meta.disable_model_invocation
+        ]
+        manual = [
+            (name, meta) for name, meta in ranked if meta.disable_model_invocation
+        ]
         lines = [REGULAR_SKILLS_HEADER, ""]
-        for name, meta in ranked:
-            lines.append(self._skill_line(name, meta, tiers[name]))
-        return lines
+        lines.extend(self._skill_line(name, meta, tiers[name]) for name, meta in regular)
+        lines.extend(["", MANUAL_SKILLS_HEADER, ""])
+        lines.extend(
+            self._skill_line(
+                name,
+                meta,
+                tiers[name] if use_planned_detail_for_manual else _TIER_INDEX,
+            )
+            for name, meta in manual
+        )
+        if overflow_notice is not None:
+            lines.append(overflow_notice)
+        return (
+            '<system-reminder source="hooks-skills-visibility">\n'
+            + "\n".join(lines)
+            + "\n</system-reminder>"
+        )
 
-    def _assemble_budgeted_regular(
-        self, regular_skills: dict[str, Any]
-    ) -> list[str]:
-        """Render the regular-skills section under the token budget.
+    def _assemble_budgeted_catalog(self, visible_skills: dict[str, Any]) -> str:
+        """Render the complete visible catalog under the token budget.
 
-        Invariant: every regular skill is present at least as a name-only index
-        line. The budget bounds DETAIL, never coverage — no skill is dropped
-        even if the index floor alone exceeds the budget.
+        Invariant: every visible skill is present at least as a name-only index
+        line. The budget bounds detail, never coverage — no skill is dropped
+        even if the complete wrapped name floor alone exceeds the budget.
 
         Assembly is deterministic:
-          1. Reserve a name-only index line for every regular skill.
+          1. Reserve a name-only index line for every visible skill.
           2. Upgrade index -> one-line summary, in rank order, while the budget
              allows.
           3. Upgrade summary -> full description, in rank order, while the
              budget allows.
 
         Rank order is ``(-priority, name)``: higher priority first, ties broken
-        alphabetically.
+        alphabetically. Planning renders every skill at its planned tier,
+        regardless of invocation control; actual output reduces manual skills to
+        names only. That makes the plan and its overflow condition independent
+        of ``disable_model_invocation``.
         """
-        if not regular_skills:
-            return []
-
         ranked: list[tuple[str, Any]] = sorted(
-            regular_skills.items(),
-            key=lambda item: (-self._skill_priority(item[1]), item[0]),
+            visible_skills.items(), key=lambda item: (-self._skill_priority(item[1]), item[0])
         )
         tiers: dict[str, int] = {name: _TIER_INDEX for name, _ in ranked}
 
         def within_budget() -> bool:
-            text = "\n".join(self._regular_section_lines(ranked, tiers))
+            text = self._budget_catalog_block(
+                ranked, tiers, use_planned_detail_for_manual=True
+            )
             return self._estimate_tokens(text) <= self.token_budget
+
+        name_floor = self._estimate_tokens(
+            self._budget_catalog_block(
+                ranked, tiers, use_planned_detail_for_manual=True
+            )
+        )
+        if name_floor > self.token_budget:
+            notice = (
+                f"_(Name-only catalog floor: {name_floor} tokens exceeds configured "
+                f"budget: {self.token_budget}; all names retained. Use "
+                'load_skill(list=true) or load_skill(search="…") for details.)_'
+            )
+            return self._budget_catalog_block(
+                ranked,
+                tiers,
+                use_planned_detail_for_manual=False,
+                overflow_notice=notice,
+            )
 
         # Pass 1: index -> summary, in rank order, while the budget allows.
         for name, _meta in ranked:
@@ -748,4 +803,6 @@ class SkillsVisibilityHook:
                 tiers[name] = _TIER_SUMMARY
                 break
 
-        return self._regular_section_lines(ranked, tiers)
+        return self._budget_catalog_block(
+            ranked, tiers, use_planned_detail_for_manual=False
+        )

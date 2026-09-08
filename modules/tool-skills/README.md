@@ -165,17 +165,40 @@ tools:
         - ~/my-custom-skills         # Your skills
       visibility:
         enabled: true                # Show skills automatically (default: true)
-        max_skills_visible: 50       # Legacy count cap (budget mode wins when both set)
+        visibility_token_budget: 2500 # Complete wrapped catalog budget (default)
+        # max_skills_visible: 50     # Legacy count cap; use only without budget
         visibility_line_char_cap: 180  # Per-skill description ceiling (default: 180, 0 = off)
         placement: prefix            # Where the index lands (default: prefix)
 ```
+
+#### `visibility.visibility_token_budget` and `visibility.max_skills_visible`
+
+Budget mode is the default and is selected by `visibility_token_budget` (or by
+omitting both keys). Its default is 2500 estimated tokens. The budget covers the
+**complete wrapped catalog block**: its XML wrapper, both section headers, every
+visible skill name, and routing detail. Every effective, non-fork-filtered skill
+is retained at least by name. Model-invocable skills receive deterministic
+priority-ranked summary/full detail where room permits; skills with
+`disable-model-invocation: true` are name-only under `Manual skills (load by
+name; /name when user-invocable):`. The heading is literal: only
+`user-invocable: true` registers `/name`; every manual skill remains available
+to `load_skill` by exact name. If all names plus the fixed block skeleton
+exceed the budget, the block retains every name and reports the calculated
+floor and budget, directing the agent to `load_skill(list=true)` or
+`load_skill(search="…")`.
+
+For compatibility, configuring `max_skills_visible` **without**
+`visibility_token_budget` selects the legacy count-cap renderer. It retains the
+prior alphabetical regular-skill cap and separate, condensed user-invoked
+section. When both keys are set, the budget renderer wins.
 
 #### `visibility.visibility_line_char_cap`
 
 The catalog is a routing **list**, not a teaching surface: one line per skill,
 enough to decide whether to load it, with the skill body carrying the rest.
-This cap bounds the description text a single line may spend, in every section
-and in legacy count mode, so one verbose skill cannot dominate a block that is
+This cap bounds the description text a single line may spend wherever a
+description is rendered: both legacy sections and budget-mode
+model-invocable entries. It prevents one verbose skill from dominating a block
 injected into **every** session's head.
 
 - A description already within the cap is rendered **verbatim** — zero loss.
@@ -427,8 +450,8 @@ provider_preferences:          # Explicit model override
     model: claude-sonnet-4-20250514
 
 # Invocation control
-disable-model-invocation: true  # Not triggered by model — user-invoked only (via /command)
-user-invocable: true            # Registers as a slash command in the CLI
+disable-model-invocation: true  # Not triggered by model; rendered name-only in budget mode
+user-invocable: true            # Required to register the /command shortcut in the CLI
 auto-load: true                 # Activates at session start (for hook-based skills)
 
 # Tool scoping

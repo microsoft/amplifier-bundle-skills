@@ -1,12 +1,13 @@
 """Tests for the token-budget tier rendering of the skills-visibility index.
 
-The visibility hook must render EVERY regular (model-invocable) skill at some
-detail tier while spending at most ``visibility_token_budget`` tokens of
-detail. Coverage is the invariant — no skill is ever dropped — and the budget
-bounds only how much detail each skill gets (name-only index, one-line summary,
-or full description).
+The visibility hook must render EVERY effective, visible skill at least by name.
+Its DMI-independent plan assigns the model-invocable entries a detail tier while
+spending at most ``visibility_token_budget`` tokens for the complete wrapped
+block. Coverage is the invariant — no skill is ever dropped — and the budget
+bounds detail (name-only index, one-line summary, or full description).
 """
 
+import re
 from pathlib import Path
 
 import pytest
@@ -15,6 +16,7 @@ from amplifier_module_tool_skills.discovery import SkillMetadata
 from amplifier_module_tool_skills.discovery import discover_skills
 from amplifier_module_tool_skills.hooks import DEFAULT_VISIBILITY_TOKEN_BUDGET
 from amplifier_module_tool_skills.hooks import SkillsVisibilityHook
+from amplifier_module_tool_skills import SkillsDiscovery
 
 
 # --------------------------------------------------------------------------
@@ -32,20 +34,22 @@ def _skill(name: str, description: str, **kwargs) -> SkillMetadata:
     )
 
 
-def _regular_section(content: str) -> str:
-    """Extract the regular-skills section text (header + skill lines) from an
-    injected system-reminder block with no user-invoked section."""
-    inner = content.split(">\n", 1)[1].rsplit("\n</system-reminder>", 1)[0]
-    return inner
-
-
 def _regular_names(content: str) -> list[str]:
-    """Ordered skill names from the regular section, in render order."""
+    """Ordered skill names from both sections, in rendered section order."""
     names = []
     for line in content.split("\n"):
         if line.startswith("- **"):
             names.append(line.split("**")[1])
     return names
+
+
+def _skill_line_by_name(content: str) -> dict[str, str]:
+    """Return each rendered skill line keyed by its exact skill name."""
+    return {
+        line.split("**")[1]: line
+        for line in content.splitlines()
+        if line.startswith("- **")
+    }
 
 
 # --------------------------------------------------------------------------
@@ -81,7 +85,7 @@ def test_invalid_budget_falls_back_to_default():
 
 
 # --------------------------------------------------------------------------
-# Full coverage (design item 2a — the invariant)
+# Full coverage and complete-block budget (design item 2a — the invariant)
 # --------------------------------------------------------------------------
 
 
@@ -136,8 +140,8 @@ async def test_full_coverage_even_when_floor_exceeds_budget():
 
 @pytest.mark.asyncio
 async def test_budget_respected():
-    """The regular-section token estimate stays within budget and detail is
-    capped (some skills remain name-only) while coverage is complete."""
+    """The complete wrapped estimate stays within budget and detail is capped
+    (some skills remain name-only) while coverage is complete."""
     budget = 400
     long_desc = "This is a fairly long single sentence description without any early terminator so its first sentence spans well past the summary truncation window " + ("x" * 120)
     skills = {
@@ -151,10 +155,8 @@ async def test_budget_respected():
     assert content is not None
     # Coverage: all 30 skills present.
     assert len(_regular_names(content)) == 30
-    # Budget respected: regular-section token estimate within budget (the floor
-    # of name-only lines fits inside this budget, so the whole section must).
-    section = _regular_section(content)
-    assert len(section) // 4 <= budget
+    # Budget respected: the whole wrapped block is measured, not one section.
+    assert len(content) // 4 <= budget
     # Cap engaged: not every skill could be upgraded — at least one is index-only.
     index_only = [
         line
@@ -162,6 +164,204 @@ async def test_budget_respected():
         if line.startswith("- **") and line.endswith("**")
     ]
     assert index_only, "expected at least one name-only skill under a tight budget"
+
+
+# --------------------------------------------------------------------------
+# Whole-block DMI transition matrix
+# --------------------------------------------------------------------------
+
+
+def _transition_catalog(kind: str) -> tuple[dict[str, SkillMetadata], tuple[str, ...]]:
+    """Build a catalog and its regular skills to switch to manual together."""
+    if kind == "empty":
+        return {}, ()
+    if kind == "typical":
+        return (
+            {
+                "alpha": _skill("alpha", "Alpha routing detail. Use when alpha is needed."),
+                "bravo": _skill("bravo", "Bravo routing detail. Use when bravo is needed."),
+                "charlie": _skill(
+                    "charlie", "Charlie routing detail. Use when charlie is needed."
+                ),
+                "delta": _skill("delta", "Delta routing detail. Use when delta is needed."),
+            },
+            ("bravo", "charlie"),
+        )
+    if kind == "saturated":
+        description = (
+            "Long routing detail that competes for scarce catalog room. "
+            "Use when this saturated skill is needed. "
+            + "tail " * 80
+        )
+        return (
+            {
+                f"skill-{index:02d}": _skill(f"skill-{index:02d}", description)
+                for index in range(40)
+            },
+            ("skill-10", "skill-20"),
+        )
+    if kind == "all-manual":
+        return (
+            {
+                "command-a": _skill(
+                    "command-a", "Manual command A.", disable_model_invocation=True
+                ),
+                "command-b": _skill(
+                    "command-b", "Manual command B.", disable_model_invocation=True
+                ),
+            },
+            (),
+        )
+    if kind == "mixed-unicode":
+        return (
+            {
+                "café": _skill("café", "Prépare des données. Use when data needs care."),
+                "東京": _skill("東京", "東京の作業を行う。Use when Japanese data is needed."),
+                "manual-λ": _skill(
+                    "manual-λ",
+                    "Already manual routing detail.",
+                    disable_model_invocation=True,
+                ),
+            },
+            ("café", "東京"),
+        )
+    raise AssertionError(f"Unknown catalog kind: {kind}")
+
+
+@pytest.mark.parametrize(
+    "kind,budget",
+    [
+        ("typical", 500),
+        ("saturated", 220),
+        ("empty", 220),
+        ("all-manual", 220),
+        ("mixed-unicode", 500),
+    ],
+)
+def test_budget_catalog_transition_matrix_preserves_names_and_never_grows(
+    kind: str, budget: int
+):
+    """Whole blocks cover normal, tight, empty, manual, mixed, and Unicode cases."""
+    before_skills, targets = _transition_catalog(kind)
+    hook = SkillsVisibilityHook(
+        before_skills, {"visibility_token_budget": budget, "visibility_line_char_cap": 180}
+    )
+    before = hook._format_skills_list(before_skills)
+
+    if not before_skills:
+        assert before == ""
+        return
+
+    # The invariant skeleton is present even for all-manual catalogs.
+    assert "Available skills (use load_skill tool):" in before
+    assert "Manual skills (load by name; /name when user-invocable):" in before
+    assert _regular_names(before) == list(_skill_line_by_name(before))
+    assert set(_skill_line_by_name(before)) == set(before_skills)
+    assert len(_skill_line_by_name(before)) == len(before_skills)
+
+    if not targets:
+        return
+
+    assert len(targets) >= 2
+    for target in targets:
+        before_skills[target].disable_model_invocation = True
+    after = hook._format_skills_list(before_skills)
+
+    # Measure the complete rendered string in both Python characters and bytes.
+    assert len(after) <= len(before)
+    assert len(after.encode("utf-8")) <= len(before.encode("utf-8"))
+    assert set(_skill_line_by_name(after)) == set(before_skills)
+    assert len(_skill_line_by_name(after)) == len(before_skills)
+    for target in targets:
+        assert _skill_line_by_name(after)[target] == f"- **{target}**"
+
+
+def test_dmi_transition_does_not_reallocate_regular_routing_detail():
+    """A manual transition cannot upgrade an unchanged model-invocable line."""
+    description = (
+        "A concise opening sentence. Use when this routing detail is relevant. "
+        + "extra " * 50
+    )
+    skills = {
+        "alpha": _skill("alpha", description),
+        "bravo": _skill("bravo", description),
+        "charlie": _skill("charlie", description),
+        "delta": _skill("delta", description),
+    }
+    hook = SkillsVisibilityHook(
+        skills, {"visibility_token_budget": 150, "visibility_line_char_cap": 180}
+    )
+    before = hook._format_skills_list(skills)
+    before_lines = _skill_line_by_name(before)
+
+    skills["bravo"].disable_model_invocation = True
+    skills["charlie"].disable_model_invocation = True
+    after = hook._format_skills_list(skills)
+    after_lines = _skill_line_by_name(after)
+
+    assert after_lines["bravo"] == "- **bravo**"
+    assert after_lines["charlie"] == "- **charlie**"
+    for name in {"alpha", "delta"}:
+        assert after_lines[name] == before_lines[name]
+
+
+def test_overflow_reports_complete_name_floor_and_retains_every_name():
+    """Floor overflow is explicit, DMI-independent, and never drops coverage."""
+    skills = {
+        "alpha": _skill("alpha", "Alpha detail."),
+        "bravo": _skill("bravo", "Bravo detail."),
+        "manual": _skill("manual", "Manual detail.", disable_model_invocation=True),
+    }
+    hook = SkillsVisibilityHook(skills, {"visibility_token_budget": 1})
+    before = hook._format_skills_list(skills)
+
+    skills["alpha"].disable_model_invocation = True
+    skills["bravo"].disable_model_invocation = True
+    after = hook._format_skills_list(skills)
+
+    for content in (before, after):
+        assert "Name-only catalog floor:" in content
+        assert "configured budget: 1" in content
+        assert "load_skill(list=true)" in content
+        assert 'load_skill(search="…")' in content
+        assert set(_skill_line_by_name(content)) == set(skills)
+        assert len(_skill_line_by_name(content)) == len(skills)
+    assert len(after) <= len(before)
+    assert len(after.encode("utf-8")) <= len(before.encode("utf-8"))
+    # DMI changes placement but not the complete planned name floor.
+    floor_pattern = r"Name-only catalog floor: (\d+) tokens exceeds"
+    assert re.search(floor_pattern, before).group(1) == re.search(
+        floor_pattern, after
+    ).group(1)
+
+
+def test_manual_skill_heading_distinguishes_exact_loads_from_shortcuts():
+    """DMI-only skills retain an exact-name affordance without a false shortcut."""
+    manual_only = _skill(
+        "manual-only",
+        "Can be loaded by exact name.",
+        disable_model_invocation=True,
+    )
+    goalify = _skill(
+        "goalify",
+        "Writes a measurable goal condition.",
+        disable_model_invocation=True,
+        user_invocable=True,
+        shortcut="goal",
+    )
+    skills = {"manual-only": manual_only, "goalify": goalify}
+    content = SkillsVisibilityHook(
+        skills, {"visibility_token_budget": 200}
+    )._format_skills_list(skills)
+
+    assert (
+        "Manual skills (load by name; /name when user-invocable):\n\n"
+        "- **goalify**\n- **manual-only**"
+    ) in content
+    shortcuts = SkillsDiscovery(skills).get_shortcuts()
+    assert "manual-only" not in shortcuts
+    assert shortcuts["goalify"]["name"] == "goalify"
+    assert shortcuts["goal"]["name"] == "goalify"
 
 
 @pytest.mark.asyncio
@@ -249,9 +449,10 @@ async def test_summary_fallback_condenses_and_keeps_the_trigger():
             "Use when the caller needs that thing done.",
         )
     }
-    # Budget tuned so this single skill reaches the summary tier but not full.
+    # Budget tuned so this single skill reaches the summary tier but not full,
+    # after the complete wrapper and the invariant second section are reserved.
     hook = SkillsVisibilityHook(
-        skills, {"visibility_token_budget": 40, "visibility_line_char_cap": 200}
+        skills, {"visibility_token_budget": 75, "visibility_line_char_cap": 200}
     )
     result = await hook.on_provider_request("provider:request", {})
     content = result.context_injection
@@ -276,7 +477,7 @@ async def test_explicit_summary_override_used_at_summary_tier():
         "A long description sentence that would otherwise be the fallback summary text.",
     )
     skill.visibility = {"summary": "Curated one-liner."}
-    hook = SkillsVisibilityHook({"override-skill": skill}, {"visibility_token_budget": 20})
+    hook = SkillsVisibilityHook({"override-skill": skill}, {"visibility_token_budget": 60})
     result = await hook.on_provider_request("provider:request", {})
     content = result.context_injection
     assert content is not None
@@ -286,6 +487,32 @@ async def test_explicit_summary_override_used_at_summary_tier():
 # --------------------------------------------------------------------------
 # Legacy count mode (design item 4 — unchanged behavior)
 # --------------------------------------------------------------------------
+
+
+def test_only_max_skills_visible_keeps_the_legacy_block_byte_for_byte():
+    """Count-cap-only config retains conditional sections and manual detail."""
+    skills = {
+        "alpha": _skill("alpha", "Alpha detail."),
+        "manual": _skill(
+            "manual", "Manual detail.", disable_model_invocation=True
+        ),
+    }
+
+    block = SkillsVisibilityHook(
+        skills, {"max_skills_visible": 50}
+    )._format_skills_list(skills)
+
+    assert block == (
+        '<system-reminder source="hooks-skills-visibility">\n'
+        "Available skills (use load_skill tool):\n"
+        "\n"
+        "- **alpha**: Alpha detail.\n"
+        "\n"
+        "User-invoked skills (available via /command):\n"
+        "\n"
+        "- **manual**: Manual detail.\n"
+        "</system-reminder>"
+    )
 
 
 @pytest.mark.asyncio
