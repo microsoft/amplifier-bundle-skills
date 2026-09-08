@@ -214,8 +214,8 @@ async def test_ephemeral_flag_propagates(sample_skills):
 
 
 @pytest.mark.asyncio
-async def test_disable_model_invocation_skill_in_user_invoked_section():
-    """Skills with disable_model_invocation=True must appear in the user-invoked section, not regular section."""
+async def test_disable_model_invocation_skill_in_manual_section():
+    """Budget mode displays DMI skills under the truthful manual section."""
     skills = {
         "visible-skill": SkillMetadata(
             name="visible-skill",
@@ -226,7 +226,7 @@ async def test_disable_model_invocation_skill_in_user_invoked_section():
         ),
         "user-invoked-skill": SkillMetadata(
             name="user-invoked-skill",
-            description="This skill should be in user-invoked section",
+            description="This skill should be in the manual section",
             path=Path("/skills/user-invoked-skill/SKILL.md"),
             source="/skills",
             disable_model_invocation=True,
@@ -239,9 +239,9 @@ async def test_disable_model_invocation_skill_in_user_invoked_section():
     assert result.action == "inject_context"
     assert result.context_injection is not None
     assert "visible-skill" in result.context_injection
-    # user-invoked skill should be present in the user-invoked section
+    # DMI skill should be present in the truthful manual section.
     assert "user-invoked-skill" in result.context_injection
-    assert "User-invoked skills" in result.context_injection
+    assert "Manual skills (load by name; /name when user-invocable):" in result.context_injection
 
 
 @pytest.mark.asyncio
@@ -267,8 +267,8 @@ async def test_shows_skill_without_disable_model_invocation():
 
 
 @pytest.mark.asyncio
-async def test_all_skills_disable_model_invocation_shows_user_invoked_section():
-    """When all skills have disable_model_invocation=True, hook should return inject_context with user-invoked section."""
+async def test_all_skills_disable_model_invocation_shows_manual_section():
+    """An all-DMI budget catalog still injects its manual section."""
     skills = {
         "hidden-1": SkillMetadata(
             name="hidden-1",
@@ -289,10 +289,10 @@ async def test_all_skills_disable_model_invocation_shows_user_invoked_section():
     hook = SkillsVisibilityHook(skills, {})
     result = await hook.on_provider_request("provider:request", {})
 
-    # All skills are user-invoked → should still inject context with user-invoked section
+    # All skills are manual → the budget catalog still injects context.
     assert result.action == "inject_context"
     assert result.context_injection is not None
-    assert "User-invoked skills" in result.context_injection
+    assert "Manual skills" in result.context_injection
     assert "hidden-1" in result.context_injection
     assert "hidden-2" in result.context_injection
 
@@ -339,12 +339,12 @@ async def test_truncation_count_uses_filtered_visible_skills():
 
 
 @pytest.mark.asyncio
-async def test_user_invoked_section_header_is_neutral():
-    """User-invoked section header must use neutral text (available via /command)."""
+async def test_budget_mode_manual_section_header_is_truthful():
+    """Budget-mode DMI entries need not be slash commands."""
     skills = {
         "cmd-skill": SkillMetadata(
             name="cmd-skill",
-            description="A user-invoked command skill",
+            description="A manual skill",
             path=Path("/skills/cmd-skill/SKILL.md"),
             source="/skills",
             disable_model_invocation=True,
@@ -357,7 +357,7 @@ async def test_user_invoked_section_header_is_neutral():
     assert result.action == "inject_context"
     assert result.context_injection is not None
     content = result.context_injection
-    assert "User-invoked skills (available via /command):" in content
+    assert "Manual skills (load by name; /name when user-invocable):" in content
 
 
 @pytest.mark.asyncio
@@ -381,12 +381,12 @@ async def test_behavioral_note_not_present():
     assert "DO NOT mention" not in content
 
 
-# --- User-invoked skills section tests ---
+# --- Budget-mode manual skills section tests ---
 
 
 @pytest.mark.asyncio
-async def test_user_invoked_skills_shown_in_separate_section():
-    """Skills with disable_model_invocation=True appear under 'User-invoked skills' heading."""
+async def test_manual_skills_shown_in_separate_section():
+    """Budget-mode DMI skills appear under the manual-skills heading."""
     skills = {
         "regular-skill": SkillMetadata(
             name="regular-skill",
@@ -397,7 +397,7 @@ async def test_user_invoked_skills_shown_in_separate_section():
         ),
         "cmd-skill": SkillMetadata(
             name="cmd-skill",
-            description="A user-invoked command skill",
+            description="A manual skill",
             path=Path("/skills/cmd-skill/SKILL.md"),
             source="/skills",
             disable_model_invocation=True,
@@ -413,30 +413,30 @@ async def test_user_invoked_skills_shown_in_separate_section():
     # Regular skill in available section
     assert "Available skills (use load_skill tool):" in content
     assert "regular-skill" in content
-    # User-invoked skill in its own section
-    assert "User-invoked skills (available via /command):" in content
+    # Manual skill in its own section.
+    assert "Manual skills (load by name; /name when user-invocable):" in content
     assert "cmd-skill" in content
 
 
 @pytest.mark.asyncio
-async def test_user_invoked_section_not_shown_when_none(sample_skills):
-    """When no skills have disable_model_invocation=True, no user-invoked section appears."""
+async def test_budget_mode_always_shows_both_section_headers(sample_skills):
+    """A nonempty budget-mode catalog reserves both headers for stable sizing."""
     # sample_skills fixture has no disable_model_invocation=True skills
     hook = SkillsVisibilityHook(sample_skills, {})
     result = await hook.on_provider_request("provider:request", {})
 
     assert result.action == "inject_context"
     assert result.context_injection is not None
-    assert "User-invoked skills" not in result.context_injection
+    assert "Manual skills" in result.context_injection
 
 
 @pytest.mark.asyncio
-async def test_only_user_invoked_skills_still_injects():
-    """When ALL skills have disable_model_invocation=True, hook returns inject_context (not continue)."""
+async def test_only_manual_skills_still_injects():
+    """An all-DMI budget catalog returns inject_context, not continue."""
     skills = {
         "only-cmd-skill": SkillMetadata(
             name="only-cmd-skill",
-            description="The only skill, and it is user-invoked",
+            description="The only skill, and it is manual",
             path=Path("/skills/only-cmd-skill/SKILL.md"),
             source="/skills",
             disable_model_invocation=True,
@@ -448,7 +448,7 @@ async def test_only_user_invoked_skills_still_injects():
 
     assert result.action == "inject_context"
     assert result.context_injection is not None
-    assert "User-invoked skills" in result.context_injection
+    assert "Manual skills" in result.context_injection
     assert "only-cmd-skill" in result.context_injection
-    # No regular section since there are no regular skills
-    assert "Available skills (use load_skill tool):" not in result.context_injection
+    # Budget mode reserves the empty regular section too.
+    assert "Available skills (use load_skill tool):" in result.context_injection

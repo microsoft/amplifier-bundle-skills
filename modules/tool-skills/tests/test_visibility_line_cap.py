@@ -102,7 +102,7 @@ def test_invalid_cap_falls_back_to_the_module_default():
 
 
 # --------------------------------------------------------------------------
-# The cap reaches BOTH sections and the legacy mode
+# The cap reaches legacy sections; budget-mode manual skills are name-only
 # --------------------------------------------------------------------------
 
 _VERBOSE = (
@@ -114,16 +114,16 @@ _VERBOSE = (
 
 
 @pytest.mark.asyncio
-async def test_user_invoked_section_is_capped():
-    """The token budget never covered this section -- the cap is its only bound."""
+async def test_budget_mode_user_invoked_section_is_name_only():
+    """Budget mode retains a manual skill's name without routing detail."""
     skills = {"cmd": _skill("cmd", _VERBOSE, disable_model_invocation=True)}
     hook = SkillsVisibilityHook(skills, {"visibility_line_char_cap": 120})
     result = await hook.on_provider_request("provider:request", {})
     content = result.context_injection
     assert content is not None
     line = next(line for line in content.split("\n") if line.startswith("- **cmd**"))
-    assert len(line) - len("- **cmd**: ") <= 120
-    assert "Use when the caller needs all of that at once." in line
+    assert line == "- **cmd**"
+    assert _VERBOSE not in content
 
 
 @pytest.mark.asyncio
@@ -189,11 +189,10 @@ PINNED_BLOCK = (
     "going without any terminator at all so there is no sentence boundary anywhere at "
     "all for the condenser to cut on cleanly\u2026\n"
     "\n"
-    "User-invoked skills (available via /command):\n"
+    "Manual skills (load by name; /name when user-invocable):\n"
     "\n"
-    "- **yankee-command**: Runs the full audit sweep over the workspace and writes a "
-    "report to disk, then opens it. Use when a release is about to be cut.\n"
-    "- **zulu-command**: Opens the review panel.\n"
+    "- **yankee-command**\n"
+    "- **zulu-command**\n"
     "</system-reminder>"
 )
 
@@ -239,9 +238,9 @@ def test_pinned_block_holds_the_shape_invariants():
     skill_lines = [line for line in lines if line.startswith("- **")]
     # One physical line per skill: every skill in, every line accounted for.
     assert len(skill_lines) == len(PINNED_CATALOG)
-    # Both command pointers survive.
+    # Both load affordances survive.
     assert "load_skill" in PINNED_BLOCK
-    assert "/command" in PINNED_BLOCK
+    assert "/name when user-invocable" in PINNED_BLOCK
     # No line spends more than the cap on description text.
     for line in skill_lines:
         name, _, description = line.partition("**: ")
