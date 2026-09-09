@@ -26,6 +26,7 @@ Provides the [Agent Skills](https://agentskills.io/specification) system for Amp
 |-------|-------------|
 | **image-vision** | LLM-based image analysis across multiple providers (Anthropic, OpenAI, Gemini, Azure) |
 | **engineering-patterns** | Thirteen engineering pattern guides behind one catalog entry — CLI packaging, one-line installers, config/state, HTTP services, auth/TLS, file IPC, plugin discovery, instance storage, container orchestration, React microfrontends, MS Graph integration, self-managing tools, Amplifier tool leverage. Each is an L3 reference read on demand. |
+| **second-opinion** | Independent, selected-reviewer feedback on current work or a named prior session |
 
 ## Usage
 
