@@ -470,6 +470,40 @@ allowed-tools: tool-filesystem tool-search tool-bash  # Module IDs — NOT Claud
 | `auto-load` | Skill activates at session start via embedded hooks |
 | `allowed-tools` | Restricts the forked subagent's tool surface. Values are **Amplifier module IDs** (e.g. `tool-filesystem`, `tool-search`, `tool-bash`, `tool-delegate`, `tool-skills`) — NOT Claude Code tool names and NOT callable tool names. A name matching no module yields an **empty** tool set. Omit entirely to inherit the full parent tool surface. |
 
+#### Optional Argument Completion
+
+User-invocable skills may add an `argument-hint` display string, compatible with
+Claude Code command hints. It is display-only; Amplifier never interprets it as
+completion choices.
+
+For literal argument completion, point the standard `metadata` extension mapping
+at an in-skill UTF-8 JSON sidecar:
+
+```yaml
+user-invocable: true
+argument-hint: "[list | review] [action]"
+metadata:
+  amplifier.completions: completions.json
+```
+
+```json
+{
+  "version": 1,
+  "arguments": [
+    {"after": [], "values": ["list", "review"]},
+    {"after": ["review"], "values": ["accept", "decline", "skip"]}
+  ]
+}
+```
+
+Each rule maps the exact completed-argument prefix in `after` to its literal
+`values`; matching is case-sensitive. The sidecar contains no command name or
+aliases—use the existing `shortcut` field for an alias. The sidecar path must
+stay within the skill directory. Its top-level keys must be exactly `version`
+and `arguments`, and each rule must contain exactly `after` and `values`.
+Invalid hints or sidecars are ignored with a warning and do not prevent the
+skill from loading.
+
 ### Creating a Simple Skill
 
 ```bash
