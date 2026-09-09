@@ -3,11 +3,13 @@ Skill discovery and metadata parsing.
 Shared utilities for finding and parsing SKILL.md files.
 """
 
+import json
 import logging
 import os
 import re
+import unicodedata
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any
 
 import yaml
@@ -22,6 +24,13 @@ VALID_NAME_PATTERN = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 # dispatch table is always keyed in lowercase, mirroring the case-insensitive
 # slash-command lookup the CLI does on user input.
 _SHORTCUT_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_-]*$")
+
+MAX_ARGUMENT_HINT_LENGTH = 1024
+MAX_COMPLETION_SIDECAR_BYTES = 64 * 1024
+MAX_COMPLETION_RULES = 64
+MAX_COMPLETION_PREFIX_TOKENS = 16
+MAX_COMPLETION_CHOICES = 64
+MAX_COMPLETION_TOKEN_LENGTH = 128
 
 
 def _find_repo_root(path: Path) -> Path | None:
@@ -71,6 +80,133 @@ class SkillMetadata:
     model_role: str | list[str] | None = None  # Model role or fallback chain
     provider_preferences: list[dict] | None = None  # Provider/model preferences
     auto_load: bool = False  # Emit skill:loaded at mount time (for hook-bearing skills)
+    argument_hint: str | None = None  # Display hint for user-invocable command arguments
+    completion_spec: dict[str, Any] | None = None  # Parsed amplifier.completions sidecar
+
+
+def _parse_argument_hint(frontmatter: dict[str, Any], skill_path: Path) -> str | None:
+    """Return a valid display-only argument hint, or disable an invalid one."""
+    argument_hint = frontmatter.get("argument-hint")
+    if argument_hint is None:
+        return None
+    if not isinstance(argument_hint, str) or not argument_hint:
+        logger.warning("Ignoring argument-hint for %s: expected a non-empty string", skill_path)
+        return None
+    if len(argument_hint) > MAX_ARGUMENT_HINT_LENGTH:
+        logger.warning(
+            "Ignoring argument-hint for %s: exceeds %d characters",
+            skill_path,
+            MAX_ARGUMENT_HINT_LENGTH,
+        )
+        return None
+    if not all(character.isprintable() for character in argument_hint):
+        logger.warning(
+            "Ignoring argument-hint for %s: must be a printable single-line string",
+            skill_path,
+        )
+        return None
+    return argument_hint
+
+
+def _read_completion_sidecar(sidecar_path: Path) -> dict[str, Any]:
+    """Read and validate a bounded UTF-8 JSON completion sidecar."""
+    with sidecar_path.open("rb") as sidecar_file:
+        content = sidecar_file.read(MAX_COMPLETION_SIDECAR_BYTES + 1)
+    if len(content) > MAX_COMPLETION_SIDECAR_BYTES:
+        raise ValueError(f"sidecar exceeds {MAX_COMPLETION_SIDECAR_BYTES} bytes")
+
+    try:
+        parsed = json.loads(content.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("sidecar must be UTF-8 JSON") from exc
+    if not isinstance(parsed, dict):
+        raise ValueError("sidecar must be an object")
+    if set(parsed) != {"version", "arguments"}:
+        raise ValueError("sidecar keys must be exactly version and arguments")
+    if type(parsed.get("version")) is not int or parsed["version"] != 1:
+        raise ValueError("sidecar version must be integer 1")
+
+    arguments = parsed.get("arguments")
+    if not isinstance(arguments, list) or len(arguments) > MAX_COMPLETION_RULES:
+        raise ValueError(f"arguments must contain at most {MAX_COMPLETION_RULES} rules")
+
+    prefixes: set[tuple[str, ...]] = set()
+    validated_rules: list[dict[str, list[str]]] = []
+    for rule in arguments:
+        if not isinstance(rule, dict):
+            raise ValueError("each argument rule must be an object")
+        if set(rule) != {"after", "values"}:
+            raise ValueError("argument rule keys must be exactly after and values")
+        after = rule.get("after")
+        values = rule.get("values")
+        if (
+            not isinstance(after, list)
+            or len(after) > MAX_COMPLETION_PREFIX_TOKENS
+            or not isinstance(values, list)
+            or not values
+            or len(values) > MAX_COMPLETION_CHOICES
+        ):
+            raise ValueError("argument rule has invalid after or values")
+        if any(not _is_completion_literal(token) for token in [*after, *values]):
+            raise ValueError("completion literals must be safe non-empty tokens")
+
+        prefix = tuple(after)
+        if prefix in prefixes or len(values) != len(set(values)):
+            raise ValueError("completion rules and values must not contain duplicates")
+        prefixes.add(prefix)
+        validated_rules.append({"after": list(after), "values": list(values)})
+
+    return {"version": 1, "arguments": validated_rules}
+
+
+def _is_completion_literal(value: Any) -> bool:
+    """Return whether a completion literal is safe to render in a terminal."""
+    return (
+        isinstance(value, str)
+        and bool(value)
+        and len(value) <= MAX_COMPLETION_TOKEN_LENGTH
+        and all(
+            not character.isspace()
+            and not unicodedata.category(character).startswith("C")
+            for character in value
+        )
+    )
+
+
+def _parse_completion_spec(
+    frontmatter: dict[str, Any], skill_path: Path
+) -> dict[str, Any] | None:
+    """Parse the optional Amplifier completion sidecar without blocking discovery."""
+    frontmatter_metadata = frontmatter.get("metadata")
+    if not isinstance(frontmatter_metadata, dict):
+        return None
+
+    sidecar_reference = frontmatter_metadata.get("amplifier.completions")
+    if sidecar_reference is None:
+        return None
+    if not isinstance(sidecar_reference, str) or not sidecar_reference:
+        logger.warning("Ignoring completions for %s: metadata path must be a string", skill_path)
+        return None
+
+    try:
+        relative_path = Path(sidecar_reference)
+        if (
+            relative_path.is_absolute()
+            or PureWindowsPath(sidecar_reference).is_absolute()
+            or ".." in relative_path.parts
+        ):
+            raise ValueError("metadata path must be relative and may not contain '..'")
+
+        skill_dir = skill_path.parent.resolve()
+        sidecar_path = (skill_dir / relative_path).resolve()
+        if not sidecar_path.is_relative_to(skill_dir):
+            raise ValueError("metadata path escapes the skill directory")
+        if not sidecar_path.is_file():
+            raise ValueError("sidecar must be a regular file")
+        return _read_completion_sidecar(sidecar_path)
+    except (OSError, RuntimeError, ValueError) as exc:
+        logger.warning("Ignoring completions for %s: %s", skill_path, exc)
+        return None
 
 
 def parse_skill_frontmatter(skill_path: Path) -> dict[str, Any] | None:
@@ -372,6 +508,9 @@ def discover_skills(skills_dir: Path) -> dict[str, SkillMetadata]:
                             )
                     provider_preferences_val = valid_prefs if valid_prefs else None
 
+            argument_hint = _parse_argument_hint(frontmatter, skill_file)
+            completion_spec = _parse_completion_spec(frontmatter, skill_file)
+
             # Create metadata
             metadata = SkillMetadata(
                 name=name,
@@ -393,6 +532,8 @@ def discover_skills(skills_dir: Path) -> dict[str, SkillMetadata]:
                 model=model_val,
                 model_role=model_role_val,
                 provider_preferences=provider_preferences_val,
+                argument_hint=argument_hint,
+                completion_spec=completion_spec,
             )
 
             skills[name] = metadata

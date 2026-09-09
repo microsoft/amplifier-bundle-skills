@@ -6,6 +6,7 @@ Supports local directories and git URL sources for skills.
 
 from __future__ import annotations
 
+import copy
 import logging
 from pathlib import Path
 from collections.abc import Callable, Coroutine
@@ -453,6 +454,39 @@ class SkillsDiscovery:
             if metadata.shortcut and metadata.shortcut != name:
                 shortcuts[metadata.shortcut] = entry
         return shortcuts
+
+    def get_completion_catalog(self) -> list[dict[str, Any]]:
+        """Return cached completion data for user-invocable skills.
+
+        The catalog is derived solely from metadata parsed during discovery. It
+        intentionally does not read skill files or completion sidecars, so it is
+        safe to call while handling interactive completion keystrokes.
+        """
+        shortcuts = self.get_shortcuts()
+        catalog: list[dict[str, Any]] = []
+        for name, metadata in sorted(self._skills.items()):
+            if not metadata.user_invocable:
+                continue
+
+            aliases: list[str] = []
+            if (
+                metadata.shortcut
+                and metadata.shortcut != name
+                and shortcuts.get(metadata.shortcut, {}).get("name") == name
+            ):
+                aliases.append(metadata.shortcut)
+
+            completion_spec = metadata.completion_spec or {}
+            catalog.append(
+                {
+                    "name": name,
+                    "aliases": aliases,
+                    "description": metadata.description,
+                    "argument_hint": metadata.argument_hint,
+                    "arguments": copy.deepcopy(completion_spec.get("arguments", [])),
+                }
+            )
+        return catalog
 
 
 class SkillsTool:
