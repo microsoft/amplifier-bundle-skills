@@ -35,6 +35,7 @@ Packages the tool-skills module (at `modules/tool-skills/`) with context instruc
 | **skills-assist** | Skills expert — authoritative consultant for authoring, spec, compatibility, and skills-vs-agents guidance |
 | **monitor** | Bounded polling loop — watch a thing until it finishes, fails, or needs you, so the end-of-turn notification fires honestly |
 | **retrospective** | Review how work went, preserve what helped, and choose up to three improvements for the next round |
+| **create-demo-video** | Produce a narrated demo video of something you built, from a storyboard and real recordings, using the vid, aud, unfold, showrun, and Stories smart tools |
 
 ### Retrospectives
 
