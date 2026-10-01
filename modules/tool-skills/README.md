@@ -717,3 +717,12 @@ checkout and generation binding as bundles and modules. This avoids a second
 skills clone. Older Foundation versions and applications without the option
 retain the existing skill cache. A shared-source integrity error is surfaced;
 it does not silently switch to a different source.
+
+### Remote download ownership
+
+Hosts can set `tool-skills.config.cache_dir` to an owned filesystem directory.
+This applies to both startup sources and sources added during a session. Local
+skill paths and user skill discovery remain unchanged. Without this option,
+remote downloads retain the existing `AMPLIFIER_HOME/cache/skills` default;
+CLI users do not need to change their configuration. An explicitly configured
+cache directory remains authoritative.

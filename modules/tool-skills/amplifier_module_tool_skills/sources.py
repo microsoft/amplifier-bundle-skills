@@ -50,6 +50,20 @@ def default_skills_cache_dir() -> Path:
     return base / "cache" / "skills"
 
 
+def configured_skills_cache_dir(config: dict) -> Path | None:
+    """A host may own downloads without relocating shared user resources.
+
+    Absence preserves the CLI/default AMPLIFIER_HOME behavior. This setting
+    affects only remote downloads, never local skill discovery or settings.
+    """
+    value = config.get("cache_dir")
+    if value is None:
+        return None
+    if not isinstance(value, (str, Path)) or not str(value).strip():
+        raise ValueError("tool-skills cache_dir must be a nonempty filesystem path")
+    return Path(value).expanduser().resolve()
+
+
 # Per-cache-path asyncio locks — defence-in-depth against concurrent clones.
 # The primary guard is deduplication in resolve_skill_sources; the lock
 # catches any residual concurrent access (e.g. direct calls to
