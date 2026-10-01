@@ -709,3 +709,11 @@ trademarks or logos is subject to and must follow
 [Microsoft's Trademark & Brand Guidelines](https://www.microsoft.com/legal/intellectualproperty/trademarks/usage/general).
 Use of Microsoft trademarks or logos in modified versions of this project must not cause confusion or imply Microsoft sponsorship.
 Any use of third-party trademarks or logos are subject to those third-party's policies.
+
+
+When an application configures `AMPLIFIER_SOURCE_STORE` and a compatible
+Foundation resolver is installed, remote Git skill sources use the same exact
+checkout and generation binding as bundles and modules. This avoids a second
+skills clone. Older Foundation versions and applications without the option
+retain the existing skill cache. A shared-source integrity error is surfaced;
+it does not silently switch to a different source.

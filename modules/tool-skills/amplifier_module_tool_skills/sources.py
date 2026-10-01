@@ -233,6 +233,30 @@ async def _resolve_remote_source(source: str, cache_dir: Path) -> Path | None:
     Returns:
         Path to cached local directory, or None if resolution fails.
     """
+    try:
+        from amplifier_foundation.sources.shared import resolve_shared_source
+    except ImportError:
+        resolve_shared_source = None  # Older Foundation retains its legacy cache.
+    if os.environ.get('AMPLIFIER_SOURCE_STORE') and resolve_shared_source is not None:
+        url, ref, subdirectory, legacy = _parse_git_source(source, cache_dir)
+        if legacy.exists():
+            # Adoption belongs to the application's unpublished update stage.
+            # A legacy skills copy may contain edits even when another bundle
+            # already has a shared binding. Keep that copy authoritative.
+            active = legacy / subdirectory if subdirectory else legacy
+            if ((legacy / '.amplifier_cache_meta.json').is_file()
+                    and active.exists() and active.resolve().is_relative_to(legacy.resolve())):
+                return active
+            raise ValueError('Existing skill source was retained; its requested directory is unavailable')
+        # Bundles and skills use the same application-owned ref binding and
+        # exact immutable checkout. No second skills clone or moving checkout.
+        # Keep Skills' established default main ref and bare-URL parsing.
+        uri = 'git+' + url + '@' + ref
+        if subdirectory:
+            uri += '#subdirectory=' + subdirectory
+        resolved = await resolve_shared_source(uri, cache_dir)
+        return resolved.active_path
+
     url, ref, subdirectory, cache_path = _parse_git_source(source, cache_dir)
 
     # Fast path: valid cache already present — no lock acquisition needed.
