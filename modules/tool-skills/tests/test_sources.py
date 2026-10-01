@@ -260,3 +260,48 @@ async def test_valid_cache_with_metadata_returned_without_reclone(tmp_path):
 
     assert result == valid_cache, "Expected the pre-existing valid cache path"
     mock_clone.assert_not_called()  # no git clone should happen for a valid cache
+
+
+@pytest.mark.asyncio
+async def test_shared_bundle_and_skills_read_one_exact_checkout(tmp_path, monkeypatch):
+    shared = pytest.importorskip('amplifier_foundation.sources.shared')
+    repo = tmp_path / 'repository'
+    repo.mkdir()
+    def git(*args):
+        return subprocess.check_output(['git', *args], cwd=repo, text=True).strip()
+    git('init', '-b', 'main')
+    git('config', 'user.name', 'Fixture')
+    git('config', 'user.email', 'fixture@example.invalid')
+    (repo / 'bundle.md').write_text('bundle')
+    (repo / 'skills').mkdir()
+    (repo / 'skills/SKILL.md').write_text('skill')
+    git('add', '.')
+    git('commit', '-m', 'fixture')
+    store = shared.SharedSourceStore(tmp_path / 'store')
+    cache = tmp_path / 'generation/cache'
+    url = 'https://example.invalid/repository'
+    await store.bind(cache, url, 'main', git('rev-parse', 'HEAD'), existing=repo)
+    monkeypatch.setenv('AMPLIFIER_SOURCE_STORE', str(store.root))
+    with patch(_CLONE_SEAM, side_effect=AssertionError('shared sources must not clone separately')):
+        bundle = await shared.resolve_shared_source('git+' + url + '@main', cache)
+        skills = await _resolve_remote_source('git+' + url + '@main#subdirectory=skills', cache / 'skills')
+        assert await _resolve_remote_source(url + '#subdirectory=skills', cache / 'skills') == skills
+    assert skills == bundle.source_root / 'skills'
+    assert (skills / 'SKILL.md').read_text() == 'skill'
+    assert not (cache / 'skills').exists()
+
+
+@pytest.mark.asyncio
+async def test_legacy_skill_edits_remain_authoritative_over_shared_binding(tmp_path, monkeypatch):
+    pytest.importorskip('amplifier_foundation.sources.shared')
+    from amplifier_module_tool_skills.sources import _parse_git_source
+    cache = tmp_path / 'generation/cache/skills'
+    source = 'https://example.invalid/skills@main#subdirectory=skills'
+    _, _, _, legacy = _parse_git_source(source, cache)
+    (legacy / 'skills').mkdir(parents=True)
+    (legacy / '.amplifier_cache_meta.json').write_text('{}')
+    (legacy / 'skills/SKILL.md').write_text('local skill edit')
+    monkeypatch.setenv('AMPLIFIER_SOURCE_STORE', str(tmp_path / 'store'))
+    with patch('amplifier_foundation.sources.shared.resolve_shared_source', side_effect=AssertionError('legacy edits must not be eclipsed')):
+        assert await _resolve_remote_source(source, cache) == legacy / 'skills'
+    assert (legacy / 'skills/SKILL.md').read_text() == 'local skill edit'

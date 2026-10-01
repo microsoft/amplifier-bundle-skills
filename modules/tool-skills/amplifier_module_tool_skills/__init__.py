@@ -8,12 +8,11 @@ from __future__ import annotations
 
 import copy
 import logging
-from pathlib import Path
 from collections.abc import Callable, Coroutine
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from amplifier_core import HookResult
-from amplifier_core import ToolResult
+from amplifier_core import HookResult, ToolResult
 
 try:
     from amplifier_foundation import RUNTIME_SKILL_OVERLAY_CAPABILITY
@@ -21,17 +20,22 @@ except ImportError:  # foundation not installed in all deployment configs
     RUNTIME_SKILL_OVERLAY_CAPABILITY = "runtime_skill_overlay"  # type: ignore[assignment]
 
 from amplifier_module_tool_skills import context_inheritance as ctx_inherit
-from amplifier_module_tool_skills.discovery import SkillMetadata
-from amplifier_module_tool_skills.discovery import discover_skills
-from amplifier_module_tool_skills.discovery import discover_skills_multi_source
-from amplifier_module_tool_skills.discovery import extract_skill_body
-from amplifier_module_tool_skills.discovery import get_default_skills_dirs
-from amplifier_module_tool_skills.discovery import parse_skill_frontmatter
+from amplifier_module_tool_skills.discovery import (
+    SkillMetadata,
+    discover_skills,
+    discover_skills_multi_source,
+    extract_skill_body,
+    get_default_skills_dirs,
+    parse_skill_frontmatter,
+)
 from amplifier_module_tool_skills.model_resolver import resolve_skill_model
 from amplifier_module_tool_skills.preprocessing import preprocess
-from amplifier_module_tool_skills.sources import is_remote_source
-from amplifier_module_tool_skills.sources import resolve_skill_source
-from amplifier_module_tool_skills.sources import resolve_skill_sources
+from amplifier_module_tool_skills.sources import (
+    configured_skills_cache_dir,
+    is_remote_source,
+    resolve_skill_source,
+    resolve_skill_sources,
+)
 
 if TYPE_CHECKING:
     from amplifier_core import ModuleCoordinator
@@ -179,7 +183,11 @@ async def _resolve_skill_sources(
     if has_remote:
         # Resolve all sources (handles both local and remote)
         logger.info(f"Resolving {len(sources)} skill sources (includes remote)")
-        resolved = await resolve_skill_sources(sources, source_origins=source_origins)
+        cache_dir = configured_skills_cache_dir(config)
+        cache_options = {"cache_dir": cache_dir} if cache_dir is not None else {}
+        resolved = await resolve_skill_sources(
+            sources, source_origins=source_origins, **cache_options
+        )
     else:
         # All local - just expand paths
         resolved = []
@@ -691,7 +699,9 @@ Discovery: configured directories (workspace, user, custom paths), first-match-w
 
         # git+https:// or https:// — use existing sources.py
         if is_remote_source(source):
-            return await resolve_skill_source(source)
+            cache_dir = configured_skills_cache_dir(self.config)
+            cache_options = {"cache_dir": cache_dir} if cache_dir is not None else {}
+            return await resolve_skill_source(source, **cache_options)
 
         # Local path
         path = Path(source).expanduser().resolve()
