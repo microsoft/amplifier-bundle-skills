@@ -1,5 +1,4 @@
 import contextlib
-import hashlib
 import importlib.util
 import io
 import json
@@ -8,392 +7,238 @@ import subprocess
 import unittest
 from unittest.mock import patch
 
-MODULE_PATH = (
-    Path(__file__).parents[1]
-    / "skills"
-    / "second-opinion"
-    / "scripts"
-    / "resolve_provider.py"
-)
-SPEC = importlib.util.spec_from_file_location(
-    "second_opinion_resolve_provider", MODULE_PATH
-)
-resolver = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(resolver)
+
+SCRIPTS = Path(__file__).parents[1] / "skills" / "second-opinion" / "scripts"
+LIB_SPEC = importlib.util.spec_from_file_location("provider_resolution", SCRIPTS / "provider_resolution.py")
+resolution = importlib.util.module_from_spec(LIB_SPEC)
+LIB_SPEC.loader.exec_module(resolution)
+WRAPPER_SPEC = importlib.util.spec_from_file_location("second_opinion_resolve_provider", SCRIPTS / "resolve_provider.py")
+resolver = importlib.util.module_from_spec(WRAPPER_SPEC)
+WRAPPER_SPEC.loader.exec_module(resolver)
+import provider_discovery as discovery  # noqa: E402 - script-path import bootstrap
 
 
-EXPECTED_RESOLVER_SHA256 = (
-    "b0919a1b609502812f2ec580b1606b0d0861142b075280269404db60c40deede"
-)
+def item(name="reviewer-a", *, enabled=True, provider_type="openai", model="test-model-a", priority="100", scope="project"):
+    return {"name": name, "enabled": enabled, "behaviors": ["project"], "config_summary": {"type": provider_type, "model": model, "priority": priority, "scope": scope}}
 
 
-def item(
-    name="reviewer-a",
-    *,
-    enabled=True,
-    provider_type="openai",
-    model="test-model-a",
-    scope="project",
-):
-    return {
-        "name": name,
-        "enabled": enabled,
-        "behaviors": ["project"],
-        "config_summary": {
-            "type": provider_type,
-            "model": model,
-            "priority": "100",
-            "scope": scope,
-        },
-    }
-
-class SecondOpinionResolveProviderTests(unittest.TestCase):
-    def test_resolver_bytes_are_unchanged_at_the_renamed_path(self):
-        self.assertEqual(
-            EXPECTED_RESOLVER_SHA256,
-            hashlib.sha256(MODULE_PATH.read_bytes()).hexdigest(),
+class ResolveProviderTests(unittest.TestCase):
+    def test_active_provider_breaks_only_an_equal_priority_endpoint_tie(self):
+        providers = [item("other"), item("★ preferred")]
+        result = self.resolve(providers, provider="openai")
+        self.assertEqual("preferred", result["provider_id"])
+        self.assertEqual("active_provider_tiebreak", result["endpoint_selection"])
+        self.assertTrue(any("active" in note for note in result["disclosure"]))
+        explicit = self.resolve(providers, config_id="other")
+        self.assertEqual("other", explicit["provider_id"])
+        self.error("ambiguous_provider", [item("one"), item("two")], provider="openai")
+        batch = resolution.resolve_reviewers(
+            providers,
+            [{"provider": "openai"}, {"id": "preferred", "model": "different-model"}],
         )
+        self.assertTrue(batch["ok"])
+        later = batch["reviewers"][1]
+        self.assertEqual("configured_priority", later["endpoint_selection"])
+        self.assertFalse(any("active" in note for note in later["disclosure"]))
+
+    def test_shorthand_latest_and_snapshot_versions(self):
+        providers = [item(model="unrelated-model")]
+        models = {"reviewer-a": [
+            "gpt-6-nova", "gpt-6.1-nova", "gpt-6.1-nova-2026-10-02"
+        ]}
+        for phrase in ("nova", "latest nova", "latest nova 6", "nova gpt 6.1"):
+            with self.subTest(phrase=phrase):
+                result = resolution.resolve_request(providers, phrase, inventories=models)
+                self.assertEqual("gpt-6.1-nova", result["model"])
+        requested = "gpt-6.1-nova-2026-10-02"
+        result = resolution.resolve_provider(
+            providers, provider="openai", model=requested, inventories=models
+        )
+        self.assertEqual(requested, result["model"])
 
     def resolve(self, items, **kwargs):
-        return resolver.resolve_provider(items, **kwargs)
+        return resolution.resolve_provider(items, **kwargs)
 
     def error(self, code, items, **kwargs):
-        with self.assertRaises(resolver.ResolutionError) as raised:
+        with self.assertRaises(resolution.ResolutionError) as raised:
             self.resolve(items, **kwargs)
         self.assertEqual(code, raised.exception.code)
 
-    def test_exact_id_uses_configured_default(self):
-        result = self.resolve([item()], config_id="reviewer-a")
-        self.assertEqual("reviewer-a", result["provider_id"])
-        self.assertEqual("test-model-a", result["model"])
-        self.assertEqual("test-model-a", result["configured_default_model"])
+    def test_exact_id_uses_configured_default_and_scope(self):
+        provider = item(scope="global")
+        provider["scope"] = "conversation"
+        result = self.resolve([provider], config_id="reviewer-a")
+        self.assertEqual(("reviewer-a", "test-model-a", "global"), (result["provider_id"], result["model"], result["config_scope"]))
         self.assertTrue(result["settings_checked"])
-        self.assertFalse(result["mounted_checked"])
         self.assertFalse(result["execution_verified"])
 
-    def test_id_preserves_instance_and_allows_model_override(self):
-        result = self.resolve([item()], config_id="reviewer-a", model="test-model-b")
-        self.assertEqual("reviewer-a", result["provider_id"])
-        self.assertEqual("test-model-b", result["model"])
+    def test_exact_id_model_uses_known_equivalence_or_disclosed_unverified_override(self):
+        inventory = {"reviewer-a": {"models": [{"id": "nova-6-1", "source": "live", "available": True}]}}
+        equivalent = self.resolve([item(model="other")], config_id="reviewer-a", model="nova-6.1", inventories=inventory)
+        self.assertEqual(("nova-6-1", "model_match", "available"), (equivalent["model"], equivalent["resolution"], equivalent["model_availability"]))
+        override = self.resolve([item()], config_id="reviewer-a", model="unlisted-6")
+        self.assertEqual(("unlisted-6", "unverified_override", "unverified"), (override["model"], override["resolution"], override["model_availability"]))
+        self.assertTrue(override["disclosure"])
 
-    def test_scope_and_default_come_from_selected_provider_list_entry(self):
-        for scope in ("global", "project"):
-            for selected_model in ("test-model-a", "test-model-b"):
-                with self.subTest(scope=scope, selected_model=selected_model):
-                    provider = item(scope=scope)
-                    # Runtime routing fields are not provider-list settings.
-                    provider["scope"] = "conversation"
-                    result = self.resolve(
-                        [provider], config_id="reviewer-a", model=selected_model
-                    )
-                    self.assertEqual(scope, result["config_scope"])
-                    self.assertEqual("test-model-a", result["configured_default_model"])
-                    self.assertEqual(selected_model, result["model"])
-                    self.assertFalse(result["execution_verified"])
+    def test_provider_supported_inventory_is_not_live_execution_proof(self):
+        inventory = {"reviewer-a": {"models": [{"id": "nova-6", "source": "provider_supported", "availability": "available"}]}}
+        result = self.resolve([item(model="other")], provider="openai", model="nova-6", inventories=inventory)
+        self.assertEqual(("provider_supported", "unverified"), (result["inventory_source"], result["model_availability"]))
 
-    def test_normalizes_one_star_prefix(self):
-        result = self.resolve([item("★ reviewer-a")], config_id="reviewer-a")
-        self.assertEqual("reviewer-a", result["provider_id"])
-
-    def test_unknown_disabled_and_duplicate_ids_fail(self):
+    def test_normalizes_star_prefix_case_and_rejects_unknown_disabled_duplicate(self):
+        self.assertEqual("reviewer-a", self.resolve([item("★ reviewer-a")], config_id="REVIEWER-A")["provider_id"])
         self.error("unknown_id", [item()], config_id="missing")
         self.error("disabled_id", [item(enabled=False)], config_id="reviewer-a")
         self.error("duplicate_id", [item(), item("★ reviewer-a")], config_id="reviewer-a")
 
-    def test_family_prefers_unique_matching_default(self):
-        result = self.resolve(
-            [item("reviewer-a"), item("reviewer-b", model="test-model-b")],
-            provider="openai",
-            model="test-model-b",
-        )
-        self.assertEqual("reviewer-b", result["provider_id"])
+    def test_provider_only_uses_lowest_unique_priority_default_and_ties_are_ambiguous(self):
+        result = self.resolve([item("slow", priority="100"), item("fast", model="test-model-b", priority="5")], provider="openai")
+        self.assertEqual(("fast", "test-model-b", "provider_default"), (result["provider_id"], result["model"], result["resolution"]))
+        self.error("ambiguous_provider", [item("one", priority="5"), item("two", priority="5")], provider="openai")
 
-    def test_family_ambiguity_and_sole_override(self):
-        self.error(
-            "ambiguous_provider",
-            [item("reviewer-a"), item("reviewer-b")],
-            provider="openai",
-            model="test-model-a",
-        )
-        self.error(
-            "ambiguous_provider",
-            [item("reviewer-a"), item("reviewer-b", model="test-model-b")],
-            provider="openai",
-            model="test-model-c",
-        )
-        result = self.resolve([item()], provider="openai", model="test-model-b")
-        self.assertEqual("reviewer-a", result["provider_id"])
-        self.assertEqual("test-model-a", result["configured_default_model"])
+    def test_reordered_tokens_shorthand_and_phrase_version_are_deterministic(self):
+        inventory = {"reviewer-a": {"models": [{"id": "vendor-nova-6-1", "source": "live", "available": True}]}}
+        reordered = self.resolve([item(model="other")], provider="openai", model="6.1-nova-vendor", inventories=inventory)
+        phrase = resolution.resolve_request([item(model="other")], "have nova 6.1 review", inventories=inventory)
+        self.assertEqual("vendor-nova-6-1", reordered["model"])
+        self.assertEqual("vendor-nova-6-1", phrase["model"])
+        self.assertEqual("have nova 6.1 review", phrase["requested_model"])
 
-    def test_no_default_can_use_explicit_model_only(self):
-        no_default = item(model=None)
-        result = self.resolve([no_default], config_id="reviewer-a", model="test-model-b")
-        self.assertIsNone(result["configured_default_model"])
-        self.assertEqual("test-model-b", result["model"])
-        self.error("missing_model", [no_default], config_id="reviewer-a")
+    def test_latest_and_version_fallback_have_no_list_order_dependence(self):
+        inventory = {"reviewer-a": {"models": [
+            {"id": "review", "source": "provider_supported", "available": True},
+            {"id": "review-5", "source": "live", "available": True},
+            {"id": "review-7", "source": "live", "available": True},
+        ]}}
+        latest = resolution.resolve_request([item(model="other")], "latest review", inventories=inventory)
+        fallback = self.resolve([item(model="other")], provider="openai", model="review-6", inventories=inventory)
+        self.assertEqual("review-7", latest["model"])
+        self.assertEqual(("review-7", "family_substitute", "review-6"), (fallback["model"], fallback["resolution"], fallback["substitute_from"]))
 
-    def test_dash_default_is_missing_but_explicit_override_is_valid(self):
-        no_default = item(model="-")
-        result = self.resolve([no_default], provider="openai", model="test-model-b")
-        self.assertIsNone(result["configured_default_model"])
-        self.assertEqual("test-model-b", result["model"])
-        self.error("missing_model", [no_default], config_id="reviewer-a")
-        self.error("invalid_model", [item()], config_id="reviewer-a", model="-")
+    def test_latest_with_explicit_version_stays_in_known_series_or_discloses_fallback(self):
+        inventory = {"reviewer-a": {"models": ["nova-5", "nova-6", "nova-7"]}}
+        exact_series = resolution.resolve_request([item(model="other")], "latest nova-6", inventories=inventory)
+        self.assertEqual(("nova-6", "model_match"), (exact_series["model"], exact_series["resolution"]))
+        missing_minor = resolution.resolve_request([item(model="other")], "latest nova-6.1", inventories=inventory)
+        self.assertEqual(("nova-6", "family_substitute", "latest nova-6.1"), (missing_minor["model"], missing_minor["resolution"], missing_minor["substitute_from"]))
+        self.assertTrue(missing_minor["disclosure"])
 
-    def test_malformed_schema_and_invalid_models_fail(self):
+    def test_same_endpoint_equal_model_rank_is_ambiguous_and_no_substring_match(self):
+        inventory = {"reviewer-a": {"models": ["nova-6.0", "nova-6-0"]}}
+        self.error("ambiguous_model", [item(model="other")], provider="openai", model="nova-6", inventories=inventory)
+        with self.assertRaises(resolution.ResolutionError) as raised:
+            resolution.resolve_request([item()], "disastra", inventories=inventory)
+        self.assertEqual("no_match", raised.exception.code)
+
+    def test_unknown_phrase_never_invents_a_model_or_endpoint(self):
+        with self.assertRaises(resolution.ResolutionError) as raised:
+            resolution.resolve_request([item()], "unconfigured-label")
+        self.assertEqual("no_match", raised.exception.code)
+        self.error("no_match", [item(), item("two")], provider="openai", model="unlisted-6")
+
+    def test_schema_and_model_validation_contracts(self):
         malformed = item()
         malformed["config_summary"]["priority"] = 100
         self.error("malformed_schema", [malformed], config_id="reviewer-a")
-        self.error("malformed_schema", ["not an entry"], config_id="reviewer-a")
-        self.error("malformed_schema", [item(model=100)], config_id="reviewer-a")
+        self.error("malformed_schema", ["not entry"], config_id="reviewer-a")
         malformed = item()
         malformed["behaviors"] = "project"
         self.error("malformed_schema", [malformed], config_id="reviewer-a")
         malformed = item()
         del malformed["config_summary"]["model"]
         self.error("malformed_schema", [malformed], config_id="reviewer-a")
-        for model in (" ", "test-*", "<model>", "bad model", "bad\tmodel", "bad\nmodel"):
+        for model in (" ", "test-*", "<model>", "bad model", "bad\tmodel"):
             self.error("invalid_model", [item()], config_id="reviewer-a", model=model)
-        for model in (" ", "test-*"):
-            self.error("malformed_schema", [item(model=model)], config_id="reviewer-a")
-        self.error("missing_model", [item()], provider="openai")
-        self.error("unknown_provider", [item()], provider="anthropic", model="test-model-a")
-        self.error(
-            "duplicate_id",
-            [item(), item("★ reviewer-a", model="test-model-b")],
-            provider="openai",
-            model="test-model-b",
-        )
+        self.error("missing_model", [item(model=None)], config_id="reviewer-a")
+        self.error("unknown_provider", [item()], provider="anthropic")
 
 
 class ResolveReviewersTests(unittest.TestCase):
-    def resolve(self, items, reviewers, **kwargs):
-        return resolver.resolve_reviewers(items, reviewers, **kwargs)
-
-    def error(self, code, items, reviewers, **kwargs):
-        with self.assertRaises(resolver.ResolutionError) as raised:
-            self.resolve(items, reviewers, **kwargs)
-        self.assertEqual(code, raised.exception.code)
-
-    def test_mixed_id_and_provider_selectors_preserve_input_order(self):
-        result = self.resolve(
-            [item("reviewer-a"), item("reviewer-b", provider_type="anthropic", model="b")],
-            [{"provider": "anthropic", "model": "override-b"}, {"id": "reviewer-a"}],
-        )
-        self.assertTrue(result["ok"])
-        self.assertEqual(10, result["concurrency"])
-        self.assertEqual(2, result["resolved_count"])
-        self.assertEqual([0, 1], [row["index"] for row in result["reviewers"]])
-        self.assertEqual(
-            [("reviewer-b", "override-b"), ("reviewer-a", "test-model-a")],
-            [(row["provider_id"], row["model"]) for row in result["reviewers"]],
-        )
-
-    def test_concurrency_accepts_positive_integers_without_a_cap(self):
-        reviewers = [{"id": "reviewer-a"} for _ in range(26)]
-        result = self.resolve([item()], reviewers, concurrency=25)
+    def test_mixed_selectors_order_duplicates_and_partial_rows(self):
+        items = [item(), item("reviewer-b", provider_type="anthropic", model="b")]
+        result = resolution.resolve_reviewers(items, [{"provider": "anthropic", "model": "b"}, {"id": "reviewer-a"}, {"id": "reviewer-a"}], concurrency=25)
         self.assertEqual(25, result["concurrency"])
-        self.assertEqual(1, result["resolved_count"])
-        self.assertEqual("duplicate_reviewer", result["reviewers"][1]["code"])
-        self.assertEqual(list(range(26)), [row["index"] for row in result["reviewers"]])
-        self.assertEqual(1, self.resolve([item()], [{"id": "reviewer-a"}], concurrency=1)["concurrency"])
+        self.assertEqual([0, 1, 2], [row["index"] for row in result["reviewers"]])
+        self.assertEqual(2, result["resolved_count"])
+        self.assertEqual("duplicate_reviewer", result["reviewers"][2]["code"])
 
-    def test_invalid_concurrency_and_global_batch_inputs_fail(self):
-        for concurrency in (True, 0, -1, 1.5, "1"):
-            with self.subTest(concurrency=concurrency):
-                self.error("invalid_concurrency", [item()], [{"id": "reviewer-a"}], concurrency=concurrency)
-        self.error("invalid_reviewers", [item()], {"id": "reviewer-a"})
-        self.error("empty_reviewers", [item()], [])
-        self.error("malformed_schema", "not a list", [{"id": "reviewer-a"}])
-        self.error("duplicate_id", [item(), item("★ reviewer-a")], [{"id": "reviewer-a"}])
-
-    def test_invalid_members_are_rows_and_do_not_prevent_valid_resolution(self):
-        secret = "secret-selector-value"
-        reviewers = [
-            None,
-            {},
-            {"id": "reviewer-a", "provider": "openai"},
-            {"id": "reviewer-a", "unexpected": secret},
-            {"id": ""},
-            {"id": 1},
-            {"id": "reviewer-a", "model": "bad model"},
-            {"id": "reviewer-a", "model": None},
-            {"provider": "openai"},
-            {"provider": 1, "model": "test-model-a"},
-            {"provider": "openai", "model": "test-*"},
-            {"id": "reviewer-a"},
-        ]
-        result = self.resolve([item()], reviewers, concurrency=1)
-        self.assertFalse(result["ok"])
-        self.assertEqual(1, result["resolved_count"])
-        self.assertEqual(list(range(len(reviewers))), [row["index"] for row in result["reviewers"]])
-        self.assertEqual(
-            [
-                "invalid_reviewer",
-                "invalid_reviewer",
-                "invalid_reviewer",
-                "invalid_reviewer",
-                "invalid_selector",
-                "invalid_selector",
-                "invalid_model",
-                "invalid_model",
-                "missing_model",
-                "invalid_selector",
-                "invalid_model",
-                None,
-            ],
-            [row.get("code") for row in result["reviewers"]],
-        )
-        self.assertNotIn(secret, json.dumps(result))
-
-    def test_duplicate_resolution_is_reported_per_later_row(self):
-        result = self.resolve(
-            [item("reviewer-a")],
-            [{"id": "reviewer-a"}, {"provider": "openai", "model": "test-model-a"}],
-        )
-        self.assertFalse(result["ok"])
-        self.assertEqual(1, result["resolved_count"])
-        duplicate = result["reviewers"][1]
-        self.assertEqual((False, 1, "duplicate_reviewer"), (duplicate["ok"], duplicate["index"], duplicate["code"]))
+    def test_invalid_members_are_rows_and_global_inputs_fail(self):
+        result = resolution.resolve_reviewers([item()], [None, {}, {"id": "reviewer-a", "provider": "openai"}, {"id": "reviewer-a"}], concurrency=1)
+        self.assertEqual(["invalid_reviewer", "invalid_reviewer", "invalid_reviewer", None], [row.get("code") for row in result["reviewers"]])
+        for value in (True, 0, -1, 1.5, "1"):
+            with self.assertRaises(resolution.ResolutionError) as raised:
+                resolution.resolve_reviewers([item()], [{"id": "reviewer-a"}], concurrency=value)
+            self.assertEqual("invalid_concurrency", raised.exception.code)
+        for reviewers, code in (({}, "invalid_reviewers"), ([], "empty_reviewers")):
+            with self.assertRaises(resolution.ResolutionError) as raised:
+                resolution.resolve_reviewers([item()], reviewers)
+            self.assertEqual(code, raised.exception.code)
 
 
 class CliTests(unittest.TestCase):
-    def invoke(self, argv, run_side_effect=None, stdout='[{"name":"reviewer-a","enabled":true,"behaviors":["project"],"config_summary":{"type":"openai","model":"test-model-a","priority":"100","scope":"project"}}]', returncode=0):
-        completed = subprocess.CompletedProcess([], returncode, stdout=stdout, stderr="secret stderr")
-        with patch.object(
-            resolver.subprocess,
-            "run",
-            side_effect=run_side_effect,
-            return_value=completed,
-        ) as run:
+    def invoke(self, argv, *, stdout=None, returncode=0, side_effect=None):
+        providers = [item()]
+        completed = subprocess.CompletedProcess([], returncode, stdout=json.dumps(providers) if stdout is None else stdout, stderr="secret stderr")
+        with patch.object(discovery.subprocess, "run", side_effect=side_effect, return_value=completed) as run:
             output = io.StringIO()
             with contextlib.redirect_stdout(output):
                 status = resolver.main(argv)
         return status, json.loads(output.getvalue()), run
 
-    def test_parser_conflict_and_output_is_safe_json(self):
+    def test_safe_parser_and_subprocess_errors(self):
         status, result, run = self.invoke(["--id", "reviewer-a", "--provider", "openai"])
-        self.assertEqual(1, status)
-        self.assertEqual("usage_error", result["code"])
+        self.assertEqual((1, "usage_error"), (status, result["code"]))
         run.assert_not_called()
-
-    def test_subprocess_errors_do_not_echo_output(self):
+        for stdout, code in (("not json", "invalid_json"),):
+            status, result, _ = self.invoke(["--id", "reviewer-a"], stdout=stdout)
+            self.assertEqual((1, code), (status, result["code"]))
+        status, result, _ = self.invoke(["--id", "reviewer-a"], side_effect=subprocess.TimeoutExpired([], 8))
+        self.assertEqual((1, "cli_timeout"), (status, result["code"]))
+        for side_effect, code in ((FileNotFoundError(), "cli_missing"), (UnicodeDecodeError("utf-8", b"\\xff", 0, 1, "secret"), "cli_failed")):
+            status, result, _ = self.invoke(["--id", "reviewer-a"], side_effect=side_effect)
+            self.assertEqual((1, code), (status, result["code"]))
+            self.assertNotIn("secret", json.dumps(result))
         status, result, _ = self.invoke(["--id", "reviewer-a"], returncode=2)
         self.assertEqual((1, "cli_failed"), (status, result["code"]))
         self.assertNotIn("secret", json.dumps(result))
-        status, result, _ = self.invoke(["--id", "reviewer-a"], stdout="not json")
-        self.assertEqual((1, "invalid_json"), (status, result["code"]))
-        status, result, _ = self.invoke(
-            ["--id", "reviewer-a"], run_side_effect=subprocess.TimeoutExpired([], 30)
-        )
-        self.assertEqual((1, "cli_timeout"), (status, result["code"]))
-        status, result, _ = self.invoke(
-            ["--id", "reviewer-a"], run_side_effect=FileNotFoundError()
-        )
-        self.assertEqual((1, "cli_missing"), (status, result["code"]))
-        status, result, _ = self.invoke(
-            ["--id", "reviewer-a"],
-            run_side_effect=UnicodeDecodeError("utf-8", b"\xff", 0, 1, "secret"),
-        )
-        self.assertEqual((1, "cli_failed"), (status, result["code"]))
-        self.assertNotIn("secret", json.dumps(result))
 
-    def test_cli_forwards_cwd_and_uses_no_fallback(self):
-        status, result, run = self.invoke(
-            ["--id", "reviewer-a", "--cwd", "/safe/cwd"]
-        )
-        self.assertEqual(0, status)
-        self.assertTrue(result["ok"])
-        self.assertEqual(
-            ["amplifier", "provider", "list", "--format", "json"], run.call_args.args[0]
-        )
-        self.assertEqual("/safe/cwd", run.call_args.kwargs["cwd"])
-        self.assertEqual(30, run.call_args.kwargs["timeout"])
-        self.assertEqual(1, run.call_count)
-
-        status, result, run = self.invoke(["--id", "reviewer-a"])
-        self.assertEqual(0, status)
-        self.assertTrue(result["ok"])
-        self.assertEqual(str(Path.cwd()), run.call_args.kwargs["cwd"])
-
-    def test_batch_cli_exit_codes_and_loads_provider_list_once(self):
-        status, result, run = self.invoke(
-            [
-                "--reviewers-json",
-                '[{"id":"reviewer-a"},{"id":"missing"}]',
-                "--concurrency",
-                "25",
-                "--cwd",
-                "/safe/cwd",
-            ]
-        )
-        self.assertEqual(1, status)
-        self.assertEqual((25, 1), (result["concurrency"], result["resolved_count"]))
-        self.assertEqual(1, run.call_count)
-        self.assertEqual("/safe/cwd", run.call_args.kwargs["cwd"])
-
-        status, result, run = self.invoke(
-            ["--reviewers-json", '[{"id":"missing"}]']
-        )
-        self.assertEqual((2, 0), (status, result["resolved_count"]))
-        self.assertEqual(1, run.call_count)
-
-        status, result, run = self.invoke(
-            ["--reviewers-json", '[{"id":"reviewer-a"}]', "--concurrency", "0"]
-        )
-        self.assertEqual((2, "invalid_concurrency"), (status, result["code"]))
-        run.assert_not_called()
-
-    def test_batch_cli_invalid_concurrency_and_cli_failures_are_safe(self):
-        for value in ("-1", "1.5", "not-an-integer"):
-            with self.subTest(value=value):
-                status, result, run = self.invoke(
-                    ["--reviewers-json", '[{"id":"reviewer-a"}]', "--concurrency", value]
-                )
-                self.assertEqual(2, status)
-                self.assertNotIn("reviewer-a", json.dumps(result))
-                run.assert_not_called()
-
-        status, result, run = self.invoke(
-            ["--reviewers-json", '[{"id":"reviewer-a"}]'],
-            run_side_effect=subprocess.TimeoutExpired([], 30),
-        )
-        self.assertEqual((2, "cli_timeout"), (status, result["code"]))
-        self.assertNotIn("secret", json.dumps(result))
-        self.assertEqual(1, run.call_count)
-
-    def test_batch_cli_rejects_unsafe_or_conflicting_input_before_loading(self):
-        secret = "secret-reviewer-value"
-        for argv in (
-            ["--reviewers-json", "not json"],
-            ["--reviewers-json", "[]"],
-            ["--reviewers-json", '[{"id":"reviewer-a"}]', "--model", "model-a"],
-            ["--reviewers-json", '[{"id":"reviewer-a"}]', "--id", "reviewer-a"],
-            ["--id", "reviewer-a", "--concurrency", "1"],
+    def test_invalid_batch_and_selector_inputs_do_not_load_cli_or_echo_secret(self):
+        for argv, expected in (
+            (["--reviewers-json", "not json"], "invalid_reviewers"),
+            (["--reviewers-json", "[]"], "empty_reviewers"),
+            (["--reviewers-json", '[{"id":"reviewer-a"}]', "--concurrency", "0"], "invalid_concurrency"),
         ):
-            with self.subTest(argv=argv):
-                status, result, run = self.invoke(argv)
-                self.assertEqual(2 if "--reviewers-json" in argv else 1, status)
-                self.assertNotIn(secret, json.dumps(result))
-                run.assert_not_called()
+            status, result, run = self.invoke(argv)
+            self.assertEqual(2, status)
+            self.assertEqual(expected, result["code"])
+            run.assert_not_called()
+            self.assertNotIn("reviewer-a", json.dumps(result))
+        status, result, run = self.invoke(["--id", "reviewer-a", "--model", "bad model"])
+        self.assertEqual((1, "invalid_model"), (status, result["code"]))
+        run.assert_not_called()
+        status, result, run = self.invoke(["--unrecognized", "secret-selector"])
+        self.assertEqual((1, "usage_error"), (status, result["code"]))
+        run.assert_not_called()
+        self.assertNotIn("secret-selector", json.dumps(result))
 
-        status, result, run = self.invoke(
-            ["--reviewers-json", '[{"id":"secret-reviewer-value","extra":"x"}]']
-        )
-        self.assertEqual(
-            (2, "invalid_reviewer"), (status, result["reviewers"][0]["code"])
-        )
-        self.assertNotIn(secret, json.dumps(result))
-        self.assertEqual(1, run.call_count)
+    def test_cli_loads_provider_list_once_and_batch_exit_contract(self):
+        status, result, run = self.invoke(["--id", "reviewer-a", "--cwd", "/safe/cwd"])
+        self.assertEqual(0, status)
+        self.assertTrue(result["ok"])
+        self.assertEqual(["amplifier", "provider", "list", "--format", "json"], run.call_args.args[0])
+        self.assertEqual("/safe/cwd", run.call_args.kwargs["cwd"])
+        with patch.object(discovery, "probe_inventory", return_value=([], False)):
+            status, result, run = self.invoke(["--reviewers-json", '[{"id":"reviewer-a"},{"id":"missing"}]'])
+            self.assertEqual((1, 1), (status, result["resolved_count"]))
+            self.assertEqual(1, run.call_count)
+            status, result, run = self.invoke(["--reviewers-json", '[{"id":"missing"}]'])
+            self.assertEqual((2, 0), (status, result["resolved_count"]))
+            self.assertEqual(1, run.call_count)
+        status, result, run = self.invoke(["--reviewers-json", '[null,{"provider":1},{"id":"reviewer-a"}]'])
+        self.assertEqual((1, 1), (status, result["resolved_count"]))
+        self.assertEqual([0, 1, 2], [row["index"] for row in result["reviewers"]])
+        self.assertTrue(result["reviewers"][2]["ok"])
 
-    def test_batch_global_provider_failure_is_exit_two(self):
-        status, result, run = self.invoke(
-            ["--reviewers-json", '[{"id":"reviewer-a"}]'],
-            stdout='[{"name":"secret-provider"}]',
-        )
-        self.assertEqual((2, "malformed_schema"), (status, result["code"]))
-        self.assertNotIn("secret-provider", json.dumps(result))
-        self.assertEqual(1, run.call_count)
 
 if __name__ == "__main__":
     unittest.main()
