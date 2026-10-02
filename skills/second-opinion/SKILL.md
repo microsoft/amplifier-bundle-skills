@@ -2,31 +2,35 @@
 name: second-opinion
 description: "Independent review of current work or a past session. USE WHEN a user wants a second opinion. DO NOT USE WHEN ordinary code review is wanted — use code-review."
 user-invocable: true
-version: 0.3.1
+version: 0.4.0
 ---
 
 # Second Opinion
 
 Request a read-only review from the reviewer configuration the user chooses.
-The job is simple: resolve that selection, assemble an evidence brief, delegate
-to that provider and model, and report the review.
+The job is simple: resolve that intent against available configuration and model
+inventory, assemble an evidence brief, delegate to that provider and model, and
+report the review.
 
 ## Usage
 
 Ask in natural language:
 
 ```text
-/second-opinion Have opus review this work.
-/second-opinion Have astra, fable, and Gemini Flash review this work independently.
-/second-opinion Ask astra to review the design decisions from session <session ID>.
+/second-opinion Have OpenAI review this work using its configured default.
+/second-opinion Have the latest model in the family I named and my fast reviewer review independently.
+/second-opinion Ask my configured design-review model to review decisions from session <session ID>.
 /second-opinion Use the reviewers we named, with up to twenty running at once.
 ```
 
 The examples are illustrative. A bare request reviews current work but needs a
-reviewer choice. If the reviewer is missing or ambiguous,
-ask **one** plain question, for example, “Which reviewers should I ask?” Ask it
-before resolving or delegating. Never guess a default, alias, or model. Reuse
-an earlier explicit reviewer selection only when it is unambiguous.
+reviewer choice. Honor an explicit selector, relevant user context, and a
+configured default in that order. If intent cannot safely identify an endpoint
+or known model, ask **one** plain question, for example, “Which reviewers should
+I ask?” Do not select an arbitrary provider or substring match. Reuse an earlier
+explicit reviewer selection only when it is unambiguous. When an inferred,
+unverified, or same-family substitute model is used, disclose that fact rather
+than treating inventory as execution proof.
 
 Current work is the default source. For a past session, require the exact
 session ID the user supplied or that already appears in the conversation. Ask
@@ -37,33 +41,61 @@ for it when absent; do not discover a historical session from a description.
 ### Resolve the selected configuration
 
 Load this skill and retain the `skill_directory` returned by `load_skill`. Run
-`python3 "<skill_directory>/scripts/resolve_provider.py"` in the invoking
-working directory. For one reviewer, pass exactly `--id <id>` (optionally
-`--model <model>`) or `--provider <provider> --model <model>`. On a nonzero
-helper exit, stop without delegation and report its safe error. Do not parse
-settings another way, expose raw helper output, alter pins or settings, or
-invent a substitute.
+`uv run --script "<skill_directory>/scripts/resolve_provider.py"` in the invoking
+working directory. For one reviewer, pass `--id <id>` (optionally `--model
+<model>`), `--provider <provider>` (optionally `--model <model>`), or `--request
+<phrase>`. The helper resolves exact configured IDs first; a provider-only
+request uses its uniquely lowest-priority configured default. A model phrase is
+matched only to configured IDs or discovered/supplied model IDs using normalized
+word and numeric atoms, never vendor nicknames or substrings.
+For equal-priority endpoints, a unique active-provider marker can resolve the
+tie; disclose its use. An explicit configured ID still wins.
 
-Use the resolved `provider_id` and `model` as the delegation preference. Other
-resolver compatibility fields and flags are not report content. A reviewer
-configured with the source provider/model is still a distinct requested review.
+Use `--help` for the helper's interface. Script metadata installs its Click
+dependency in an isolated uv environment; it does not modify provider settings
+or the Amplifier installation. The stdlib-only `provider_resolution.py` library
+handles matching, and `provider_discovery.py` exposes reusable discovery and
+`run_request` APIs independently of Click. The optional installed-app adapter is
+version-coupled and feature-checked; if its APIs are absent or incompatible,
+report unavailable discovery rather than running setup or changing settings.
+
+Ask the helper for `--list-providers` or `--list-models <id>` when needed. It
+may use the optional read-only installed-app inventory adapter; provider lists
+and inventories are configuration evidence, not execution proof. Treat the
+helper's safe `discovery_status` and unavailable-provider-ID list as coverage
+gaps, not as proof that a model is absent. An agent may also inspect
+provider-owned documentation or inventory using already-authorized
+tools and pass concrete candidates once through `--models-json <mapping>` with
+provenance (`live`, `provider_supported`, or `supplied`). Do not parse settings
+manually, invent model IDs, run first-run/setup flows, alter pins or settings,
+or expose raw helper, configuration, or discovery output. If substantive
+inventory discovery changes the evidence, retry resolution once. Otherwise, on
+a no-match or ambiguity, ask one focused question rather than guessing an
+arbitrary endpoint.
+
+Use the resolved `provider_id` and `model` as the delegation preference. Report
+the resolver's explicit disclosure when selection was inferred, unverified, or
+a best-effort same-family/version substitute. Other resolver compatibility
+fields and flags are not report content. A reviewer configured with the source
+provider/model is still a distinct requested review.
 
 For multiple reviewers, serialize the nonempty reviewer array and call the
 helper once with `--reviewers-json <array> --concurrency <N>`. Use an argv-based
 process API; if a shell is the only option, apply `shlex.quote` to every dynamic
 argument. Never interpolate selector JSON unescaped. Concurrency is a positive
 integer, defaults to 10, may exceed 10, and limits only simultaneous active
-reviewers—not reviewer count or provider-specific concurrency.
-Each array member is `{"id": "<configured id>"}` (optionally with `"model"`)
-or `{"provider": "<provider type>", "model": "<model>"}`. These are internal
-helper inputs, not a format to ask the user to supply.
+reviewers—not reviewer count or provider-specific concurrency. Each array
+member is `{"id": "<configured id>"}` (optionally with `"model"`),
+`{"provider": "<provider type>"}` (optionally with `"model"`), or
+`{"request": "<phrase>"}`. These are internal helper inputs, not a format to
+ask the user to supply.
 
 Use the helper's ordered rows and `index` values. Exit 0 means all rows
 resolved; exit 1 means partial resolution, so continue only successful rows;
 exit 2 means no successful row or a global failure, so stop. Preserve row
 errors and order. A duplicate configured provider/model pair in the requested
-batch is a row error. Do not deduplicate, substitute, add a per-provider limit,
-or retry unless the user asks.
+batch is a row error. Do not deduplicate, add a per-provider limit, or retry
+beyond the single substantive-inventory retry above unless the user asks.
 
 ### Build the evidence brief
 

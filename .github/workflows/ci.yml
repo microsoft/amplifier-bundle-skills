@@ -58,11 +58,11 @@ jobs:
   #
   # There is no root pyproject.toml or lockfile — this repo is a BUNDLE, not a
   # Python package, and only modules/* are installable. So the root suite runs
-  # in an ephemeral uv environment with its two actual dependencies, pytest and
-  # PyYAML. The
-  # root tests read files (bundle.md, skills/*/SKILL.md, the tool-skills source)
-  # with pathlib and re; they import nothing from this repo, so nothing needs
-  # installing.
+  # in an ephemeral uv environment with its actual dependencies: pytest, PyYAML,
+  # and Click for the second-opinion CLI wrapper. The
+  # Root tests mostly inspect files with pathlib and re; the second-opinion CLI
+  # tests additionally import its thin Click wrapper, so Click is supplied above.
+  # Nothing from the bundle itself needs installing.
   # ---------------------------------------------------------------------------
   test-root:
     name: Tests — root (Python ${{ matrix.python-version }})
@@ -88,7 +88,7 @@ jobs:
         # quietly stopped running looks exactly like a test that passed.
         run: >
           uv run --no-project --python ${{ matrix.python-version }}
-          --with pytest --with pyyaml
+          --with pytest --with pyyaml --with 'click>=8.1,<9'
           python -m pytest tests -q -ra --tb=short
 
   # ---------------------------------------------------------------------------
