@@ -312,7 +312,7 @@ def discover_skills(skills_dir: Path) -> dict[str, SkillMetadata]:
     boundary = repo_root if repo_root is not None else base_resolved
 
     skill_files = []
-    for root, _dirs, files in os.walk(skills_dir, followlinks=True):
+    for root, dirs, files in os.walk(skills_dir, followlinks=True):
         root_resolved = Path(root).resolve()
         if not root_resolved.is_relative_to(boundary):
             logger.warning(
@@ -320,6 +320,9 @@ def discover_skills(skills_dir: Path) -> dict[str, SkillMetadata]:
                 f"{'repository' if repo_root else 'skill directory'} boundary: "
                 f"{root} (resolves to {root_resolved}, outside {boundary})"
             )
+            # os.walk is top-down: continuing only skips this iteration, not
+            # the descendants. Prune the rejected subtree before advancing.
+            dirs.clear()
             continue
         if "SKILL.md" in files:
             skill_files.append(Path(root) / "SKILL.md")

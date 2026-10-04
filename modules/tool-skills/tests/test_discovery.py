@@ -144,7 +144,7 @@ def test_discover_skills_through_symlink(tmp_path: Path):
     )
 
 
-def test_symlink_outside_boundary_is_skipped(tmp_path: Path):
+def test_symlink_outside_boundary_is_skipped(tmp_path: Path, caplog):
     """Symlinks that escape the skills directory boundary must not be traversed.
 
     A symlink like ~/.amplifier/skills/evil -> /etc would index the entire
@@ -182,6 +182,10 @@ def test_symlink_outside_boundary_is_skipped(tmp_path: Path):
         f"Evil skill via symlink escape was discovered but should have been blocked. "
         f"Found: {list(skills.keys())}"
     )
+    # A rejected directory must be pruned, not visited once per descendant.
+    warnings = [r for r in caplog.records if "Skipping symlink" in r.message]
+    assert len(warnings) == 1
+    assert str(skills_base / "escape") in warnings[0].message
 
 
 # ---------------------------------------------------------------------------
