@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import copy
 import logging
-from collections.abc import Callable, Coroutine
+from collections.abc import Callable, Coroutine, Iterable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -251,11 +251,8 @@ async def mount(
     )
 
     tool = SkillsTool(config, coordinator, resolved_dirs)
-    for metadata in tool.skills.values():
-        origin = source_origins.get(Path(metadata.source).resolve())
-        if origin is not None and is_remote_source(origin):
-            metadata.source = origin
-            metadata.trusted = False
+    tool._source_origins = source_origins
+    tool._apply_source_origins(tool.skills.values())
     tool._pending_mention_sources = pending_mentions
 
     # Detect whether this session is a forked-skill child session. See the
@@ -549,6 +546,10 @@ Discovery: configured directories (workspace, user, custom paths), first-match-w
         # mount(); consumed one-shot by resolve_pending_mention_sources() at
         # the first provider:request.
         self._pending_mention_sources: list[str] = []
+        # Resolved cache dir -> original remote source, set by mount(). Read by
+        # _apply_source_origins() so skills found in a remote source's cache
+        # dir keep its URL and stay untrusted, at mount and on a later rescan.
+        self._source_origins: dict[Path, str] = {}
 
         # Use pre-resolved dirs if provided, otherwise discover from config or defaults
         if resolved_dirs is not None:
@@ -908,6 +909,44 @@ Discovery: configured directories (workspace, user, custom paths), first-match-w
         """
         return {**self.skills, **self._get_overlay_skill_metadata()}
 
+    def _rescan_for(self, skill_name: str) -> bool:
+        """Re-discover the configured skill directories after a lookup miss.
+
+        The catalog is built once at mount, so a long-running session never
+        sees a skill that landed in its directories later (a bundle update
+        pulled into the cache, a new ~/.amplifier/skills entry). On a miss,
+        walk the same directories again and add any new skills in place, so
+        the SkillsDiscovery capability and the visibility hook, which hold
+        this same dict, see them too. Existing entries are never replaced.
+
+        Returns True when the rescan added any skill, so the caller rebuilds
+        its view of the catalog.
+        """
+        found = discover_skills_multi_source(self.skills_dirs)
+        added = [name for name in found if name not in self.skills]
+        self._apply_source_origins(found[name] for name in added)
+        for name in added:
+            self.skills[name] = found[name]
+        if added:
+            logger.info(
+                f"Rescan after miss on '{skill_name}' added {len(added)} skills: "
+                f"{', '.join(sorted(added))}"
+            )
+        return bool(added)
+
+    def _apply_source_origins(self, skills: Iterable[SkillMetadata]) -> None:
+        """Restore remote provenance on skills discovered in a cache dir.
+
+        Discovery sees only the local clone of a remote source, so it reports
+        a filesystem path and trusted=True. Map that path back to the remote
+        URL and mark the skill untrusted, which blocks its shell preprocessing.
+        """
+        for metadata in skills:
+            origin = self._source_origins.get(Path(metadata.source).resolve())
+            if origin is not None and is_remote_source(origin):
+                metadata.source = origin
+                metadata.trusted = False
+
     def _get_overlay_skill_metadata(self) -> dict[str, SkillMetadata]:
         """Resolve runtime-overlay skills into searchable metadata.
 
@@ -1014,6 +1053,8 @@ Discovery: configured directories (workspace, user, custom paths), first-match-w
         are discoverable here.
         """
         effective_skills = self.get_effective_skills()
+        if skill_name not in effective_skills and self._rescan_for(skill_name):
+            effective_skills = self.get_effective_skills()
         if skill_name not in effective_skills:
             available = ", ".join(sorted(effective_skills.keys()))
             return ToolResult(
@@ -1063,6 +1104,8 @@ Discovery: configured directories (workspace, user, custom paths), first-match-w
         into the parent's live context.
         """
         effective_skills = self.get_effective_skills()
+        if skill_name not in effective_skills and self._rescan_for(skill_name):
+            effective_skills = self.get_effective_skills()
         if skill_name not in effective_skills:
             available = ", ".join(sorted(effective_skills.keys()))
             return ToolResult(

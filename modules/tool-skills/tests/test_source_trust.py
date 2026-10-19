@@ -190,3 +190,25 @@ async def test_explicit_untrusted_metadata_blocks_even_with_local_path(tmp_path)
     assert result.success
     assert BLOCKED in spawn.await_args.kwargs["instruction"]
     assert MARKER not in spawn.await_args.kwargs["instruction"]
+
+
+@pytest.mark.asyncio
+async def test_rescan_after_mount_keeps_remote_skill_untrusted(tmp_path, monkeypatch):
+    remote_resolver = AsyncMock(return_value=tmp_path)
+    monkeypatch.setattr(
+        "amplifier_module_tool_skills.sources.resolve_skill_source", remote_resolver
+    )
+    coordinator, _, spawn = _coordinator()
+    await mount(coordinator, {"visibility": {"enabled": False}, "skills": [REMOTE]})
+    tool = coordinator.mount.await_args.args[1]
+    assert "probe" not in tool.skills
+
+    # The remote source's cache gains a skill after mount (a later update).
+    _skill(tmp_path)
+    result = await tool.execute({"skill_name": "probe"})
+
+    assert result.success
+    assert tool.skills["probe"].source == REMOTE
+    assert tool.skills["probe"].trusted is False
+    assert BLOCKED in spawn.await_args.kwargs["instruction"]
+    assert MARKER not in spawn.await_args.kwargs["instruction"]
