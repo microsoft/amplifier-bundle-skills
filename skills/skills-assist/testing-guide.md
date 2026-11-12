@@ -29,10 +29,13 @@ invalid input, and retry/collision cases appropriate to their effects.
 1. Confirm that the destination belongs to an already-selected skill source.
    Follow the host's file-write permissions and preserve same-name local work.
    A directory's existence alone does not make it a configured source.
-2. After the authorized write succeeds, refresh that source in the active session:
+2. Check catalog collisions before refreshing: newly source-discovered names can
+   shadow same-name runtime-overlay skills. After the authorized write succeeds
+   and collisions are resolved, refresh that source in the active session:
    `load_skill(source="<selected-source-directory>")`. Use the source-only call;
    it discovers metadata without invoking installed skills. This additive merge
-   preserves existing catalog entries, not a replacement/removal reload.
+   preserves existing source-discovered entries; it does not refresh cached
+   metadata or remove entries.
 3. For each installed name, call `load_skill(info="<name>")` and check the winning
    `path`. Inspect its `SKILL.md` and resources with file reads, and verify the
    next agent-visible catalog contains the name. A collision may keep an existing
