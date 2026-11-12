@@ -29,6 +29,109 @@ resolver = load("resolve_provider")
 
 
 class DiscoveryTests(unittest.TestCase):
+    def host_rows(self):
+        return [
+            {"id": "first", "provider_type": "anthropic", "enabled": True, "default_model": "review-5", "priority": 9},
+            {"id": "second", "provider_type": "openai", "enabled": True, "default_model": "review-6", "priority": "10"},
+        ]
+
+    def test_host_batch_bypasses_cli_and_inventory_even_when_configs_disagree(self):
+        with patch.object(discovery, "load_provider_list", side_effect=AssertionError("wrong CLI")), patch.object(discovery, "probe_inventory", side_effect=AssertionError("wrong inventory")):
+            result, status = discovery.run_request(
+                providers_json=json.dumps(self.host_rows()),
+                reviewers_json='[{"id":"second"},{"id":"first"}]', concurrency=2,
+            )
+        self.assertEqual(0, status)
+        self.assertEqual(["second", "first"], [row["provider_id"] for row in result["reviewers"]])
+        self.assertEqual(["review-6", "review-5"], [row["model"] for row in result["reviewers"]])
+
+    def test_host_unknown_inventory_is_not_an_empty_success_or_cli_fallback(self):
+        with patch.object(discovery, "load_provider_list", side_effect=AssertionError("wrong CLI")) as cli_backend, patch.object(discovery, "probe_inventory", side_effect=AssertionError("wrong inventory")) as inventory_backend:
+            result, status = discovery.run_request(providers_json=json.dumps(self.host_rows()), list_models="first")
+        cli_backend.assert_not_called()
+        inventory_backend.assert_not_called()
+        self.assertEqual(0, status)
+        self.assertEqual("unavailable", result["discovery_status"])
+        self.assertEqual(["first"], result["inventory_unavailable_provider_ids"])
+        self.assertEqual([], result["models"])
+
+    def test_host_supplied_inventory_and_partial_batch_keep_order_and_errors(self):
+        rows = self.host_rows() + [{"id": "disabled", "provider_type": "openai", "enabled": False, "default_model": "review-7", "priority": 1}]
+        result, status = discovery.run_request(
+            providers_json=json.dumps(rows),
+            models_json='{"first":[{"id":"review-8","source":"supplied","availability":"unknown"}]}',
+            reviewers_json='[{"id":"missing"},{"id":"first","model":"review-8"},{"id":"disabled"},{"id":"first","model":"review-8"}]',
+        )
+        self.assertEqual(1, status)
+        self.assertEqual([0, 1, 2, 3], [row["index"] for row in result["reviewers"]])
+        self.assertEqual([False, True, False, False], [row["ok"] for row in result["reviewers"]])
+        self.assertEqual("first", result["reviewers"][1]["provider_id"])
+        self.assertEqual("supplied", result["discovery_status"])
+
+    def test_host_invalid_or_unavailable_metadata_never_falls_back_or_leaks(self):
+        sentinel = "do-not-leak-host-secret"
+        invalid = ["null", "{}", "bad" + sentinel, json.dumps([{**self.host_rows()[0], "config": {"api_key": sentinel}}]),
+                   json.dumps([{**self.host_rows()[0], "priority": True}]), json.dumps(self.host_rows() * 2)]
+        with patch.object(discovery, "load_provider_list", side_effect=AssertionError("wrong CLI")):
+            for payload in invalid:
+                result, status = discovery.run_request(config_id="first", providers_json=payload)
+                self.assertEqual(1, status)
+                self.assertFalse(result["ok"])
+                self.assertNotIn(sentinel, json.dumps(result))
+            def broken():
+                raise RuntimeError(sentinel)
+            result, status = discovery.run_request(config_id="first", provider_loader=broken)
+            self.assertEqual((1, "provider_discovery_unavailable"), (status, result["code"]))
+            self.assertNotIn(sentinel, json.dumps(result))
+
+    def test_host_loader_and_explicit_inventory_loader_are_used_once(self):
+        calls = []
+        def host():
+            calls.append("providers")
+            return self.host_rows()
+        def models(provider_id, cwd):
+            calls.append(provider_id)
+            return [{"id": "review-8", "source": "live", "availability": "available"}], True
+        result, status = discovery.run_request(config_id="first", model="review-8", provider_loader=host, inventory_loader=models)
+        self.assertEqual((0, "review-8"), (status, result["model"]))
+        self.assertEqual(["providers", "first"], calls)
+        result, status = discovery.run_request(config_id="first", providers_json="[]", provider_loader=host)
+        self.assertEqual((1, "usage_error"), (status, result["code"]))
+        self.assertEqual(["providers", "first"], calls)
+
+    def test_host_empty_roster_does_not_fall_back_and_click_wires_metadata(self):
+        with patch.object(discovery, "load_provider_list", side_effect=AssertionError("wrong CLI")):
+            result, status = discovery.run_request(list_providers=True, providers_json="[]")
+            self.assertEqual((0, []), (status, result["providers"]))
+            cli = CliRunner().invoke(resolver.cli, ["--id", "first", "--providers-json", json.dumps(self.host_rows())])
+        self.assertEqual(0, cli.exit_code)
+        self.assertEqual("first", json.loads(cli.output)["provider_id"])
+
+    def test_malformed_inventory_metadata_is_safe_json_for_single_and_batch(self):
+        sentinel = "inventory-secret-must-not-leak"
+        for field in ("source", "availability"):
+            for value in ([], {}, {sentinel: True}, [sentinel], None, 7):
+                for selector in (["--id", "first"], ["--reviewers-json", '[{"id":"first"}]']):
+                    record = {"id": "review-8", "source": "supplied", "availability": "unknown", field: value}
+                    result = CliRunner().invoke(resolver.cli, [
+                        *selector, "--providers-json", json.dumps(self.host_rows()),
+                        "--models-json", json.dumps({"first": [record]}),
+                    ])
+                    self.assertEqual(2 if selector[0] == "--reviewers-json" else 1, result.exit_code)
+                    self.assertEqual("invalid_inventory", json.loads(result.output)["code"])
+                    self.assertNotIn(sentinel, result.output)
+                    self.assertNotIn("Traceback", result.output)
+
+    def test_click_batch_exits_match_no_success_partial_and_all_success(self):
+        for selectors, expected in (('[{"id":"missing"}]', 2),
+                                    ('[{"id":"missing"},{"id":"first"}]', 1),
+                                    ('[{"id":"first"},{"id":"second"}]', 0)):
+            result = CliRunner().invoke(resolver.cli, [
+                "--reviewers-json", selectors, "--providers-json", json.dumps(self.host_rows()),
+            ])
+            self.assertEqual(expected, result.exit_code)
+            self.assertEqual(expected == 0, json.loads(result.output)["ok"])
+
     def test_real_app_api_shape_uses_selected_module_and_private_config_in_process(self):
         calls = []
 
