@@ -31,6 +31,7 @@ _SAFE_FAILURES = {
     "cli_missing": "Provider configuration command is unavailable.",
     "cli_failed": "Provider configuration command could not run.",
     "invalid_json": "Provider configuration command returned invalid JSON.",
+    "provider_discovery_unavailable": "Provider configuration is unavailable from the selected host.",
 }
 
 
@@ -40,6 +41,10 @@ def _error(code: str) -> None:
 
 def _normal_id(value: str) -> str:
     return value.casefold().strip()
+
+
+def _unavailable_inventory(provider_id: str, cwd: str) -> tuple[list[dict[str, Any]], bool]:
+    return [], False
 
 
 def load_provider_list(cwd: str, *, command_runner: Callable[..., Any] | None = None) -> Any:
@@ -145,6 +150,33 @@ def _parse_json(value: str | None, code: str) -> Any:
         raise ResolutionError(code, "Structured input must be valid JSON.")
 
 
+def host_provider_items(payload: Any) -> list[dict[str, Any]]:
+    """Adapt an explicit, credential-free host roster to the shared resolver."""
+    if not isinstance(payload, list):
+        raise ResolutionError("invalid_providers", "Host provider metadata has an invalid schema.")
+    items = []
+    required = {"id", "provider_type", "enabled", "default_model", "priority"}
+    allowed = required | {"active", "scope"}
+    for row in payload:
+        if (not isinstance(row, dict) or not required <= row.keys() or row.keys() - allowed
+                or not isinstance(row["id"], str) or row["id"].strip().startswith("★ ")
+                or type(row.get("active", False)) is not bool
+                or type(row["priority"]) not in (int, str)):
+            raise ResolutionError("invalid_providers", "Host provider metadata has an invalid schema.")
+        items.append({
+            "name": ("★ " if row.get("active", False) else "") + row["id"],
+            "enabled": row["enabled"],
+            "behaviors": [],
+            "config_summary": {
+                "type": row["provider_type"], "model": row["default_model"],
+                "priority": str(row["priority"]), "scope": row.get("scope", "host"),
+            },
+        })
+    # Reuse identity, duplicate-ID, default-model and priority validation.
+    normalize_items(items)
+    return items
+
+
 def _validate_before_load(
     config_id: str | None, provider: str | None, model: str | None,
     request: str | None, reviewers: Any, concurrency: int | None,
@@ -221,6 +253,8 @@ def run_request(
     concurrency: int | None = None, cwd: str | None = None, list_providers: bool = False,
     list_models: str | None = None, command_runner: Callable[..., Any] | None = None,
     inventory_loader: Callable[[str, str], tuple[list[dict[str, Any]], bool]] | None = None,
+    providers_json: str | None = None,
+    provider_loader: Callable[[], Any] | None = None,
 ) -> tuple[dict[str, Any], int]:
     """Return safe resolver JSON and its 0/1/2 status without any Click dependency."""
     cwd = cwd or os.getcwd()
@@ -242,7 +276,23 @@ def run_request(
         if reviewers_json is not None and reviewers is None:
             raise ResolutionError("invalid_reviewers", "Reviewer list must be a non-empty array.")
         _validate_before_load(config_id, provider, model, request, reviewers, concurrency)
-        items = load_provider_list(cwd, command_runner=command_runner)
+        if providers_json is not None and provider_loader is not None:
+            raise ResolutionError("usage_error", "Choose one provider metadata input.")
+        host_input = providers_json is not None or provider_loader is not None
+        if providers_json is not None:
+            items = host_provider_items(_parse_json(providers_json, "invalid_providers"))
+        elif provider_loader is not None:
+            try:
+                payload = provider_loader()
+            except Exception:
+                _error("provider_discovery_unavailable")
+            items = host_provider_items(payload)
+        else:
+            items = load_provider_list(cwd, command_runner=command_runner)
+        if host_input and inventory_loader is None:
+            # A host roster must never query another application's configuration.
+            # Without an explicit matching host inventory, discovery is unknown.
+            inventory_loader = _unavailable_inventory
         if list_providers:
             return _safe_provider_list(items), 0
         if list_models is not None:

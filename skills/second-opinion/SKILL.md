@@ -40,7 +40,34 @@ for it when absent; do not discover a historical session from a description.
 
 ### Resolve the selected configuration
 
-Load this skill and retain the `skill_directory` returned by `load_skill`. Run
+Load this skill and retain the `skill_directory` returned by `load_skill`.
+Select the invoking host's configuration boundary before running discovery.
+In a hosted application such as Amplifier Unified, use its mounted configuration
+actions for the current session, not a standalone CLI found on PATH. Discover
+the action schema and read its returned state; do not treat an accepted action
+as the provider payload. Supply only this allowlisted roster with
+`--providers-json <array>`: `id`, `provider_type`, `enabled` (Boolean),
+`default_model` (concrete ID or null), and `priority` (nonnegative integer or
+dotted numeric string); optional `active` (Boolean) and `scope` describe that
+same configuration. Never pass raw configuration, credentials, endpoints,
+environment values, files or source URLs. Preserve exact endpoint IDs and actual
+priority/selection metadata; do not mark the current model's endpoint active
+unless the host identifies it as the default tie-breaker.
+
+An explicitly supplied roster bypasses all standalone CLI discovery, including
+its inventory adapter. Use `--models-json <mapping>` from the same host when
+needed; unavailable inventory remains unknown, not empty success. Python hosts
+may instead use `run_request(provider_loader=..., inventory_loader=...)`, with
+the provider loader returning the same allowlisted roster. Loader errors fail
+closed without falling back to another configuration. If the invoking host
+cannot supply this metadata, report unavailable discovery or ask the focused
+reviewer question; do not silently query unrelated CLI settings.
+
+For a standalone Amplifier CLI invocation only, the existing CLI backend may be
+used when its listing is known to be read-only. Do not run it if it may enter
+first-run installation. Strict malformed-JSON errors are intentional: never
+strip arbitrary output prefixes or retry setup to make discovery succeed.
+Run
 `uv run --script "<skill_directory>/scripts/resolve_provider.py"` in the invoking
 working directory. For one reviewer, pass `--id <id>` (optionally `--model
 <model>`), `--provider <provider>` (optionally `--model <model>`), or `--request

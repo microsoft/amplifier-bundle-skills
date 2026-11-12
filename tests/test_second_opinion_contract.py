@@ -46,6 +46,15 @@ class SecondOpinionContractTests(unittest.TestCase):
         self.assertIn("add a per-provider limit", internal)
         self.assertIn("Keep successful returns when other rows fail", delegate)
 
+    def test_host_discovery_uses_explicit_metadata_not_unrelated_cli_settings(self):
+        internal = " ".join(self.internal.split())
+        for phrase in ("--providers-json <array>", "provider_loader", "invoking host's configuration boundary",
+                       "not a standalone CLI found on PATH", "read its returned state",
+                       "Never pass raw configuration", "bypasses all standalone CLI discovery",
+                       "from the same host", "fail closed without falling back",
+                       "listing is known to be read-only", "never strip arbitrary output prefixes"):
+            self.assertIn(phrase, internal)
+
     def test_single_and_batch_delegate_examples_have_only_five_keys(self):
         calls = self.delegate_calls()
         self.assertEqual(2, len(calls))

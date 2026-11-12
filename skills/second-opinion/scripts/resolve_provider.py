@@ -56,6 +56,7 @@ class SafeJsonCommand(click.Command):
 @click.option("--request", help="Reviewer/model phrase such as a family, version, or latest family.")
 @click.option("--reviewers-json", help="Ordered batch of id, provider, or request selector objects.")
 @click.option("--models-json", help="Endpoint-ID mapping to model records (id, source, availability).")
+@click.option("--providers-json", help="Credential-free host provider metadata; bypass all CLI configuration discovery.")
 @click.option("--concurrency", type=int, help="Maximum simultaneous reviewers, not inventory probe count.")
 @click.option("--cwd", default=None, help="Configuration context directory; defaults to the invoking cwd.")
 @click.option("--list-providers", is_flag=True, help="List safe configured endpoint metadata.")
