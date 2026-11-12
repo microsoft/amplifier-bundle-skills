@@ -107,6 +107,31 @@ class DiscoveryTests(unittest.TestCase):
         self.assertEqual(0, cli.exit_code)
         self.assertEqual("first", json.loads(cli.output)["provider_id"])
 
+    def test_malformed_inventory_metadata_is_safe_json_for_single_and_batch(self):
+        sentinel = "inventory-secret-must-not-leak"
+        for field in ("source", "availability"):
+            for value in ([], {}, {sentinel: True}, [sentinel], None, 7):
+                for selector in (["--id", "first"], ["--reviewers-json", '[{"id":"first"}]']):
+                    record = {"id": "review-8", "source": "supplied", "availability": "unknown", field: value}
+                    result = CliRunner().invoke(resolver.cli, [
+                        *selector, "--providers-json", json.dumps(self.host_rows()),
+                        "--models-json", json.dumps({"first": [record]}),
+                    ])
+                    self.assertEqual(2 if selector[0] == "--reviewers-json" else 1, result.exit_code)
+                    self.assertEqual("invalid_inventory", json.loads(result.output)["code"])
+                    self.assertNotIn(sentinel, result.output)
+                    self.assertNotIn("Traceback", result.output)
+
+    def test_click_batch_exits_match_no_success_partial_and_all_success(self):
+        for selectors, expected in (('[{"id":"missing"}]', 2),
+                                    ('[{"id":"missing"},{"id":"first"}]', 1),
+                                    ('[{"id":"first"},{"id":"second"}]', 0)):
+            result = CliRunner().invoke(resolver.cli, [
+                "--reviewers-json", selectors, "--providers-json", json.dumps(self.host_rows()),
+            ])
+            self.assertEqual(expected, result.exit_code)
+            self.assertEqual(expected == 0, json.loads(result.output)["ok"])
+
     def test_real_app_api_shape_uses_selected_module_and_private_config_in_process(self):
         calls = []
 

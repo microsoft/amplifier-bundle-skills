@@ -130,11 +130,11 @@ def normalize_inventories(inventories: Any, candidates: list[dict[str, Any]]) ->
                 availability = model.get("availability", model.get("available", "unknown"))
             else:
                 _fail("invalid_inventory", "Model inventory has an invalid schema.")
-            if model_id is None or source not in {"live", "provider_supported", "supplied"}:
+            if model_id is None or not isinstance(source, str) or source not in {"live", "provider_supported", "supplied"}:
                 _fail("invalid_inventory", "Model inventory has an invalid schema.")
             if type(availability) is bool:
                 availability = "available" if availability else "unavailable"
-            if availability not in {"available", "unavailable", "unknown"}:
+            if not isinstance(availability, str) or availability not in {"available", "unavailable", "unknown"}:
                 _fail("invalid_inventory", "Model inventory has an invalid schema.")
             key = _normal(model_id)
             if key not in seen:

@@ -45,6 +45,8 @@ class SafeJsonCommand(click.Command):
             payload, status = _safe_usage(raw)
             click.echo(json.dumps(payload, sort_keys=True))
         if isinstance(status, int) and status:
+            if standalone_mode:
+                raise SystemExit(status)
             raise click.exceptions.Exit(status)
         return status
 
