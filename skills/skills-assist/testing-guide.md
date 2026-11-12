@@ -26,16 +26,34 @@ invalid input, and retry/collision cases appropriate to their effects.
 
 ### Quick Validation
 
-1. Save the skill to `.amplifier/skills/<name>/SKILL.md` (immediately discoverable,
-   no config changes needed)
-2. In the same session: `load_skill(skill_name="<name>")`
-3. Verify: content loads correctly, `skill_directory` path is correct, frontmatter
-   fields parsed as expected
+1. Confirm that the destination belongs to an already-selected skill source.
+   Follow the host's file-write permissions and preserve same-name local work.
+   A directory's existence alone does not make it a configured source.
+2. Check catalog collisions before refreshing: newly source-discovered names can
+   shadow same-name runtime-overlay skills. After the authorized write succeeds
+   and collisions are resolved, refresh that source in the active session:
+   `load_skill(source="<selected-source-directory>")`. Use the source-only call;
+   it discovers metadata without invoking installed skills. This additive merge
+   preserves existing source-discovered entries; it does not refresh cached
+   metadata or remove entries.
+3. For each installed name, call `load_skill(info="<name>")` and check the winning
+   `path`. Inspect its `SKILL.md` and resources with file reads, and verify the
+   next agent-visible catalog contains the name. A collision may keep an existing
+   winner; do not report the new installation as selected when another path wins.
+4. Load an inspected inline content skill with `load_skill(skill_name="<name>")`
+   only when requested; verify the full content and `skill_directory`.
+   Loading a `context: fork` skill starts execution, so use metadata/catalog
+   checks instead for installation verification.
+5. Check a fresh session with the same selected sources. It should discover the
+   installed names without manual registration. The source-only call above does
+   not persist source configuration or grant file-write access.
 
 ### Behavioral Testing with Self-Delegation
 
 Use `delegate(agent="self")` to spawn a test session that exercises the skill.
 The child session inherits all tools including `load_skill`.
+These are separate, authorized execution tests with bounded fixtures, not
+required steps for confirming an installation.
 
 **For inline skills — test behavioral influence:**
 
@@ -75,8 +93,8 @@ delegate(
 
 | Check | How |
 |-------|-----|
-| Skill loads without errors | `load_skill()` returns content, no error |
-| Frontmatter parsed correctly | Check `skill_name`, `skill_directory` in result |
+| Inline content loads when requested | `load_skill(skill_name=...)` returns full content, no error |
+| Discovery selects the intended file | Check `load_skill(info=...)` path and inspect frontmatter without invocation |
 | Description is routing-effective | Read the visibility hook output — does it give the model enough to route? |
 | Body instructions are actionable | The test agent should be able to follow them |
 | `$ARGUMENTS` substitution works | Test with and without arguments |
@@ -85,11 +103,11 @@ delegate(
 
 ### Testing Workflow
 
-1. Write skill to `.amplifier/skills/<name>/SKILL.md`
-2. `load_skill()` — verify it loads
-3. Spawn test agent — verify behavioral compliance
+1. Write the inspected skill to the authorized, selected destination
+2. Follow Quick Validation above for discovery and any requested inline load
+3. If execution testing is authorized, use bounded fixtures to verify behavior
 4. If issues found, fix and re-test
-5. Move to final destination (bundle, personal, project)
+5. If moving to a different final destination, repeat discovery/path checks there
 6. Commit and push
 
 ## Execution cases and receipts
