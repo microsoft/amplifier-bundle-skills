@@ -46,8 +46,10 @@ class DiscoveryTests(unittest.TestCase):
         self.assertEqual(["review-6", "review-5"], [row["model"] for row in result["reviewers"]])
 
     def test_host_unknown_inventory_is_not_an_empty_success_or_cli_fallback(self):
-        with patch.object(discovery, "load_provider_list", side_effect=AssertionError("wrong CLI")), patch.object(discovery, "probe_inventory", side_effect=AssertionError("wrong inventory")):
+        with patch.object(discovery, "load_provider_list", side_effect=AssertionError("wrong CLI")) as cli_backend, patch.object(discovery, "probe_inventory", side_effect=AssertionError("wrong inventory")) as inventory_backend:
             result, status = discovery.run_request(providers_json=json.dumps(self.host_rows()), list_models="first")
+        cli_backend.assert_not_called()
+        inventory_backend.assert_not_called()
         self.assertEqual(0, status)
         self.assertEqual("unavailable", result["discovery_status"])
         self.assertEqual(["first"], result["inventory_unavailable_provider_ids"])
