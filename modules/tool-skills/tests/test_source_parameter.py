@@ -2,7 +2,8 @@
 
 import pytest
 from pathlib import Path
-from amplifier_module_tool_skills import SkillsTool
+from unittest.mock import AsyncMock
+from amplifier_module_tool_skills import SkillsTool, mount
 
 
 def test_input_schema_includes_source():
@@ -443,3 +444,137 @@ description: Skill for event testing
     assert data["skill_count"] == 1
     assert "event-skill" in data["skill_names"]
     assert len(data["sources"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_refresh_configured_personal_source_after_install(tmp_path):
+    """Explicit refresh completes a late install without executing fork skills.
+
+    Characterize the existing source-only API, not automatic rescan-on-miss.
+    Fixture writes are not evidence of host file-permission enforcement.
+    """
+    workspace = tmp_path / "workspace/.amplifier/skills"
+    personal = tmp_path / "home/.amplifier/skills"
+
+    def write_skill(root, name, body, fields=""):
+        path = root / name / "SKILL.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            f"---\nname: {name}\ndescription: Fixture {name}\n{fields}---\n\n{body}\n",
+            encoding="utf-8",
+        )
+        return path
+
+    winner = write_skill(workspace, "preserved", "ORIGINAL")
+    write_skill(personal, "preserved", "SHADOWED")
+    unrelated = tmp_path / "unrelated.bin"
+    unrelated.write_bytes(b"\x00leave unchanged\xff")
+    config = {
+        "skills": [str(workspace), str(personal)],
+        "visibility": {"placement": "request"},
+    }
+    coordinator = MockCoordinator()
+    spawn = AsyncMock(side_effect=AssertionError("Discovery must not spawn a skill"))
+    coordinator.register_capability("session.spawn", spawn)
+    cleanup = await mount(coordinator, config)
+    try:
+        tool = coordinator.mounted_tools["load_skill"]
+        discovery = coordinator.get_capability("skills_discovery")
+        original = discovery.find("preserved")
+        assert original.path == winner
+        visibility = next(
+            row["handler"] for row in coordinator.hooks.registered_hooks
+            if row["name"] == "skills-visibility"
+        )
+        before = await visibility("provider:request", {})
+        assert "preserved" in before.context_injection
+        assert "late-content" not in before.context_injection
+        assert "late-fork" not in before.context_injection
+        # Miss BEFORE installation: do not require stale lookups after a write
+        # or conflict with the separate automatic-rescan proposal (PR #86).
+        missing = await tool.execute({"skill_name": "late-content"})
+        assert not missing.success
+        assert missing.error["message"].startswith("Skill 'late-content' not found.")
+
+        body = "FULL CONTENT\n\nSecond paragraph with café and `literal code`.\n\nFinal line."
+        content_path = write_skill(personal, "late-content", body)
+        fork_path = write_skill(
+            personal, "late-fork", "FORK BODY MUST NOT LOAD",
+            "context: fork\nuser-invocable: true\ndisable-model-invocation: true\n",
+        )
+        write_skill(workspace, "preserved", "LOCALLY MODIFIED CONTENT")
+        files_before = {
+            path.relative_to(tmp_path): path.read_bytes()
+            for path in tmp_path.rglob("*") if path.is_file()
+        }
+        assert discovery.find("late-content") is None
+        assert discovery.find("late-fork") is None
+
+        # Reuse the configured source, without combining refresh and execution.
+        refreshed = await tool.execute({"source": str(personal)})
+        assert refreshed.success
+        assert "2 new:" in refreshed.output
+        assert discovery.find("preserved") is original
+        assert discovery.find("late-fork").context == "fork"
+        assert tool.loaded_skills == set()
+        assert not any(event == "skill:loaded" for event, _ in coordinator.hooks.emitted_events)
+        spawn.assert_not_called()
+
+        for name, path in (("late-content", content_path), ("late-fork", fork_path)):
+            info = await tool.execute({"info": name})
+            assert info.success
+            assert Path(info.output["path"]) == path
+            assert "content" not in info.output
+
+        loaded = await tool.execute({"skill_name": "late-content"})
+        assert loaded.success
+        assert loaded.output["content"] == f"# late-content\n\n{body}"
+        assert Path(loaded.output["skill_directory"]) == content_path.parent
+        assert Path(loaded.output["loaded_from"]) == personal
+        preserved = await tool.execute({"skill_name": "preserved"})
+        assert preserved.success
+        assert Path(preserved.output["skill_directory"]) == winner.parent
+        assert preserved.output["content"] == "# preserved\n\nLOCALLY MODIFIED CONTENT"
+        after = await visibility("provider:request", {})
+        for name in ("preserved", "late-content", "late-fork"):
+            assert name in after.context_injection
+        assert "FORK BODY MUST NOT LOAD" not in after.context_injection
+        assert tool.loaded_skills == {"late-content", "preserved"}
+        spawn.assert_not_called()
+
+        # A fresh mount uses the same configuration, not a per-chat registration.
+        fresh = MockCoordinator()
+        fresh.register_capability("session.spawn", spawn)
+        fresh_cleanup = await mount(fresh, {
+            "skills": [str(workspace), str(personal)],
+            "visibility": {"placement": "request"},
+        })
+        try:
+            fresh_tool = fresh.mounted_tools["load_skill"]
+            for name, path in (
+                ("preserved", winner), ("late-content", content_path), ("late-fork", fork_path),
+            ):
+                info = await fresh_tool.execute({"info": name})
+                assert info.success
+                assert Path(info.output["path"]) == path
+            assert fresh.get_capability("skills_discovery").find("late-fork").context == "fork"
+            assert fresh_tool.loaded_skills == set()
+            assert not any(event == "skill:loaded" for event, _ in fresh.hooks.emitted_events)
+            fresh_loaded = await fresh_tool.execute({"skill_name": "late-content"})
+            assert fresh_loaded.success
+            assert fresh_loaded.output == loaded.output
+            assert fresh_tool.loaded_skills == {"late-content"}
+            spawn.assert_not_called()
+        finally:
+            await fresh_cleanup()
+
+        assert config == {
+            "skills": [str(workspace), str(personal)],
+            "visibility": {"placement": "request"},
+        }
+        assert {
+            path.relative_to(tmp_path): path.read_bytes()
+            for path in tmp_path.rglob("*") if path.is_file()
+        } == files_before
+    finally:
+        await cleanup()
